@@ -200,7 +200,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-surface-0 text-txt">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden border-r border-border/40 bg-surface-0/96 shadow-[inset_0_1px_0_var(--shell-highlight),0_18px_36px_var(--shell-shadow)] backdrop-blur-xl lg:block",
+          "fixed inset-y-0 left-0 z-30 hidden bg-surface-0 shadow-[inset_0_1px_0_var(--shell-highlight)] lg:block",
           collapsed ? SIDEBAR_COLLAPSED_CLASS : SIDEBAR_EXPANDED_CLASS,
         )}
       >
@@ -225,7 +225,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/55" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-[280px] border-r border-border/40 bg-surface-0/98 shadow-2xl shadow-black/30 backdrop-blur-xl">
+          <aside className="absolute inset-y-0 left-0 w-[280px] bg-surface-0 shadow-2xl shadow-black/30">
             <SidebarContent compact={false} mobile />
           </aside>
         </div>
