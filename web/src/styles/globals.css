@@ -5,48 +5,151 @@
 @import "@fontsource/inter/800.css";
 @import "tailwindcss";
 
+:root {
+  --canvas-gradient: linear-gradient(135deg, #E8ECF6 0%, #DCEAF5 46%, #EEF1F7 100%);
+  --orb-a: #C8BEFF;
+  --orb-b: #A7DCF2;
+  --orb-c: #E6EAF4;
+
+  --shell: rgba(255, 255, 255, 0.28);
+  --shell-highlight: rgba(255, 255, 255, 0.54);
+  --shell-shadow: rgba(86, 102, 134, 0.12);
+
+  --panel-subtle: rgba(255, 255, 255, 0.16);
+  --panel-base: rgba(255, 255, 255, 0.24);
+  --panel-strong: rgba(255, 255, 255, 0.36);
+  --panel-hover: rgba(255, 255, 255, 0.46);
+
+  --txt-display: #0B1322;
+  --txt-heading: #142034;
+  --txt-body: #30415C;
+  --txt-label: #52627C;
+  --txt-utility: #66768E;
+  --txt-icon: #5F7089;
+
+  --primary: #7A6CF6;
+  --primary-soft: rgba(122, 108, 246, 0.16);
+  --primary-glow: rgba(122, 108, 246, 0.24);
+
+  --accent: #53B9DA;
+  --accent-soft: rgba(83, 185, 218, 0.16);
+
+  --status-success: #5B8F78;
+  --status-warning: #B89757;
+  --status-danger: #B97882;
+  --status-info: #5F83E8;
+
+  --status-success-soft: rgba(91, 143, 120, 0.16);
+  --status-warning-soft: rgba(184, 151, 87, 0.16);
+  --status-danger-soft: rgba(185, 120, 130, 0.16);
+  --status-info-soft: rgba(95, 131, 232, 0.16);
+
+  --data-1: #7A6CF6;
+  --data-2: #53B9DA;
+  --data-3: #7BBE8A;
+  --data-4: #E4AE62;
+
+  --surface-0: #E8ECF6;
+  --surface-1: var(--shell);
+  --surface-2: var(--panel-base);
+  --surface-3: var(--panel-strong);
+  --surface-4: var(--panel-hover);
+
+  --border: rgba(255, 255, 255, 0.42);
+  --border-hover: rgba(255, 255, 255, 0.54);
+  --border-focus: rgba(122, 108, 246, 0.36);
+}
+
+html.dark {
+  --canvas-gradient: linear-gradient(135deg, #0F1424 0%, #141B2E 42%, #171B27 100%);
+  --orb-a: #8275F2;
+  --orb-b: #53B9DA;
+  --orb-c: #2A334A;
+
+  --shell: rgba(16, 21, 36, 0.54);
+  --shell-highlight: rgba(228, 234, 255, 0.08);
+  --shell-shadow: rgba(0, 0, 0, 0.32);
+
+  --panel-subtle: rgba(25, 31, 49, 0.22);
+  --panel-base: rgba(25, 31, 49, 0.36);
+  --panel-strong: rgba(30, 37, 58, 0.54);
+  --panel-hover: rgba(36, 44, 68, 0.72);
+
+  --txt-display: #FFFFFF;
+  --txt-heading: #F2F6FF;
+  --txt-body: #D8E0F0;
+  --txt-label: #AAB6CC;
+  --txt-utility: #8C98AF;
+  --txt-icon: #92A0B8;
+
+  --primary: #9D90FF;
+  --primary-soft: rgba(157, 144, 255, 0.16);
+  --primary-glow: rgba(157, 144, 255, 0.22);
+
+  --accent: #63C7E6;
+  --accent-soft: rgba(99, 199, 230, 0.16);
+
+  --status-success: #6A9A84;
+  --status-warning: #B6925A;
+  --status-danger: #B67986;
+  --status-info: #7F97FF;
+
+  --status-success-soft: rgba(106, 154, 132, 0.16);
+  --status-warning-soft: rgba(182, 146, 90, 0.16);
+  --status-danger-soft: rgba(182, 121, 134, 0.16);
+  --status-info-soft: rgba(127, 151, 255, 0.16);
+
+  --data-1: #9D90FF;
+  --data-2: #63C7E6;
+  --data-3: #78C995;
+  --data-4: #E0B169;
+
+  --surface-0: #0F1424;
+  --surface-1: var(--shell);
+  --surface-2: var(--panel-base);
+  --surface-3: var(--panel-strong);
+  --surface-4: var(--panel-hover);
+
+  --border: rgba(228, 234, 255, 0.1);
+  --border-hover: rgba(228, 234, 255, 0.17);
+  --border-focus: rgba(157, 144, 255, 0.34);
+}
+
 @theme {
-  /* ── Surface: deep navy base ── */
-  --color-surface-0: #080c14;
-  --color-surface-1: #0e1420;
-  --color-surface-2: #151d2e;
-  --color-surface-3: #1c2740;
-  --color-surface-4: #263350;
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-4: var(--surface-4);
 
-  /* ── Borders: navy-tinted ── */
-  --color-border: #1a2540;
-  --color-border-hover: #263350;
-  --color-border-focus: #34466a;
+  --color-border: var(--border);
+  --color-border-hover: var(--border-hover);
+  --color-border-focus: var(--border-focus);
 
-  /* ── Text: slate tones ── */
-  --color-txt: #c8d6e5;
-  --color-txt-primary: #f0f4f8;
-  --color-txt-secondary: #8899b0;
-  --color-txt-tertiary: #5c7394;
-  --color-txt-muted: #3d5470;
+  --color-txt: var(--txt-body);
+  --color-txt-primary: var(--txt-display);
+  --color-txt-secondary: var(--txt-label);
+  --color-txt-tertiary: var(--txt-utility);
+  --color-txt-muted: var(--txt-icon);
 
-  /* ── Accent: cyan / teal ── */
-  --color-accent: #06b6d4;
-  --color-accent-light: #22d3ee;
-  --color-accent-secondary: #f59e0b;
-  --color-accent-secondary-light: #fbbf24;
+  --color-accent: var(--primary);
+  --color-accent-light: var(--primary);
+  --color-accent-secondary: var(--accent);
+  --color-accent-secondary-light: var(--accent);
 
-  /* ── Status ── */
-  --color-status-success: #34d399;
-  --color-status-warning: #fbbf24;
-  --color-status-danger: #f87171;
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+  --color-status-danger: var(--status-danger);
+  --color-status-info: var(--status-info);
 
-  /* ── Typography ── */
   --font-sans: Inter, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
 
-  /* ── Radii ── */
   --radius-card: 14px;
   --radius-btn: 10px;
   --radius-badge: 8px;
   --radius-pill: 24px;
 
-  /* ── Custom font sizes ── */
   --text-metric: 34px;
   --text-metric--line-height: 1;
   --text-metric--font-weight: 700;
@@ -76,13 +179,61 @@
   }
 
   html {
+    color-scheme: light;
+  }
+
+  html.dark {
     color-scheme: dark;
   }
 
   body {
-    @apply bg-surface-0 text-txt font-sans antialiased;
+    @apply text-txt font-sans antialiased;
+    position: relative;
+    background-color: var(--surface-0);
+    background-image: var(--canvas-gradient);
+    background-attachment: fixed;
     font-size: 14px;
     line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  body::before,
+  body::after,
+  #root::before {
+    content: "";
+    position: fixed;
+    border-radius: 999px;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  body::before {
+    left: -9rem;
+    top: -10rem;
+    width: 24rem;
+    height: 24rem;
+    background: radial-gradient(circle at 35% 35%, var(--orb-a) 0%, transparent 72%);
+  }
+
+  body::after {
+    right: -8rem;
+    top: 4rem;
+    width: 22rem;
+    height: 22rem;
+    background: radial-gradient(circle at 50% 40%, var(--orb-b) 0%, transparent 74%);
+  }
+
+  #root {
+    position: relative;
+    isolation: isolate;
+  }
+
+  #root::before {
+    left: 35%;
+    bottom: -12rem;
+    width: 28rem;
+    height: 28rem;
+    background: radial-gradient(circle at 50% 35%, var(--orb-c) 0%, transparent 76%);
   }
 
   ::-webkit-scrollbar {
@@ -95,21 +246,19 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #263350;
+    background: var(--panel-strong);
     border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #34466a;
+    background: var(--panel-hover);
   }
 
   ::selection {
-    background: #06b6d440;
-    color: #fff;
+    background: var(--primary-soft);
+    color: var(--txt-display);
   }
 }
-
-/* ── Animations ── */
 
 @keyframes fadein {
   from { opacity: 0; }
@@ -138,19 +287,19 @@
   100% { background-position: 0% 50%; }
 }
 
-/* ── Utility classes ── */
-
 @layer utilities {
   .glass {
-    background: rgba(14, 20, 32, 0.6);
-    backdrop-filter: blur(20px) saturate(1.4);
-    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    background: var(--shell);
+    backdrop-filter: blur(20px) saturate(1.25);
+    -webkit-backdrop-filter: blur(20px) saturate(1.25);
+    box-shadow: inset 0 1px 0 var(--shell-highlight), 0 14px 30px var(--shell-shadow);
   }
 
   .glass-strong {
-    background: rgba(21, 29, 46, 0.75);
-    backdrop-filter: blur(32px) saturate(1.6);
-    -webkit-backdrop-filter: blur(32px) saturate(1.6);
+    background: var(--panel-strong);
+    backdrop-filter: blur(30px) saturate(1.35);
+    -webkit-backdrop-filter: blur(30px) saturate(1.35);
+    box-shadow: inset 0 1px 0 var(--shell-highlight), 0 16px 34px var(--shell-shadow);
   }
 
   .gradient-border {
@@ -163,7 +312,7 @@
     inset: 0;
     border-radius: inherit;
     padding: 1px;
-    background: linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(245, 158, 11, 0.15), transparent 60%);
+    background: linear-gradient(135deg, var(--primary-glow), var(--accent-soft), transparent 65%);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
@@ -171,7 +320,7 @@
   }
 
   .text-gradient {
-    background: linear-gradient(135deg, #22d3ee, #06b6d4, #22d3ee);
+    background: linear-gradient(135deg, var(--primary), var(--accent), var(--primary));
     background-size: 200% auto;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
