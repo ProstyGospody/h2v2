@@ -12,7 +12,7 @@ require_cmd() {
 }
 
 REPO_OWNER="${PROXY_PANEL_REPO_OWNER:-ProstyGospody}"
-REPO_NAME="${PROXY_PANEL_REPO_NAME:-webpanel}"
+REPO_NAME="${PROXY_PANEL_REPO_NAME:-h2v2}"
 REPO_REF="${PROXY_PANEL_REPO_REF:-main}"
 ARCHIVE_URL="${PROXY_PANEL_ARCHIVE_URL:-https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${REPO_REF}.tar.gz}"
 

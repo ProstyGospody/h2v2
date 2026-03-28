@@ -16,7 +16,7 @@ Control plane stack:
 Remote bootstrap (same style as other panels):
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/ProstyGospody/webpanel/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v2/main/install.sh)
 ```
 
 From cloned repository:

@@ -19,7 +19,7 @@
 Remote bootstrap:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/ProstyGospody/webpanel/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/ProstyGospody/h2v2/main/install.sh)
 ```
 
 From repository root:
