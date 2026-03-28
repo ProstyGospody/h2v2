@@ -1,0 +1,23 @@
+[Unit]
+Description=Proxy Panel Web (Vite Preview)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=proxy-panel
+Group=proxy-panel
+EnvironmentFile=/opt/proxy-panel/.env.generated
+Environment=NODE_ENV=production
+WorkingDirectory=/opt/proxy-panel/current/web
+ExecStart=/usr/bin/npm run start -- --port ${PANEL_WEB_PORT}
+Restart=always
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
+

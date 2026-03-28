@@ -1,0 +1,51 @@
+package httpserver
+
+import (
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"proxy-panel/internal/config"
+	"proxy-panel/internal/http/handlers"
+)
+
+func TestRouterExposesHysteriaRoutesAndDropsLegacyRoutes(t *testing.T) {
+	cfg := config.Config{
+		SessionCookieName: "pp_session",
+		CSRFCookieName:    "pp_csrf",
+		CSRFHeaderName:    "X-CSRF-Token",
+	}
+	router := NewRouter(cfg, slog.Default(), nil, &handlers.Handler{})
+
+	for _, path := range []string{"/api/hysteria/users", "/api/hysteria/settings", "/api/services"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		resp := httptest.NewRecorder()
+		router.ServeHTTP(resp, req)
+		if resp.Code != http.StatusUnauthorized {
+			t.Fatalf("expected %s to require auth and return 401, got %d", path, resp.Code)
+		}
+	}
+
+	subReq := httptest.NewRequest(http.MethodGet, "/api/hysteria/subscription/demo-token", nil)
+	subResp := httptest.NewRecorder()
+	router.ServeHTTP(subResp, subReq)
+	if subResp.Code == http.StatusNotFound || subResp.Code == http.StatusUnauthorized {
+		t.Fatalf("expected subscription route to be exposed without auth middleware, got %d", subResp.Code)
+	}
+	legacySubReq := httptest.NewRequest(http.MethodGet, "/hysteria/subscription/demo-token", nil)
+	legacySubResp := httptest.NewRecorder()
+	router.ServeHTTP(legacySubResp, legacySubReq)
+	if legacySubResp.Code == http.StatusNotFound || legacySubResp.Code == http.StatusUnauthorized {
+		t.Fatalf("expected legacy subscription route alias to be exposed without auth middleware, got %d", legacySubResp.Code)
+	}
+
+	for _, path := range []string{"/api/clients", "/api/hy2/accounts", "/api/legacy/access", "/api/legacy/settings"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		resp := httptest.NewRecorder()
+		router.ServeHTTP(resp, req)
+		if resp.Code != http.StatusNotFound {
+			t.Fatalf("expected removed path %s to return 404, got %d", path, resp.Code)
+		}
+	}
+}

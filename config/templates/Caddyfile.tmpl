@@ -1,0 +1,23 @@
+{
+  email {$PANEL_ACME_EMAIL}
+}
+
+# The installer may append an additional HY2_DOMAIN site block so Caddy can
+# provision the certificate Hysteria consumes from synced files.
+{$PANEL_PUBLIC_HOST}:{$PANEL_PUBLIC_PORT} {
+  encode gzip zstd
+
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Frame-Options "DENY"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "same-origin"
+  }
+
+  @panel_api path /api/* /hysteria/subscription/* /healthz /readyz
+  handle @panel_api {
+    reverse_proxy 127.0.0.1:{$PANEL_API_PORT}
+  }
+
+  reverse_proxy 127.0.0.1:{$PANEL_WEB_PORT}
+}

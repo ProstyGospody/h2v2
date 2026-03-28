@@ -1,0 +1,615 @@
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { motion } from "framer-motion";
+import {
+  MoreVertical,
+  Pencil,
+  Plus,
+  QrCode,
+  Search,
+  Trash2,
+} from "lucide-react";
+import type { MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { ClientArtifactsDialog } from "@/components/dialogs/client-artifacts-dialog";
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
+import { ClientFormDialog } from "@/components/forms/client-form-dialog";
+import { PageHeader } from "@/components/ui/page-header";
+import { toCreateRequest, toUpdateRequest, type ClientFormValues } from "@/domain/clients/adapters";
+import {
+  createClient,
+  deleteClient,
+  getClientArtifacts,
+  getClientDefaults,
+  listClients,
+  setClientEnabled,
+  updateClient,
+} from "@/domain/clients/services";
+import { HysteriaClient, HysteriaClientDefaults, HysteriaUserPayload } from "@/domain/clients/types";
+import { useNotice } from "@/hooks/use-notice";
+import { APIError } from "@/services/api";
+import {
+  Badge,
+  Button,
+  Checkbox,
+  Input,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Toast,
+  Toggle,
+  cn,
+} from "@/src/components/ui";
+import { formatBytes, formatDateTime } from "@/utils/format";
+
+type ClientFilter = "all" | "online" | "enabled" | "disabled";
+
+const rowsPerPageOptions = [10, 25, 50, 100];
+
+function initials(value: string): string {
+  const clean = value.trim();
+  return clean ? clean.slice(0, 1).toUpperCase() : "?";
+}
+
+export default function UsersPage() {
+  const [clients, setClients] = useState<HysteriaClient[]>([]);
+  const [defaults, setDefaults] = useState<HysteriaClientDefaults | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filter, setFilter] = useState<ClientFilter>("all");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [selectedClientIDs, setSelectedClientIDs] = useState<string[]>([]);
+
+  const [formOpen, setFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState<"create" | "edit">("create");
+  const [formBusy, setFormBusy] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [editingClient, setEditingClient] = useState<HysteriaClient | null>(null);
+
+  const [deleteTarget, setDeleteTarget] = useState<HysteriaClient | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteBusy, setBulkDeleteBusy] = useState(false);
+
+  const [artifactOpen, setArtifactOpen] = useState(false);
+  const [artifactLoading, setArtifactLoading] = useState(false);
+  const [artifactClient, setArtifactClient] = useState<HysteriaClient | null>(null);
+  const [artifactPayload, setArtifactPayload] = useState<HysteriaUserPayload | null>(null);
+
+  const notice = useNotice();
+
+  const load = useCallback(async () => {
+    setError("");
+    try {
+      const [items, inherited] = await Promise.all([listClients(), getClientDefaults()]);
+      setClients(items);
+      setDefaults(inherited);
+    } catch (err) {
+      setError(err instanceof APIError ? err.message : "Failed to load users");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    const timer = setInterval(() => void load(), 15000);
+    return () => clearInterval(timer);
+  }, [load]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, filter]);
+
+  useEffect(() => {
+    const existing = new Set(clients.map((client) => client.id));
+    setSelectedClientIDs((current) => current.filter((id) => existing.has(id)));
+  }, [clients]);
+
+  const filteredClients = useMemo(() => {
+    const needle = searchQuery.trim().toLowerCase();
+    return [...clients]
+      .sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: "base" }))
+      .filter((client) => {
+        if (filter === "online" && client.online_count <= 0) {
+          return false;
+        }
+        if (filter === "enabled" && !client.enabled) {
+          return false;
+        }
+        if (filter === "disabled" && client.enabled) {
+          return false;
+        }
+
+        if (!needle) {
+          return true;
+        }
+
+        const haystack = [client.username, client.username_normalized, client.note || "", client.id].join(" ").toLowerCase();
+        return haystack.includes(needle);
+      });
+  }, [clients, filter, searchQuery]);
+
+  const selectedSet = useMemo(() => new Set(selectedClientIDs), [selectedClientIDs]);
+  const filteredIDs = useMemo(() => filteredClients.map((client) => client.id), [filteredClients]);
+  const selectedFilteredCount = useMemo(() => filteredIDs.reduce((sum, id) => sum + (selectedSet.has(id) ? 1 : 0), 0), [filteredIDs, selectedSet]);
+
+  const allFilteredSelected = filteredIDs.length > 0 && selectedFilteredCount === filteredIDs.length;
+  const someFilteredSelected = selectedFilteredCount > 0 && !allFilteredSelected;
+
+  const pagedClients = useMemo(() => {
+    const start = page * rowsPerPage;
+    return filteredClients.slice(start, start + rowsPerPage);
+  }, [filteredClients, page, rowsPerPage]);
+
+  const maxTraffic = useMemo(() => {
+    return filteredClients.reduce((max, client) => Math.max(max, client.last_tx_bytes + client.last_rx_bytes), 0);
+  }, [filteredClients]);
+
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(filteredClients.length / rowsPerPage) - 1);
+    if (page > maxPage) {
+      setPage(maxPage);
+    }
+  }, [filteredClients.length, page, rowsPerPage]);
+
+  function openCreate() {
+    setFormMode("create");
+    setEditingClient(null);
+    setFormError("");
+    setFormOpen(true);
+  }
+
+  function openEdit(client: HysteriaClient) {
+    setFormMode("edit");
+    setEditingClient(client);
+    setFormError("");
+    setFormOpen(true);
+  }
+
+  async function submitForm(values: ClientFormValues) {
+    setFormBusy(true);
+    setFormError("");
+    try {
+      if (formMode === "create") {
+        await createClient(toCreateRequest(values));
+        notice.notify("User created");
+      } else if (editingClient) {
+        await updateClient(editingClient.id, toUpdateRequest(values));
+        notice.notify("User updated");
+      }
+      setFormOpen(false);
+      await load();
+    } catch (err) {
+      const message = err instanceof APIError ? err.message : "Failed to save user";
+      setFormError(message);
+    } finally {
+      setFormBusy(false);
+    }
+  }
+
+  async function removeClient() {
+    if (!deleteTarget) {
+      return;
+    }
+    setDeleteBusy(true);
+    try {
+      await deleteClient(deleteTarget.id);
+      setDeleteTarget(null);
+      notice.notify("User deleted");
+      await load();
+    } catch (err) {
+      setError(err instanceof APIError ? err.message : "Failed to delete user");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
+  async function deleteSelectedClients() {
+    if (!selectedClientIDs.length) {
+      return;
+    }
+
+    const targetIDs = [...selectedClientIDs];
+    const failedIDs: string[] = [];
+    let firstError = "";
+    let deletedCount = 0;
+
+    setBulkDeleteBusy(true);
+    setError("");
+    try {
+      for (const id of targetIDs) {
+        try {
+          await deleteClient(id);
+          deletedCount += 1;
+        } catch (err) {
+          failedIDs.push(id);
+          if (!firstError) {
+            firstError = err instanceof APIError ? err.message : "Failed to delete selected users";
+          }
+        }
+      }
+
+      if (deletedCount > 0) {
+        notice.notify(deletedCount === 1 ? "1 user deleted" : `${deletedCount} users deleted`);
+      }
+
+      if (failedIDs.length > 0) {
+        setSelectedClientIDs(failedIDs);
+        setError(firstError || `Deleted ${deletedCount} of ${targetIDs.length} users`);
+      } else {
+        setSelectedClientIDs([]);
+      }
+    } finally {
+      setBulkDeleteBusy(false);
+      setBulkDeleteOpen(false);
+      await load();
+    }
+  }
+
+  async function toggleEnabled(client: HysteriaClient) {
+    try {
+      await setClientEnabled(client.id, !client.enabled);
+      await load();
+    } catch (err) {
+      setError(err instanceof APIError ? err.message : "Failed to change state");
+    }
+  }
+
+  async function openArtifacts(client: HysteriaClient) {
+    setArtifactClient(client);
+    setArtifactOpen(true);
+    setArtifactLoading(true);
+    try {
+      const payload = await getClientArtifacts(client.id);
+      setArtifactPayload(payload);
+    } catch (err) {
+      setArtifactPayload(null);
+      setError(err instanceof APIError ? err.message : "Failed to load artifacts");
+    } finally {
+      setArtifactLoading(false);
+    }
+  }
+
+  async function copy(value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      notice.notify("Copied");
+    } catch {
+      setError("Clipboard write failed");
+    }
+  }
+
+  function toggleClientSelection(clientID: string, checked: boolean) {
+    setSelectedClientIDs((current) => {
+      if (checked) {
+        if (current.includes(clientID)) {
+          return current;
+        }
+        return [...current, clientID];
+      }
+      return current.filter((id) => id !== clientID);
+    });
+  }
+
+  function toggleSelectFiltered(checked: boolean) {
+    if (checked) {
+      setSelectedClientIDs((current) => {
+        const next = new Set(current);
+        for (const id of filteredIDs) {
+          next.add(id);
+        }
+        return Array.from(next);
+      });
+      return;
+    }
+
+    const filteredSet = new Set(filteredIDs);
+    setSelectedClientIDs((current) => current.filter((id) => !filteredSet.has(id)));
+  }
+
+  function handleFilterChange(_event: MouseEvent<HTMLButtonElement>, next: ClientFilter) {
+    setFilter(next);
+  }
+
+  function handleRowsPerPageChange(value: string) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return;
+    }
+    setRowsPerPage(parsed);
+    setPage(0);
+  }
+
+  const pageCount = Math.max(1, Math.ceil(filteredClients.length / rowsPerPage));
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        title="Users"
+        actions={
+          <>
+            <Button variant="primary" onClick={openCreate}>
+              <Plus size={16} strokeWidth={1.4} />
+              Add user
+            </Button>
+            <Button variant="danger" disabled={!selectedClientIDs.length} onClick={() => setBulkDeleteOpen(true)}>
+              <Trash2 size={16} strokeWidth={1.4} />
+              Delete selected ({selectedClientIDs.length})
+            </Button>
+            <div className="relative min-w-[180px]">
+              <Search size={14} strokeWidth={1.4} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-txt-tertiary" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search"
+                className="rounded-pill pl-9"
+              />
+            </div>
+            <div className="inline-flex items-center rounded-pill border border-border bg-surface-1 p-0.5">
+              {(["all", "online", "enabled", "disabled"] as ClientFilter[]).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={(event) => handleFilterChange(event, item)}
+                  className={cn(
+                    "rounded-pill px-3 py-1 text-[11px] font-medium capitalize text-txt-secondary transition-colors",
+                    filter === item && "bg-gradient-to-r from-accent to-accent-secondary text-white",
+                    filter !== item && "hover:text-txt",
+                  )}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </>
+        }
+      />
+
+      {error ? <div className="rounded-btn border border-status-danger/20 bg-status-danger/10 px-3 py-2 text-[12px] text-status-danger">{error}</div> : null}
+
+      <TableContainer>
+        {loading ? (
+          <div className="flex min-h-[220px] items-center justify-center">
+            <p className="text-[12px] text-txt-secondary">Loading users...</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <p className="text-[11px] text-txt-muted">{filteredClients.length} users</p>
+              <div className="flex items-center gap-2 text-[11px] text-txt-secondary">
+                <span>Rows:</span>
+                <select
+                  value={rowsPerPage}
+                  onChange={(event) => handleRowsPerPageChange(event.target.value)}
+                  className="rounded-btn border border-border bg-surface-1 px-2 py-1 text-[11px] text-txt outline-none"
+                >
+                  {rowsPerPageOptions.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow className="border-t-0 hover:bg-transparent">
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
+                      onCheckedChange={(value) => toggleSelectFiltered(value === true)}
+                      aria-label="select filtered users"
+                    />
+                  </TableHead>
+                  <TableHead>#</TableHead>
+                  <TableHead>User</TableHead>
+                  <TableHead>Protocol</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Traffic</TableHead>
+                  <TableHead>Last Seen</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pagedClients.length ? (
+                  pagedClients.map((client, index) => {
+                    const traffic = client.last_tx_bytes + client.last_rx_bytes;
+                    const ratio = maxTraffic > 0 ? Math.min(100, (traffic / maxTraffic) * 100) : 0;
+                    const statusOnline = client.online_count > 0;
+                    return (
+                      <motion.tr
+                        key={client.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: index * 0.03 }}
+                        className="border-t border-border transition-colors hover:bg-surface-3"
+                      >
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedSet.has(client.id)}
+                            onCheckedChange={(value) => toggleClientSelection(client.id, value === true)}
+                            aria-label={`select ${client.username}`}
+                          />
+                        </TableCell>
+                        <TableCell>{page * rowsPerPage + index + 1}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void openArtifacts(client)}
+                              className="grid h-[30px] w-[30px] place-items-center rounded-btn bg-surface-4 text-[11px] font-semibold text-txt-secondary"
+                            >
+                              {initials(client.username)}
+                            </button>
+                            <div>
+                              <button type="button" onClick={() => void openArtifacts(client)} className="text-[13px] font-medium text-txt hover:text-white">
+                                {client.username}
+                              </button>
+                              <p className="text-[11px] text-txt-muted">{client.note || "-"}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="protocol-hy2">HY2</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                "h-[6px] w-[6px] rounded-full",
+                                statusOnline && client.enabled && "bg-status-success shadow-[0_0_8px_#34d39960]",
+                                !statusOnline && client.enabled && "bg-status-warning",
+                                !client.enabled && "bg-txt-muted",
+                              )}
+                            />
+                            <span className="text-[11px] text-txt-secondary">
+                              {!client.enabled ? "disabled" : statusOnline ? "online" : "offline"}
+                            </span>
+                            <Toggle checked={client.enabled} onCheckedChange={() => void toggleEnabled(client)} />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="h-1 w-full rounded-full bg-surface-4">
+                              <div
+                                className={cn(
+                                  "h-1 rounded-full bg-gradient-to-r from-accent to-accent-light",
+                                  ratio > 90 && "from-status-warning to-status-danger",
+                                )}
+                                style={{ width: `${ratio}%` }}
+                              />
+                            </div>
+                            <p className="text-[11px] text-txt-tertiary">{formatBytes(traffic)} used</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}</TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu.Root>
+                            <DropdownMenu.Trigger asChild>
+                              <button
+                                type="button"
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-btn text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
+                              >
+                                <MoreVertical size={16} strokeWidth={1.4} />
+                              </button>
+                            </DropdownMenu.Trigger>
+                            <DropdownMenu.Portal>
+                              <DropdownMenu.Content
+                                sideOffset={6}
+                                align="end"
+                                className="z-50 min-w-[160px] rounded-card border border-border bg-surface-2 p-1 shadow-xl"
+                              >
+                                <DropdownMenu.Item
+                                  onSelect={() => void openArtifacts(client)}
+                                  className="flex cursor-pointer items-center gap-2 rounded-btn px-2 py-2 text-[12px] text-txt outline-none hover:bg-surface-3"
+                                >
+                                  <QrCode size={16} strokeWidth={1.4} />
+                                  Show QR
+                                </DropdownMenu.Item>
+                                <DropdownMenu.Item
+                                  onSelect={() => openEdit(client)}
+                                  className="flex cursor-pointer items-center gap-2 rounded-btn px-2 py-2 text-[12px] text-txt outline-none hover:bg-surface-3"
+                                >
+                                  <Pencil size={16} strokeWidth={1.4} />
+                                  Edit
+                                </DropdownMenu.Item>
+                                <DropdownMenu.Item
+                                  onSelect={() => setDeleteTarget(client)}
+                                  className="flex cursor-pointer items-center gap-2 rounded-btn px-2 py-2 text-[12px] text-status-danger outline-none hover:bg-status-danger/10"
+                                >
+                                  <Trash2 size={16} strokeWidth={1.4} />
+                                  Delete
+                                </DropdownMenu.Item>
+                              </DropdownMenu.Content>
+                            </DropdownMenu.Portal>
+                          </DropdownMenu.Root>
+                        </TableCell>
+                      </motion.tr>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={8}>
+                      {clients.length ? "No users match the current filters." : "No users yet."}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+
+            <div className="flex items-center justify-between border-t border-border px-4 py-3">
+              <p className="text-[11px] text-txt-muted">
+                Page {Math.min(page + 1, pageCount)} of {pageCount}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button size="sm" disabled={page <= 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>
+                  Prev
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={page + 1 >= pageCount}
+                  onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </TableContainer>
+
+      <ClientFormDialog
+        open={formOpen}
+        mode={formMode}
+        busy={formBusy}
+        client={editingClient}
+        defaults={defaults}
+        error={formError}
+        onClose={() => setFormOpen(false)}
+        onSubmit={submitForm}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete user"
+        description={`Delete ${deleteTarget?.username || "user"} and remove access?`}
+        busy={deleteBusy}
+        confirmText="Delete"
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => void removeClient()}
+      />
+
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        title="Delete selected users"
+        description={`Delete ${selectedClientIDs.length} selected users and remove access?`}
+        busy={bulkDeleteBusy}
+        confirmText="Delete selected"
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={() => void deleteSelectedClients()}
+      />
+
+      <ClientArtifactsDialog
+        open={artifactOpen}
+        client={artifactClient}
+        payload={artifactPayload}
+        loading={artifactLoading}
+        onClose={() => setArtifactOpen(false)}
+        onCopy={(value) => void copy(value)}
+      />
+
+      <Toast open={Boolean(notice.message)} onOpenChange={(open) => !open && notice.clear()} message={notice.message} variant="success" />
+    </div>
+  );
+}
