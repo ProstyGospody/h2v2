@@ -1,0 +1,766 @@
+.vpn-dashboard {
+  --canvas-gradient: linear-gradient(135deg, #0F1424 0%, #141B2E 42%, #171B27 100%);
+  --orb-a: #8275F2;
+  --orb-b: #53B9DA;
+  --orb-c: #2A334A;
+
+  --shell: rgba(16, 21, 36, 0.54);
+  --shell-highlight: rgba(228, 234, 255, 0.08);
+  --shell-shadow: rgba(0, 0, 0, 0.32);
+
+  --panel-subtle: rgba(25, 31, 49, 0.22);
+  --panel-base: rgba(25, 31, 49, 0.36);
+  --panel-strong: rgba(30, 37, 58, 0.54);
+  --panel-hover: rgba(36, 44, 68, 0.72);
+
+  --txt-display: #FFFFFF;
+  --txt-heading: #F2F6FF;
+  --txt-body: #D8E0F0;
+  --txt-label: #AAB6CC;
+  --txt-utility: #8C98AF;
+  --txt-icon: #92A0B8;
+
+  --primary: #9D90FF;
+  --primary-soft: rgba(157, 144, 255, 0.16);
+  --primary-glow: rgba(157, 144, 255, 0.22);
+
+  --accent: #63C7E6;
+  --accent-soft: rgba(99, 199, 230, 0.16);
+
+  --status-success: #6A9A84;
+  --status-warning: #B6925A;
+  --status-danger: #B67986;
+  --status-info: #7F97FF;
+
+  --status-success-soft: rgba(106, 154, 132, 0.16);
+  --status-warning-soft: rgba(182, 146, 90, 0.16);
+  --status-danger-soft: rgba(182, 121, 134, 0.16);
+  --status-info-soft: rgba(127, 151, 255, 0.16);
+
+  --data-1: #9D90FF;
+  --data-2: #63C7E6;
+  --data-3: #78C995;
+  --data-4: #E0B169;
+
+  position: relative;
+  isolation: isolate;
+  min-height: calc(100vh - 8.5rem);
+  overflow: hidden;
+  border-radius: 28px;
+  padding: clamp(1rem, 2vw, 1.4rem);
+  background: var(--canvas-gradient);
+  color: var(--txt-body);
+  font-family: "Manrope", "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+  box-shadow: inset 0 1px 0 var(--shell-highlight), 0 34px 60px var(--shell-shadow);
+}
+
+.vpn-dashboard.light {
+  --canvas-gradient: linear-gradient(135deg, #E8ECF6 0%, #DCEAF5 46%, #EEF1F7 100%);
+  --orb-a: #C8BEFF;
+  --orb-b: #A7DCF2;
+  --orb-c: #E6EAF4;
+
+  --shell: rgba(255, 255, 255, 0.28);
+  --shell-highlight: rgba(255, 255, 255, 0.54);
+  --shell-shadow: rgba(86, 102, 134, 0.12);
+
+  --panel-subtle: rgba(255, 255, 255, 0.16);
+  --panel-base: rgba(255, 255, 255, 0.24);
+  --panel-strong: rgba(255, 255, 255, 0.36);
+  --panel-hover: rgba(255, 255, 255, 0.46);
+
+  --txt-display: #0B1322;
+  --txt-heading: #142034;
+  --txt-body: #30415C;
+  --txt-label: #52627C;
+  --txt-utility: #66768E;
+  --txt-icon: #5F7089;
+
+  --primary: #7A6CF6;
+  --primary-soft: rgba(122, 108, 246, 0.16);
+  --primary-glow: rgba(122, 108, 246, 0.24);
+
+  --accent: #53B9DA;
+  --accent-soft: rgba(83, 185, 218, 0.16);
+
+  --status-success: #5B8F78;
+  --status-warning: #B89757;
+  --status-danger: #B97882;
+  --status-info: #5F83E8;
+
+  --status-success-soft: rgba(91, 143, 120, 0.16);
+  --status-warning-soft: rgba(184, 151, 87, 0.16);
+  --status-danger-soft: rgba(185, 120, 130, 0.16);
+  --status-info-soft: rgba(95, 131, 232, 0.16);
+
+  --data-1: #7A6CF6;
+  --data-2: #53B9DA;
+  --data-3: #7BBE8A;
+  --data-4: #E4AE62;
+}
+
+.vpn-orb {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(0);
+  pointer-events: none;
+  opacity: 0.58;
+  mix-blend-mode: normal;
+  animation: vpn-float 16s ease-in-out infinite;
+}
+
+.vpn-orb.one {
+  left: -8%;
+  top: -12%;
+  width: min(34vw, 360px);
+  height: min(34vw, 360px);
+  background: radial-gradient(circle at 30% 30%, var(--orb-a) 0%, transparent 72%);
+}
+
+.vpn-orb.two {
+  right: -10%;
+  top: 14%;
+  width: min(32vw, 340px);
+  height: min(32vw, 340px);
+  background: radial-gradient(circle at 45% 40%, var(--orb-b) 0%, transparent 76%);
+  animation-delay: -4s;
+}
+
+.vpn-orb.three {
+  left: 32%;
+  bottom: -22%;
+  width: min(42vw, 430px);
+  height: min(42vw, 430px);
+  background: radial-gradient(circle at 50% 35%, var(--orb-c) 0%, transparent 74%);
+  animation-delay: -8s;
+}
+
+.vpn-shell {
+  position: relative;
+  z-index: 1;
+  border-radius: 24px;
+  padding: clamp(1rem, 2.2vw, 1.6rem);
+  background: var(--shell);
+  backdrop-filter: blur(26px) saturate(1.2);
+  -webkit-backdrop-filter: blur(26px) saturate(1.2);
+  box-shadow: inset 0 1px 0 var(--shell-highlight), 0 22px 36px var(--shell-shadow);
+}
+
+.vpn-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.vpn-title-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--txt-label);
+}
+
+.vpn-title {
+  margin: 0.55rem 0 0;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--txt-display);
+}
+
+.vpn-subtitle {
+  margin: 0.5rem 0 0;
+  font-size: 14px;
+  color: var(--txt-body);
+}
+
+.vpn-style-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  border-radius: 999px;
+  background: var(--panel-subtle);
+  padding: 0.28rem;
+  box-shadow: inset 0 1px 0 var(--shell-highlight);
+}
+
+.vpn-style-switch button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.45rem 0.95rem;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--txt-label);
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+.vpn-style-switch button.active {
+  color: var(--txt-heading);
+  background: var(--panel-hover);
+  box-shadow: inset 0 1px 0 var(--shell-highlight), 0 8px 18px var(--shell-shadow);
+}
+
+.vpn-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.8rem;
+  border-radius: 14px;
+  padding: 0.7rem 0.9rem;
+  font-size: 13px;
+  color: var(--txt-heading);
+  background: var(--status-warning-soft);
+}
+
+.vpn-alert.danger {
+  background: var(--status-danger-soft);
+}
+
+.vpn-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  grid-template-areas:
+    "hero performance"
+    "protocols performance"
+    "servers status"
+    "servers controls";
+}
+
+.vpn-panel {
+  --panel-bg: var(--panel-base);
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  padding: 1rem;
+  background: var(--panel-bg);
+  backdrop-filter: blur(24px) saturate(1.2);
+  -webkit-backdrop-filter: blur(24px) saturate(1.2);
+  box-shadow: inset 0 1px 0 var(--shell-highlight), 0 12px 28px var(--shell-shadow);
+  animation: vpn-rise 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.vpn-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(160deg, var(--shell-highlight) 0%, transparent 40%);
+  opacity: 0.7;
+}
+
+.vpn-panel.strong {
+  --panel-bg: var(--panel-strong);
+}
+
+.vpn-panel.subtle {
+  --panel-bg: var(--panel-subtle);
+}
+
+.vpn-panel.hoverable {
+  transition: transform 170ms ease, background-color 170ms ease;
+}
+
+.vpn-panel.hoverable:hover {
+  transform: translateY(-2px);
+  background: var(--panel-hover);
+}
+
+.vpn-section-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+}
+
+.vpn-section-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--txt-heading);
+}
+
+.vpn-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--txt-label);
+}
+
+.vpn-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  background: var(--status-info-soft);
+  color: var(--status-info);
+}
+
+.vpn-pill.success {
+  background: var(--status-success-soft);
+  color: var(--status-success);
+}
+
+.vpn-pill.warning {
+  background: var(--status-warning-soft);
+  color: var(--status-warning);
+}
+
+.vpn-pill.danger {
+  background: var(--status-danger-soft);
+  color: var(--status-danger);
+}
+
+.vpn-hero {
+  grid-area: hero;
+  animation-delay: 30ms;
+}
+
+.vpn-hero-layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.vpn-hero-name {
+  margin: 0.62rem 0 0;
+  font-size: clamp(1.28rem, 2.6vw, 1.8rem);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  color: var(--txt-display);
+}
+
+.vpn-hero-meta {
+  margin: 0.58rem 0 0;
+  font-size: 13px;
+  color: var(--txt-body);
+}
+
+.vpn-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
+.vpn-kpi {
+  position: relative;
+  z-index: 1;
+  border-radius: 14px;
+  padding: 0.72rem 0.78rem;
+  background: var(--panel-subtle);
+  box-shadow: inset 0 1px 0 var(--shell-highlight);
+}
+
+.vpn-kpi .value {
+  margin-top: 0.2rem;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  color: var(--txt-display);
+}
+
+.vpn-performance {
+  grid-area: performance;
+  animation-delay: 90ms;
+}
+
+.vpn-chart-wrap {
+  position: relative;
+  z-index: 1;
+  height: 245px;
+  margin-top: 0.35rem;
+}
+
+.vpn-chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--txt-utility);
+}
+
+.vpn-chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.vpn-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.vpn-protocols {
+  grid-area: protocols;
+  animation-delay: 140ms;
+}
+
+.vpn-list {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.vpn-item {
+  border: 0;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 14px;
+  padding: 0.7rem 0.78rem;
+  color: inherit;
+  background: var(--panel-subtle);
+  box-shadow: inset 0 1px 0 var(--shell-highlight);
+  transition: transform 160ms ease, background-color 160ms ease;
+}
+
+.vpn-item:hover {
+  transform: translateY(-1px);
+  background: var(--panel-hover);
+}
+
+.vpn-item.active {
+  background: linear-gradient(135deg, var(--primary-soft) 0%, var(--accent-soft) 100%);
+  box-shadow: inset 0 1px 0 var(--shell-highlight), 0 8px 20px var(--primary-glow);
+}
+
+.vpn-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+}
+
+.vpn-item-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--txt-heading);
+}
+
+.vpn-item-sub {
+  margin-top: 0.24rem;
+  font-size: 12px;
+  color: var(--txt-utility);
+}
+
+.vpn-load-track {
+  margin-top: 0.58rem;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--panel-base);
+  overflow: hidden;
+}
+
+.vpn-load-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--data-1), var(--data-2));
+}
+
+.vpn-servers {
+  grid-area: servers;
+  animation-delay: 190ms;
+}
+
+.vpn-server-list {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.62rem;
+}
+
+.vpn-server-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.7rem;
+  align-items: center;
+  border-radius: 14px;
+  padding: 0.7rem 0.78rem;
+  background: var(--panel-subtle);
+  box-shadow: inset 0 1px 0 var(--shell-highlight);
+}
+
+.vpn-server-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--txt-heading);
+}
+
+.vpn-server-meta {
+  margin-top: 0.18rem;
+  font-size: 12px;
+  color: var(--txt-utility);
+}
+
+.vpn-status-grid {
+  grid-area: status;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.vpn-status-card {
+  position: relative;
+  z-index: 1;
+  border-radius: 16px;
+  padding: 0.78rem;
+  background: var(--panel-base);
+  box-shadow: inset 0 1px 0 var(--shell-highlight), 0 9px 22px var(--shell-shadow);
+  animation: vpn-rise 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.vpn-status-card .title {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--txt-label);
+}
+
+.vpn-status-card .value {
+  margin-top: 0.42rem;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  color: var(--txt-display);
+}
+
+.vpn-status-card .foot {
+  margin-top: 0.3rem;
+  font-size: 12px;
+  color: var(--txt-utility);
+}
+
+.vpn-status-grid .vpn-status-card:nth-child(1) { animation-delay: 220ms; }
+.vpn-status-grid .vpn-status-card:nth-child(2) { animation-delay: 250ms; }
+.vpn-status-grid .vpn-status-card:nth-child(3) { animation-delay: 280ms; }
+.vpn-status-grid .vpn-status-card:nth-child(4) { animation-delay: 310ms; }
+
+.vpn-controls {
+  grid-area: controls;
+  animation-delay: 260ms;
+}
+
+.vpn-controls-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.62rem;
+}
+
+.vpn-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-radius: 14px;
+  padding: 0.62rem 0.72rem;
+  background: var(--panel-subtle);
+  box-shadow: inset 0 1px 0 var(--shell-highlight);
+}
+
+.vpn-toggle-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--txt-heading);
+}
+
+.vpn-toggle-sub {
+  margin-top: 0.14rem;
+  font-size: 12px;
+  color: var(--txt-utility);
+}
+
+.vpn-switch {
+  position: relative;
+  border: 0;
+  width: 40px;
+  height: 23px;
+  border-radius: 999px;
+  cursor: pointer;
+  background: var(--panel-hover);
+  box-shadow: inset 0 1px 0 var(--shell-highlight);
+  transition: background-color 180ms ease;
+}
+
+.vpn-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 17px;
+  height: 17px;
+  border-radius: 999px;
+  background: var(--txt-heading);
+  box-shadow: 0 4px 10px var(--shell-shadow);
+  transition: transform 180ms ease;
+}
+
+.vpn-switch.on {
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+}
+
+.vpn-switch.on::after {
+  transform: translateX(17px);
+}
+
+.vpn-control-actions {
+  margin-top: 0.1rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.62rem;
+}
+
+.vpn-action {
+  border: 0;
+  cursor: pointer;
+  border-radius: 14px;
+  padding: 0.72rem 0.8rem;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--txt-heading);
+  background: var(--panel-base);
+  box-shadow: inset 0 1px 0 var(--shell-highlight);
+  transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.vpn-action:hover {
+  transform: translateY(-1px);
+  background: var(--panel-hover);
+}
+
+.vpn-action.primary {
+  background: linear-gradient(135deg, var(--primary-soft) 0%, var(--accent-soft) 100%);
+  box-shadow: inset 0 1px 0 var(--shell-highlight), 0 10px 22px var(--primary-glow);
+}
+
+.vpn-empty {
+  position: relative;
+  z-index: 1;
+  border-radius: 14px;
+  padding: 0.85rem;
+  font-size: 13px;
+  color: var(--txt-utility);
+  background: var(--panel-subtle);
+}
+
+.vpn-muted {
+  color: var(--txt-utility);
+}
+
+@media (max-width: 1240px) {
+  .vpn-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "hero"
+      "performance"
+      "protocols"
+      "servers"
+      "status"
+      "controls";
+  }
+
+  .vpn-status-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .vpn-dashboard {
+    border-radius: 22px;
+  }
+
+  .vpn-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .vpn-hero-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vpn-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .vpn-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .vpn-shell {
+    padding: 0.85rem;
+    border-radius: 18px;
+  }
+
+  .vpn-panel {
+    border-radius: 18px;
+    padding: 0.85rem;
+  }
+
+  .vpn-control-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .vpn-status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .vpn-server-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+}
+
+@keyframes vpn-float {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px) scale(1);
+  }
+  35% {
+    transform: translateY(-10px) translateX(6px) scale(1.02);
+  }
+  70% {
+    transform: translateY(8px) translateX(-7px) scale(0.99);
+  }
+}
+
+@keyframes vpn-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
