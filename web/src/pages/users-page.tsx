@@ -351,20 +351,20 @@ export default function UsersPage() {
               <Input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search"
-                className="rounded-pill pl-9"
+                placeholder="Search users..."
+                className="rounded-full pl-9"
               />
             </div>
-            <div className="inline-flex items-center rounded-pill border border-border bg-surface-1 p-0.5">
+            <div className="inline-flex items-center rounded-full bg-surface-3/60 p-0.5">
               {(["all", "online", "enabled", "disabled"] as ClientFilter[]).map((item) => (
                 <button
                   key={item}
                   type="button"
                   onClick={(event) => handleFilterChange(event, item)}
                   className={cn(
-                    "rounded-pill px-3 py-1 text-[11px] font-medium capitalize text-txt-secondary transition-colors",
-                    filter === item && "bg-gradient-to-r from-accent to-accent-secondary text-white",
-                    filter !== item && "hover:text-txt",
+                    "rounded-full px-3 py-1 text-[11px] font-medium capitalize transition-all",
+                    filter === item && "bg-accent text-white shadow-sm shadow-accent/20",
+                    filter !== item && "text-txt-secondary hover:text-txt",
                   )}
                 >
                   {item}
@@ -375,12 +375,15 @@ export default function UsersPage() {
         }
       />
 
-      {error ? <div className="rounded-btn border border-status-danger/20 bg-status-danger/10 px-3 py-2 text-[12px] text-status-danger">{error}</div> : null}
+      {error ? <div className="rounded-[10px] border border-status-danger/20 bg-status-danger/8 px-4 py-3 text-[12px] text-status-danger">{error}</div> : null}
 
       <TableContainer>
         {loading ? (
           <div className="flex min-h-[220px] items-center justify-center">
-            <p className="text-[12px] text-txt-secondary">Loading users...</p>
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent/20 border-t-accent-light" />
+              <p className="text-[12px] text-txt-secondary">Loading users...</p>
+            </div>
           </div>
         ) : (
           <>
@@ -448,7 +451,7 @@ export default function UsersPage() {
                             <button
                               type="button"
                               onClick={() => void openArtifacts(client)}
-                              className="grid h-[30px] w-[30px] place-items-center rounded-btn bg-surface-4 text-[11px] font-semibold text-txt-secondary"
+                              className="grid h-[30px] w-[30px] place-items-center rounded-[8px] bg-gradient-to-br from-accent/15 to-accent-secondary/10 text-[11px] font-semibold text-accent-light transition-all hover:from-accent/25 hover:to-accent-secondary/20"
                             >
                               {initials(client.username)}
                             </button>
@@ -508,27 +511,27 @@ export default function UsersPage() {
                               <DropdownMenu.Content
                                 sideOffset={6}
                                 align="end"
-                                className="z-50 min-w-[160px] rounded-card border border-border bg-surface-2 p-1 shadow-xl"
+                                className="z-50 min-w-[160px] rounded-[10px] border border-border/80 bg-surface-2/95 p-1 shadow-2xl shadow-black/20 backdrop-blur-xl"
                               >
                                 <DropdownMenu.Item
                                   onSelect={() => void openArtifacts(client)}
-                                  className="flex cursor-pointer items-center gap-2 rounded-btn px-2 py-2 text-[12px] text-txt outline-none hover:bg-surface-3"
+                                  className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60"
                                 >
-                                  <QrCode size={16} strokeWidth={1.4} />
+                                  <QrCode size={15} strokeWidth={1.4} />
                                   Show QR
                                 </DropdownMenu.Item>
                                 <DropdownMenu.Item
                                   onSelect={() => openEdit(client)}
-                                  className="flex cursor-pointer items-center gap-2 rounded-btn px-2 py-2 text-[12px] text-txt outline-none hover:bg-surface-3"
+                                  className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60"
                                 >
-                                  <Pencil size={16} strokeWidth={1.4} />
+                                  <Pencil size={15} strokeWidth={1.4} />
                                   Edit
                                 </DropdownMenu.Item>
                                 <DropdownMenu.Item
                                   onSelect={() => setDeleteTarget(client)}
-                                  className="flex cursor-pointer items-center gap-2 rounded-btn px-2 py-2 text-[12px] text-status-danger outline-none hover:bg-status-danger/10"
+                                  className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-status-danger outline-none transition-colors hover:bg-status-danger/8"
                                 >
-                                  <Trash2 size={16} strokeWidth={1.4} />
+                                  <Trash2 size={15} strokeWidth={1.4} />
                                   Delete
                                 </DropdownMenu.Item>
                               </DropdownMenu.Content>

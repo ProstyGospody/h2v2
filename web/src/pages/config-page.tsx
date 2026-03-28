@@ -117,8 +117,10 @@ export default function ConfigPage() {
   if (loading) {
     return (
       <div className="flex min-h-[360px] items-center justify-center">
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 size={20} strokeWidth={1.4} className="animate-spin text-accent-light" />
+        <div className="flex flex-col items-center gap-3">
+          <div className="relative">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent/20 border-t-accent-light" />
+          </div>
           <p className="text-[12px] text-txt-secondary">Loading server settings...</p>
         </div>
       </div>
@@ -151,12 +153,12 @@ export default function ConfigPage() {
         }
       />
 
-      {error ? <div className="rounded-btn border border-status-danger/20 bg-status-danger/10 px-3 py-2 text-[12px] text-status-danger">{error}</div> : null}
+      {error ? <div className="rounded-[10px] border border-status-danger/20 bg-status-danger/8 px-4 py-3 text-[12px] text-status-danger">{error}</div> : null}
       {validation?.errors?.length ? (
-        <div className="rounded-btn border border-status-danger/20 bg-status-danger/10 px-3 py-2 text-[12px] text-status-danger">{validation.errors.join(" | ")}</div>
+        <div className="rounded-[10px] border border-status-danger/20 bg-status-danger/8 px-4 py-3 text-[12px] text-status-danger">{validation.errors.join(" | ")}</div>
       ) : null}
       {validation?.warnings?.length ? (
-        <div className="rounded-btn border border-status-warning/20 bg-status-warning/10 px-3 py-2 text-[12px] text-status-warning">{validation.warnings.join(" | ")}</div>
+        <div className="rounded-[10px] border border-status-warning/20 bg-status-warning/8 px-4 py-3 text-[12px] text-status-warning">{validation.warnings.join(" | ")}</div>
       ) : null}
 
       <div className="max-w-[740px]">

@@ -33,11 +33,11 @@ export function Dialog({
           <DialogPrimitive.Portal forceMount>
             <DialogPrimitive.Overlay asChild forceMount>
               <motion.div
-                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+                className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
+                transition={{ duration: 0.2 }}
               />
             </DialogPrimitive.Overlay>
 
@@ -45,24 +45,24 @@ export function Dialog({
               <DialogPrimitive.Content asChild forceMount>
                 <motion.div
                   className={cn(
-                    "relative w-full max-w-md rounded-card border border-border bg-surface-2 p-6 shadow-xl outline-none",
+                    "relative w-full max-w-md rounded-[14px] border border-border/80 bg-surface-2 p-6 shadow-2xl shadow-black/30 outline-none",
                     contentClassName,
                   )}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.15 }}
+                  initial={{ opacity: 0, scale: 0.95, y: 8 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 8 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                 >
                   {(title || description || !hideClose) && (
-                    <div className="mb-4 pr-8">
+                    <div className="mb-5 pr-8">
                       {title ? <DialogPrimitive.Title className="text-[16px] font-semibold text-white">{title}</DialogPrimitive.Title> : null}
-                      {description ? <DialogPrimitive.Description className="mt-1 text-[12px] text-txt-secondary">{description}</DialogPrimitive.Description> : null}
+                      {description ? <DialogPrimitive.Description className="mt-1.5 text-[12px] leading-relaxed text-txt-secondary">{description}</DialogPrimitive.Description> : null}
                     </div>
                   )}
 
                   {!hideClose ? (
                     <DialogPrimitive.Close
-                      className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-btn border border-border bg-surface-1 text-txt-tertiary transition-colors hover:border-border-hover hover:text-txt"
+                      className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-[8px] text-txt-muted transition-all hover:bg-surface-3 hover:text-txt"
                       aria-label="Close"
                     >
                       <X size={16} strokeWidth={1.4} />
@@ -71,7 +71,7 @@ export function Dialog({
 
                   <div>{children}</div>
 
-                  {footer ? <div className="mt-5 flex items-center justify-end gap-2 border-t border-border pt-4">{footer}</div> : null}
+                  {footer ? <div className="mt-5 flex items-center justify-end gap-2 border-t border-border/60 pt-4">{footer}</div> : null}
                 </motion.div>
               </DialogPrimitive.Content>
             </div>

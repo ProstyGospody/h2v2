@@ -1,14 +1,19 @@
 import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 import {
   Activity,
+  ArrowDownToLine,
+  ArrowUpFromLine,
   Cpu,
   Eye,
+  Globe,
   HardDrive,
   Loader2,
   RefreshCw,
   RotateCcw,
+  TrendingUp,
   Users,
   Wifi,
+  Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -84,6 +89,43 @@ function AnimatedNumber({
   return <motion.span>{rounded}</motion.span>;
 }
 
+function ProgressRing({
+  value,
+  size = 44,
+  strokeWidth = 3.5,
+  color = "#6366f1",
+  trackColor = "rgba(255,255,255,0.05)",
+}: {
+  value: number;
+  size?: number;
+  strokeWidth?: number;
+  color?: string;
+  trackColor?: string;
+}) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (clampPercent(value) / 100) * circumference;
+
+  return (
+    <svg width={size} height={size} className="-rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={trackColor} strokeWidth={strokeWidth} />
+      <motion.circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        initial={{ strokeDashoffset: circumference }}
+        animate={{ strokeDashoffset: offset }}
+        transition={{ duration: 1, ease: "easeOut" }}
+      />
+    </svg>
+  );
+}
+
 function statusColor(status: string): string {
   const normalized = status.toLowerCase();
   if (normalized.includes("running") || normalized.includes("active")) {
@@ -97,6 +139,28 @@ function statusColor(status: string): string {
   }
   return "bg-txt-muted";
 }
+
+function SectionHeader({ icon, title, children }: { icon: React.ReactNode; title: string; children?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <span className="text-txt-tertiary">{icon}</span>
+        <h3 className="text-[13px] font-semibold text-white">{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+const chartTooltipStyle = {
+  backgroundColor: "rgba(24, 24, 28, 0.95)",
+  border: "1px solid rgba(30, 30, 36, 0.8)",
+  borderRadius: 10,
+  color: "#e4e4e7",
+  fontSize: 11,
+  backdropFilter: "blur(12px)",
+  boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+};
 
 export default function DashboardPage() {
   const [live, setLive] = useState<SystemLiveResponse | null>(null);
@@ -287,264 +351,363 @@ export default function DashboardPage() {
     return [...bucketed.values()].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }, [historyPoints]);
 
-  const metricCards = [
-    {
-      label: "CPU",
-      icon: <Cpu size={16} strokeWidth={1.4} className="text-accent-light" />,
-      value: <AnimatedNumber value={cpuPercent} format={(value) => `${value.toFixed(1)}%`} />,
-      sub: "System load",
-      dot: "bg-accent/3",
-    },
-    {
-      label: "RAM",
-      icon: <HardDrive size={16} strokeWidth={1.4} className="text-accent-secondary-light" />,
-      value: <AnimatedNumber value={ramPercent} format={(value) => `${value.toFixed(1)}%`} />,
-      sub: "Memory usage",
-      dot: "bg-accent-secondary/3",
-    },
-    {
-      label: "ONLINE",
-      icon: <Users size={16} strokeWidth={1.4} className="text-status-success" />,
-      value: <AnimatedNumber value={onlineUsers} />,
-      sub: "Connected users",
-      dot: "bg-status-success/5",
-    },
-    {
-      label: "NETWORK",
-      icon: <Wifi size={16} strokeWidth={1.4} className="text-accent-light" />,
-      value: `RX ${formatRate(networkRx)}`,
-      sub: `TX ${formatRate(networkTx)}`,
-      dot: "bg-accent/3",
-    },
-    {
-      label: "UPTIME",
-      icon: <Activity size={16} strokeWidth={1.4} className="text-status-warning" />,
-      value: uptime,
-      sub: "Current session",
-      dot: "bg-status-warning/5",
-    },
-    {
-      label: "TRAFFIC",
-      icon: <HardDrive size={16} strokeWidth={1.4} className="text-accent-light" />,
-      value: formatBytes(totalTraffic),
-      sub: "Total transfer",
-      dot: "bg-accent-secondary/3",
-    },
-    {
-      label: "PACKETS",
-      icon: <Activity size={16} strokeWidth={1.4} className="text-accent-secondary-light" />,
-      value: `TCP ${tcpConnections}`,
-      sub: `UDP ${udpConnections}`,
-      dot: "bg-accent/3",
-    },
-  ];
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader title="Dashboard" />
 
       {showInitialLoading ? (
-        <div className="rounded-btn border border-accent/20 bg-accent/10 px-3 py-2 text-[12px] text-accent-light">
+        <motion.div
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-[10px] border border-accent/20 bg-accent/8 px-4 py-3 text-[12px] text-accent-light"
+        >
           Loading latest dashboard metrics...
-        </div>
+        </motion.div>
       ) : null}
-      {error ? <div className="rounded-btn border border-status-danger/20 bg-status-danger/10 px-3 py-2 text-[12px] text-status-danger">{error}</div> : null}
+      {error ? <div className="rounded-[10px] border border-status-danger/20 bg-status-danger/8 px-4 py-3 text-[12px] text-status-danger">{error}</div> : null}
       {warningMessages.length ? (
-        <div className="rounded-btn border border-status-warning/20 bg-status-warning/10 px-3 py-2 text-[12px] text-status-warning">
+        <div className="rounded-[10px] border border-status-warning/20 bg-status-warning/8 px-4 py-3 text-[12px] text-status-warning">
           {warningMessages.join(" | ")}
         </div>
       ) : null}
 
+      {/* ── Metric cards ── */}
       <motion.div
-        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }}
+        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.06 } } }}
         initial="hidden"
         animate="show"
-        className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+        className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
       >
-        {metricCards.map((card) => (
-          <motion.div
-            key={card.label}
-            variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
-            className="relative overflow-hidden rounded-card border border-border bg-surface-2 p-4"
-          >
-            <div className={`absolute -right-5 -top-5 h-16 w-16 rounded-full ${card.dot}`} />
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-[11px] font-medium text-txt-tertiary">{card.label}</p>
-              {card.icon}
+        {/* CPU card with ring */}
+        <motion.div
+          variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}
+          className="group relative overflow-hidden rounded-[12px] border border-border bg-surface-2 p-4 transition-colors hover:border-accent/20"
+        >
+          <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-accent/4 transition-all group-hover:bg-accent/8" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">CPU</p>
+              <p className="mt-1 text-[28px] font-bold leading-none tracking-tight text-white">
+                <AnimatedNumber value={cpuPercent} format={(v) => `${v.toFixed(1)}`} />
+                <span className="ml-0.5 text-[14px] font-medium text-txt-tertiary">%</span>
+              </p>
+              <p className="mt-2 text-[11px] text-txt-muted">System load</p>
             </div>
-            <p className="text-metric text-white">{card.value}</p>
-            <p className="mt-2 text-[11px] text-txt-muted">{card.sub}</p>
-          </motion.div>
-        ))}
+            <ProgressRing value={cpuPercent} color="#6366f1" />
+          </div>
+        </motion.div>
+
+        {/* RAM card with ring */}
+        <motion.div
+          variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}
+          className="group relative overflow-hidden rounded-[12px] border border-border bg-surface-2 p-4 transition-colors hover:border-accent-secondary/20"
+        >
+          <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-accent-secondary/4 transition-all group-hover:bg-accent-secondary/8" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">RAM</p>
+              <p className="mt-1 text-[28px] font-bold leading-none tracking-tight text-white">
+                <AnimatedNumber value={ramPercent} format={(v) => `${v.toFixed(1)}`} />
+                <span className="ml-0.5 text-[14px] font-medium text-txt-tertiary">%</span>
+              </p>
+              <p className="mt-2 text-[11px] text-txt-muted">Memory usage</p>
+            </div>
+            <ProgressRing value={ramPercent} color="#8b5cf6" />
+          </div>
+        </motion.div>
+
+        {/* Online users */}
+        <motion.div
+          variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}
+          className="group relative overflow-hidden rounded-[12px] border border-border bg-surface-2 p-4 transition-colors hover:border-status-success/20"
+        >
+          <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-status-success/4 transition-all group-hover:bg-status-success/8" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Online</p>
+              <p className="mt-1 text-[28px] font-bold leading-none tracking-tight text-white">
+                <AnimatedNumber value={onlineUsers} />
+              </p>
+              <p className="mt-2 text-[11px] text-txt-muted">Connected users</p>
+            </div>
+            <div className="grid h-[44px] w-[44px] place-items-center rounded-full bg-status-success/8">
+              <Users size={18} strokeWidth={1.4} className="text-status-success" />
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Uptime */}
+        <motion.div
+          variants={{ hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } }}
+          className="group relative overflow-hidden rounded-[12px] border border-border bg-surface-2 p-4 transition-colors hover:border-status-warning/20"
+        >
+          <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-status-warning/4 transition-all group-hover:bg-status-warning/8" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Uptime</p>
+              <p className="mt-1 text-[28px] font-bold leading-none tracking-tight text-white">{uptime}</p>
+              <p className="mt-2 text-[11px] text-txt-muted">Current session</p>
+            </div>
+            <div className="grid h-[44px] w-[44px] place-items-center rounded-full bg-status-warning/8">
+              <Activity size={18} strokeWidth={1.4} className="text-status-warning" />
+            </div>
+          </div>
+        </motion.div>
       </motion.div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-[13px] font-semibold text-white">Traffic trends</h3>
-          <div className="inline-flex rounded-btn bg-surface-4 p-0.5 text-[11px]">
-            <button
-              type="button"
-              className={cn(
-                "rounded-btn px-2.5 py-1 text-txt-secondary transition-colors",
-                historyWindow === "1h" && "bg-accent text-white",
-              )}
-              onClick={() => setHistoryWindow("1h")}
-            >
-              1h
-            </button>
-            <button
-              type="button"
-              className={cn(
-                "rounded-btn px-2.5 py-1 text-txt-secondary transition-colors",
-                historyWindow === "24h" && "bg-accent text-white",
-              )}
-              onClick={() => setHistoryWindow("24h")}
-            >
-              24h
-            </button>
+      {/* ── Secondary metrics row ── */}
+      <motion.div
+        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04 } } }}
+        initial="hidden"
+        animate="show"
+        className="grid gap-3 sm:grid-cols-3"
+      >
+        {/* Network */}
+        <motion.div
+          variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
+          className="flex items-center gap-4 rounded-[12px] border border-border bg-surface-2 p-4"
+        >
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-accent/10">
+            <Wifi size={18} strokeWidth={1.4} className="text-accent-light" />
           </div>
-        </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Network</p>
+            <div className="mt-1 flex items-center gap-3 text-[13px] font-semibold text-white">
+              <span className="inline-flex items-center gap-1">
+                <ArrowDownToLine size={12} strokeWidth={1.6} className="text-accent-light" />
+                {formatRate(networkRx)}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <ArrowUpFromLine size={12} strokeWidth={1.6} className="text-accent-secondary-light" />
+                {formatRate(networkTx)}
+              </span>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Total Traffic */}
+        <motion.div
+          variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
+          className="flex items-center gap-4 rounded-[12px] border border-border bg-surface-2 p-4"
+        >
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-accent-secondary/10">
+            <Globe size={18} strokeWidth={1.4} className="text-accent-secondary-light" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Total Traffic</p>
+            <p className="mt-1 text-[13px] font-semibold text-white">{formatBytes(totalTraffic)}</p>
+          </div>
+        </motion.div>
+
+        {/* Connections */}
+        <motion.div
+          variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
+          className="flex items-center gap-4 rounded-[12px] border border-border bg-surface-2 p-4"
+        >
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-accent/10">
+            <Zap size={18} strokeWidth={1.4} className="text-accent-light" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-txt-muted">Connections</p>
+            <div className="mt-1 flex items-center gap-3 text-[13px] font-semibold text-white">
+              <span>TCP {tcpConnections}</span>
+              <span className="text-txt-muted">/</span>
+              <span>UDP {udpConnections}</span>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+
+      {/* ── Traffic trends ── */}
+      <div className="space-y-3">
+        <SectionHeader icon={<TrendingUp size={15} strokeWidth={1.4} />} title="Traffic trends">
+          <div className="inline-flex rounded-full bg-surface-3/60 p-0.5 text-[11px]">
+            {(["1h", "24h"] as HistoryWindow[]).map((w) => (
+              <button
+                key={w}
+                type="button"
+                className={cn(
+                  "rounded-full px-3 py-1 font-medium transition-all",
+                  historyWindow === w ? "bg-accent text-white shadow-sm shadow-accent/20" : "text-txt-secondary hover:text-txt",
+                )}
+                onClick={() => setHistoryWindow(w)}
+              >
+                {w}
+              </button>
+            ))}
+          </div>
+        </SectionHeader>
 
         {historyLoading && !historyPoints.length ? (
-          <div className="rounded-btn border border-accent/20 bg-accent/10 px-3 py-2 text-[12px] text-accent-light">Loading system history...</div>
+          <div className="rounded-[10px] border border-accent/20 bg-accent/8 px-4 py-3 text-[12px] text-accent-light">Loading system history...</div>
         ) : null}
-        {historyError ? <div className="rounded-btn border border-status-warning/20 bg-status-warning/10 px-3 py-2 text-[12px] text-status-warning">{historyError}</div> : null}
+        {historyError ? <div className="rounded-[10px] border border-status-warning/20 bg-status-warning/8 px-4 py-3 text-[12px] text-status-warning">{historyError}</div> : null}
 
-        <div className="rounded-card border border-border bg-surface-2 p-5">
-          <div className="h-[280px]">
+        {/* Area chart */}
+        <div className="rounded-[12px] border border-border bg-surface-2 p-5">
+          <div className="mb-3 flex items-center gap-4 text-[11px]">
+            <span className="inline-flex items-center gap-1.5 text-txt-secondary">
+              <span className="h-2 w-2 rounded-full bg-[#6366f1]" />
+              Upload
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-txt-secondary">
+              <span className="h-2 w-2 rounded-full bg-[#8b5cf6]" />
+              Download
+            </span>
+          </div>
+          <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={historyPoints}>
                 <defs>
                   <linearGradient id="uploadGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.3} />
+                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.25} />
                     <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="downloadGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.25} />
+                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.2} />
                     <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="#1e1e24" vertical={false} />
+                <CartesianGrid stroke="rgba(30,30,36,0.6)" strokeDasharray="4 4" vertical={false} />
                 <XAxis
                   dataKey="timestamp"
                   tickFormatter={(value) => formatShortTime(new Date(value))}
-                  tick={{ fill: "#52525a", fontSize: 9 }}
+                  tick={{ fill: "#52525a", fontSize: 10 }}
                   tickLine={false}
-                  axisLine={{ stroke: "#1e1e24" }}
+                  axisLine={{ stroke: "rgba(30,30,36,0.6)" }}
                 />
                 <YAxis
                   tickFormatter={(value) => formatBytes(Number(value))}
-                  tick={{ fill: "#52525a", fontSize: 9 }}
+                  tick={{ fill: "#52525a", fontSize: 10 }}
                   tickLine={false}
-                  axisLine={{ stroke: "#1e1e24" }}
+                  axisLine={false}
+                  width={56}
                 />
                 <Tooltip
                   labelFormatter={(value) => formatDateTime(value instanceof Date ? value.toISOString() : String(value))}
                   formatter={(value: number) => formatRate(Number(value))}
-                  contentStyle={{ backgroundColor: "#18181c", border: "1px solid #1e1e24", borderRadius: 10, color: "#e4e4e7", fontSize: 11 }}
+                  contentStyle={chartTooltipStyle}
+                  cursor={{ stroke: "rgba(99,102,241,0.2)", strokeWidth: 1 }}
                 />
-                <Area type="monotone" dataKey="upload" stroke="#6366f1" fill="url(#uploadGradient)" strokeWidth={2} name="Upload" />
-                <Area type="monotone" dataKey="download" stroke="#8b5cf6" fill="url(#downloadGradient)" strokeWidth={2} name="Download" />
+                <Area type="monotone" dataKey="upload" stroke="#6366f1" fill="url(#uploadGradient)" strokeWidth={2} name="Upload" dot={false} activeDot={{ r: 3, fill: "#6366f1", stroke: "#18181c", strokeWidth: 2 }} />
+                <Area type="monotone" dataKey="download" stroke="#8b5cf6" fill="url(#downloadGradient)" strokeWidth={2} name="Download" dot={false} activeDot={{ r: 3, fill: "#8b5cf6", stroke: "#18181c", strokeWidth: 2 }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="rounded-card border border-border bg-surface-2 p-5">
-          <div className="h-[220px]">
+        {/* Bar chart */}
+        <div className="rounded-[12px] border border-border bg-surface-2 p-5">
+          <div className="mb-3 flex items-center gap-4 text-[11px]">
+            <span className="inline-flex items-center gap-1.5 text-txt-secondary">
+              <span className="h-2 w-2 rounded-sm bg-[#6366f1]" />
+              Download
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-txt-secondary">
+              <span className="h-2 w-2 rounded-sm bg-[#8b5cf6]" />
+              Upload
+            </span>
+          </div>
+          <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={trafficUsageBars}>
-                <CartesianGrid stroke="#1e1e24" vertical={false} />
+              <BarChart data={trafficUsageBars} barGap={1}>
+                <CartesianGrid stroke="rgba(30,30,36,0.6)" strokeDasharray="4 4" vertical={false} />
                 <XAxis
                   dataKey="timestamp"
                   tickFormatter={(value) => formatShortTime(new Date(value))}
-                  tick={{ fill: "#52525a", fontSize: 9 }}
+                  tick={{ fill: "#52525a", fontSize: 10 }}
                   tickLine={false}
-                  axisLine={{ stroke: "#1e1e24" }}
+                  axisLine={{ stroke: "rgba(30,30,36,0.6)" }}
                 />
                 <YAxis
                   tickFormatter={(value) => formatBytes(Number(value))}
-                  tick={{ fill: "#52525a", fontSize: 9 }}
+                  tick={{ fill: "#52525a", fontSize: 10 }}
                   tickLine={false}
-                  axisLine={{ stroke: "#1e1e24" }}
+                  axisLine={false}
+                  width={56}
                 />
                 <Tooltip
                   formatter={(value: number) => formatBytes(Number(value))}
-                  contentStyle={{ backgroundColor: "#18181c", border: "1px solid #1e1e24", borderRadius: 10, color: "#e4e4e7", fontSize: 11 }}
+                  contentStyle={chartTooltipStyle}
+                  cursor={{ fill: "rgba(99,102,241,0.04)" }}
                 />
-                <Bar dataKey="download_bytes" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="upload_bytes" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="download_bytes" fill="#6366f1" radius={[3, 3, 0, 0]} name="Download" />
+                <Bar dataKey="upload_bytes" fill="#8b5cf6" radius={[3, 3, 0, 0]} name="Upload" />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
       </div>
 
+      {/* ── Live feed & Service snapshot ── */}
       <div className="grid gap-3 lg:grid-cols-2">
-        <div className="rounded-card border border-border bg-surface-2 p-5">
-          <h3 className="mb-3 text-[13px] font-semibold text-white">Live feed</h3>
-          <div className="space-y-2">
+        <div className="rounded-[12px] border border-border bg-surface-2 p-5">
+          <SectionHeader icon={<Activity size={14} strokeWidth={1.4} />} title="Live feed" />
+          <div className="mt-4 space-y-2">
             {(live?.services || []).length ? (
               (live?.services || []).map((item, index) => (
                 <motion.div
                   key={`${item.service_name}-${index}`}
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
-                  className="flex items-start gap-[10px] border-b border-border pb-2 last:border-0"
+                  className="flex items-start gap-[10px] border-b border-border/60 pb-2.5 last:border-0"
                 >
-                  <span className={cn("mt-1 h-[6px] w-[6px] rounded-full", statusColor(item.status))} />
-                  <div>
+                  <span className={cn("mt-1.5 h-[6px] w-[6px] shrink-0 rounded-full", statusColor(item.status))} />
+                  <div className="min-w-0">
                     <p className="text-[12px]">
-                      <span className="font-semibold text-white">{item.service_name}</span>
-                      <span className="ml-1 text-txt-tertiary">status is {item.status}</span>
+                      <span className="font-medium text-white">{item.service_name}</span>
+                      <span className="ml-1.5 text-txt-tertiary">status is {item.status}</span>
                     </p>
-                    <p className="text-[10px] text-txt-muted">{formatDateTime(item.last_check_at)}</p>
+                    <p className="mt-0.5 text-[10px] text-txt-muted">{formatDateTime(item.last_check_at)}</p>
                   </div>
                 </motion.div>
               ))
             ) : (
-              <p className="text-[12px] text-txt-secondary">No recent events.</p>
+              <p className="py-4 text-center text-[12px] text-txt-secondary">No recent events.</p>
             )}
           </div>
         </div>
 
-        <div className="rounded-card border border-border bg-surface-2 p-5">
-          <h3 className="mb-3 text-[13px] font-semibold text-white">Service snapshot</h3>
-          <TableContainer className="bg-surface-1">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-t-0 hover:bg-transparent">
-                  <TableHead>Service</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Version</TableHead>
-                  <TableHead>Checked</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(live?.services || []).map((item, index) => (
-                  <TableRow key={item.service_name} className="cursor-default" style={{ animationDelay: `${index * 0.03}s` }}>
-                    <TableCell>{item.service_name}</TableCell>
-                    <TableCell>
-                      <span className={cn("inline-flex items-center gap-2 text-[11px]", item.status.includes("running") ? "text-status-success" : "text-status-warning")}>
-                        <span className={cn("h-[6px] w-[6px] rounded-full", statusColor(item.status))} />
-                        {item.status}
-                      </span>
-                    </TableCell>
-                    <TableCell>-</TableCell>
-                    <TableCell>{formatDateTime(item.last_check_at)}</TableCell>
+        <div className="rounded-[12px] border border-border bg-surface-2 p-5">
+          <SectionHeader icon={<HardDrive size={14} strokeWidth={1.4} />} title="Service snapshot" />
+          <div className="mt-4">
+            <TableContainer className="border-0 bg-transparent shadow-none">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-t-0 hover:bg-transparent">
+                    <TableHead>Service</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Version</TableHead>
+                    <TableHead>Checked</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHeader>
+                <TableBody>
+                  {(live?.services || []).map((item, index) => (
+                    <TableRow key={item.service_name} className="cursor-default" style={{ animationDelay: `${index * 0.03}s` }}>
+                      <TableCell className="font-medium">{item.service_name}</TableCell>
+                      <TableCell>
+                        <span className={cn("inline-flex items-center gap-2 text-[11px]", item.status.includes("running") ? "text-status-success" : "text-status-warning")}>
+                          <span className={cn("h-[6px] w-[6px] rounded-full", statusColor(item.status))} />
+                          {item.status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-txt-muted">-</TableCell>
+                      <TableCell>{formatDateTime(item.last_check_at)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </div>
         </div>
       </div>
 
+      {/* ── Managed services ── */}
       <div className="space-y-3">
-        <h3 className="text-[13px] font-semibold text-white">Managed services</h3>
-        {servicesError ? <div className="rounded-btn border border-status-danger/20 bg-status-danger/10 px-3 py-2 text-[12px] text-status-danger">{servicesError}</div> : null}
+        <SectionHeader icon={<Cpu size={15} strokeWidth={1.4} />} title="Managed services" />
+        {servicesError ? <div className="rounded-[10px] border border-status-danger/20 bg-status-danger/8 px-4 py-3 text-[12px] text-status-danger">{servicesError}</div> : null}
         {servicesLoading ? (
-          <div className="flex min-h-[160px] items-center justify-center rounded-card border border-border bg-surface-2">
+          <div className="flex min-h-[160px] items-center justify-center rounded-[12px] border border-border bg-surface-2">
             <div className="flex flex-col items-center gap-2">
               <Loader2 size={20} strokeWidth={1.4} className="animate-spin text-accent-light" />
               <p className="text-[12px] text-txt-secondary">Loading services...</p>
@@ -558,9 +721,11 @@ export default function DashboardPage() {
                   key={item.service_name}
                   whileHover={{ y: -2 }}
                   transition={{ duration: 0.15 }}
-                  className="relative overflow-hidden rounded-card border border-border bg-surface-2 p-5"
+                  className="group relative overflow-hidden rounded-[12px] border border-border bg-surface-2 p-5 transition-colors hover:border-accent/15"
                 >
-                  <div className="absolute left-0 right-0 top-0 h-[2px] bg-gradient-to-r from-accent-secondary to-accent-secondary-light" />
+                  {/* Top gradient line */}
+                  <div className="absolute left-0 right-0 top-0 h-[2px] bg-gradient-to-r from-accent to-accent-secondary opacity-60 transition-opacity group-hover:opacity-100" />
+
                   <div className="mb-3 flex items-center justify-between">
                     <h4 className="text-[13px] font-semibold text-white">{item.service_name}</h4>
                     <span className="inline-flex items-center gap-2 text-[11px] text-txt-secondary">
@@ -570,32 +735,32 @@ export default function DashboardPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <p className="text-[11px] text-txt-muted">Version</p>
-                      <p className="text-[12px] font-medium text-txt">{item.version || "-"}</p>
+                      <p className="text-[10px] font-medium text-txt-muted">Version</p>
+                      <p className="mt-0.5 text-[12px] font-medium text-txt">{item.version || "-"}</p>
                     </div>
                     <div>
-                      <p className="text-[11px] text-txt-muted">Last check</p>
-                      <p className="text-[12px] font-medium text-txt">{formatDateTime(item.last_check_at)}</p>
+                      <p className="text-[10px] font-medium text-txt-muted">Last check</p>
+                      <p className="mt-0.5 text-[12px] font-medium text-txt">{formatDateTime(item.last_check_at)}</p>
                     </div>
                   </div>
-                  <div className="mt-4 flex items-center gap-2 border-t border-border pt-3.5">
+                  <div className="mt-4 flex items-center gap-2 border-t border-border/60 pt-3.5">
                     <Button size="sm" onClick={() => void openServiceDetails(item.service_name)} disabled={servicesBusy}>
-                      <Eye size={16} strokeWidth={1.4} />
+                      <Eye size={14} strokeWidth={1.4} />
                       Details
                     </Button>
                     <Button size="sm" onClick={() => setServiceActionState({ name: item.service_name, action: "reload" })} disabled={servicesBusy}>
-                      <RefreshCw size={16} strokeWidth={1.4} />
+                      <RefreshCw size={14} strokeWidth={1.4} />
                       Reload
                     </Button>
                     <Button size="sm" onClick={() => setServiceActionState({ name: item.service_name, action: "restart" })} disabled={servicesBusy}>
-                      <RotateCcw size={16} strokeWidth={1.4} />
+                      <RotateCcw size={14} strokeWidth={1.4} />
                       Restart
                     </Button>
                   </div>
                 </motion.div>
               ))
             ) : (
-              <div className="rounded-card border border-border bg-surface-2 p-4 text-[12px] text-txt-secondary">
+              <div className="rounded-[12px] border border-border bg-surface-2 p-4 text-[12px] text-txt-secondary">
                 Service activity is not available yet.
               </div>
             )}
@@ -619,20 +784,28 @@ export default function DashboardPage() {
         }
       >
         {serviceDetails ? (
-          <div className="space-y-2">
-            <p className="text-[12px] text-txt-secondary">
-              Status: <span className="text-txt">{serviceDetails.status_text}</span>
-            </p>
-            <p className="text-[12px] text-txt-secondary">
-              Active: {serviceDetails.active} / {serviceDetails.sub_state}
-            </p>
-            <p className="text-[12px] text-txt-secondary">
-              PID: {serviceDetails.main_pid || 0} | Checked: {formatDateTime(serviceDetails.checked_at)}
-            </p>
-            <p className="pt-1 text-[12px] font-medium text-txt">Recent logs</p>
-            <pre className="m-0 max-h-[320px] overflow-auto rounded-btn border border-border bg-surface-0 p-3 font-mono text-[11px] leading-5 text-txt-secondary">
-              {serviceDetails.last_logs?.length ? serviceDetails.last_logs.join("\n") : "No logs available"}
-            </pre>
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-[8px] bg-surface-0/50 p-3">
+                <p className="text-[10px] font-medium text-txt-muted">Status</p>
+                <p className="mt-1 text-[12px] font-medium text-txt">{serviceDetails.status_text}</p>
+              </div>
+              <div className="rounded-[8px] bg-surface-0/50 p-3">
+                <p className="text-[10px] font-medium text-txt-muted">Active</p>
+                <p className="mt-1 text-[12px] font-medium text-txt">{serviceDetails.active} / {serviceDetails.sub_state}</p>
+              </div>
+              <div className="rounded-[8px] bg-surface-0/50 p-3">
+                <p className="text-[10px] font-medium text-txt-muted">PID</p>
+                <p className="mt-1 text-[12px] font-medium text-txt">{serviceDetails.main_pid || 0}</p>
+              </div>
+            </div>
+            <p className="text-[10px] font-medium text-txt-muted">Checked: {formatDateTime(serviceDetails.checked_at)}</p>
+            <div>
+              <p className="mb-2 text-[12px] font-medium text-txt">Recent logs</p>
+              <pre className="m-0 max-h-[320px] overflow-auto rounded-[8px] border border-border bg-surface-0 p-3 font-mono text-[11px] leading-5 text-txt-secondary">
+                {serviceDetails.last_logs?.length ? serviceDetails.last_logs.join("\n") : "No logs available"}
+              </pre>
+            </div>
           </div>
         ) : null}
       </Dialog>

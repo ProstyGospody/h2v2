@@ -16,12 +16,12 @@ type ToastProps = {
 
 function ToastIcon({ variant }: { variant: ToastVariant }) {
   if (variant === "success") {
-    return <CheckCircle2 size={16} strokeWidth={1.4} className="text-status-success" />;
+    return <CheckCircle2 size={16} strokeWidth={1.4} className="shrink-0 text-status-success" />;
   }
   if (variant === "error") {
-    return <AlertCircle size={16} strokeWidth={1.4} className="text-status-danger" />;
+    return <AlertCircle size={16} strokeWidth={1.4} className="shrink-0 text-status-danger" />;
   }
-  return <Info size={16} strokeWidth={1.4} className="text-accent-light" />;
+  return <Info size={16} strokeWidth={1.4} className="shrink-0 text-accent-light" />;
 }
 
 export function Toast({ open, onOpenChange, message, variant = "info", duration = 2800 }: ToastProps) {
@@ -32,14 +32,14 @@ export function Toast({ open, onOpenChange, message, variant = "info", duration 
           <ToastPrimitive.Root asChild forceMount open={open} onOpenChange={onOpenChange}>
             <motion.div
               className={cn(
-                "fixed bottom-4 right-4 z-50 flex max-w-[320px] items-start gap-2 rounded-card border border-border bg-surface-2 px-4 py-3 text-[12px] text-txt shadow-xl",
-                variant === "success" && "border-status-success/20",
-                variant === "error" && "border-status-danger/20",
+                "fixed bottom-4 right-4 z-50 flex max-w-[340px] items-start gap-2.5 rounded-[12px] border border-border/80 bg-surface-2/95 px-4 py-3.5 text-[12px] text-txt shadow-2xl shadow-black/20 backdrop-blur-lg",
+                variant === "success" && "border-status-success/15",
+                variant === "error" && "border-status-danger/15",
               )}
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, x: 40, y: 10 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
               exit={{ opacity: 0, x: 40 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             >
               <ToastIcon variant={variant} />
               <ToastPrimitive.Title className="leading-5">{message}</ToastPrimitive.Title>
