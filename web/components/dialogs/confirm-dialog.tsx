@@ -1,3 +1,5 @@
+import { AlertTriangle, Loader2 } from "lucide-react";
+
 import { Button, Dialog } from "@/src/components/ui";
 
 export function ConfirmDialog({
@@ -19,7 +21,7 @@ export function ConfirmDialog({
   onClose: () => void;
   confirmColor?: "error" | "primary" | "secondary";
 }) {
-  const variant = confirmColor === "error" ? "danger" : confirmColor === "secondary" ? "primary" : "primary";
+  const variant = confirmColor === "error" ? "danger" : "primary";
 
   return (
     <Dialog
@@ -36,12 +38,24 @@ export function ConfirmDialog({
             Cancel
           </Button>
           <Button variant={variant} onClick={onConfirm} disabled={busy}>
-            {busy ? "Processing..." : confirmText || "Confirm"}
+            {busy ? (
+              <>
+                <Loader2 size={14} strokeWidth={1.6} className="animate-spin" />
+                Processing...
+              </>
+            ) : (
+              confirmText || "Confirm"
+            )}
           </Button>
         </>
       }
     >
-      <p className="text-[12px] text-txt-secondary">{description}</p>
+      <div className="flex items-start gap-3">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-status-warning/10">
+          <AlertTriangle size={17} strokeWidth={1.4} className="text-status-warning" />
+        </div>
+        <p className="pt-1.5 text-[13px] leading-relaxed text-txt-secondary">{description}</p>
+      </div>
     </Dialog>
   );
 }

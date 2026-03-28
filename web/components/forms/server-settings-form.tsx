@@ -4,11 +4,16 @@ import { ReactNode, useEffect } from "react";
 import { Hy2Settings } from "@/domain/settings/types";
 import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Toggle } from "@/src/components/ui";
 
-function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
+function SectionTitle({ icon, title, description }: { icon: ReactNode; title: string; description?: string }) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-accent-light">{icon}</span>
-      <h3 className="text-[14px] font-semibold text-white">{title}</h3>
+    <div className="flex items-center gap-2.5">
+      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] bg-accent/10">
+        <span className="text-accent-light">{icon}</span>
+      </div>
+      <div>
+        <h3 className="text-[13px] font-semibold text-white">{title}</h3>
+        {description ? <p className="text-[11px] text-txt-muted">{description}</p> : null}
+      </div>
     </div>
   );
 }
@@ -23,7 +28,7 @@ function LabeledToggle({
   onCheckedChange: (value: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between rounded-btn border border-border bg-surface-1 px-3 py-2">
+    <div className="flex items-center justify-between rounded-[10px] border border-border/60 bg-surface-1/50 px-3.5 py-2.5 transition-colors hover:border-border">
       <p className="text-[12px] text-txt-secondary">{label}</p>
       <Toggle checked={checked} onCheckedChange={onCheckedChange} />
     </div>
@@ -43,7 +48,7 @@ function SelectField({
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-[11px] font-medium text-txt-muted">{label}</label>
+      <label className="mb-1.5 block text-[11px] font-medium text-txt-secondary">{label}</label>
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger>
           <SelectValue />
@@ -81,9 +86,9 @@ export function ServerSettingsForm({
   }, [draft, masqueradeType, obfsType, onDraftChange]);
 
   return (
-    <div className="space-y-3.5">
-      <section className="space-y-4 rounded-card border border-border bg-surface-2 p-5">
-        <SectionTitle icon={<Network size={16} strokeWidth={1.4} />} title="Connection Profile" />
+    <div className="space-y-4">
+      <section className="space-y-5 rounded-[14px] border border-border/80 bg-surface-2 p-5">
+        <SectionTitle icon={<Network size={15} strokeWidth={1.4} />} title="Connection Profile" description="Listener and encryption settings" />
 
         <div className="grid gap-3 md:grid-cols-4">
           <Input
@@ -199,8 +204,8 @@ export function ServerSettingsForm({
         ) : null}
       </section>
 
-      <section className="space-y-4 rounded-card border border-border bg-surface-2 p-5">
-        <SectionTitle icon={<Wrench size={16} strokeWidth={1.4} />} title="Runtime Defaults" />
+      <section className="space-y-5 rounded-[14px] border border-border/80 bg-surface-2 p-5">
+        <SectionTitle icon={<Wrench size={15} strokeWidth={1.4} />} title="Runtime Defaults" description="Bandwidth, transport and protocol options" />
 
         <div className="grid gap-3 md:grid-cols-3">
           <LabeledToggle
@@ -262,8 +267,8 @@ export function ServerSettingsForm({
       </section>
 
       {masqueradeType !== "none" ? (
-        <section className="space-y-4 rounded-card border border-border bg-surface-2 p-5">
-          <SectionTitle icon={<Shield size={16} strokeWidth={1.4} />} title="Masquerade Details" />
+        <section className="space-y-5 rounded-[14px] border border-border/80 bg-surface-2 p-5">
+          <SectionTitle icon={<Shield size={15} strokeWidth={1.4} />} title="Masquerade Details" description="Traffic camouflage configuration" />
 
           {masqueradeType === "proxy" ? (
             <div className="space-y-3">
@@ -339,7 +344,7 @@ export function ServerSettingsForm({
           {masqueradeType === "string" ? (
             <div className="grid gap-3 md:grid-cols-12">
               <div className="md:col-span-9">
-                <label className="mb-1.5 block text-[11px] font-medium text-txt-muted">Masquerade String Content</label>
+                <label className="mb-1.5 block text-[11px] font-medium text-txt-secondary">Masquerade String Content</label>
                 <textarea
                   value={draft.masquerade?.string?.content || ""}
                   onChange={(event) =>
@@ -355,7 +360,7 @@ export function ServerSettingsForm({
                     })
                   }
                   rows={3}
-                  className="w-full rounded-btn border border-border bg-surface-1 px-3 py-2 text-[12px] text-txt outline-none transition-colors focus:border-accent/50"
+                  className="w-full rounded-[8px] border border-border bg-surface-1 px-3 py-2 text-[12px] text-txt outline-none transition-all focus:border-accent/40 focus:shadow-[0_0_0_3px_rgba(99,102,241,0.06)]"
                 />
               </div>
               <div className="md:col-span-3">
@@ -385,8 +390,8 @@ export function ServerSettingsForm({
         </section>
       ) : null}
 
-      <section className="space-y-4 rounded-card border border-border bg-surface-2 p-5">
-        <SectionTitle icon={<SlidersHorizontal size={16} strokeWidth={1.4} />} title="QUIC Tuning" />
+      <section className="space-y-5 rounded-[14px] border border-border/80 bg-surface-2 p-5">
+        <SectionTitle icon={<SlidersHorizontal size={15} strokeWidth={1.4} />} title="QUIC Tuning" description="Advanced transport parameters" />
         <LabeledToggle
           label="Enable Custom QUIC"
           checked={draft.quicEnabled}
@@ -425,15 +430,15 @@ export function ServerSettingsForm({
         ) : null}
       </section>
 
-      <section className="space-y-3 rounded-card border border-border bg-surface-2 p-5">
-        <SectionTitle icon={<Code size={16} strokeWidth={1.4} />} title="Generated YAML" />
+      <section className="space-y-4 rounded-[14px] border border-border/80 bg-surface-2 p-5">
+        <SectionTitle icon={<Code size={15} strokeWidth={1.4} />} title="Generated YAML" description="Preview of the configuration file" />
         <textarea
           readOnly
           value={rawYaml}
           rows={16}
-          className="w-full rounded-btn border border-border bg-surface-0 px-3 py-2 font-mono text-[11px] text-accent break-all outline-none"
+          className="w-full rounded-[10px] border border-border/60 bg-surface-0/80 px-4 py-3 font-mono text-[11px] leading-5 text-accent-light/80 outline-none"
         />
-        <p className="text-[11px] text-txt-muted">Generated preview</p>
+        <p className="text-[11px] text-txt-muted">Read-only preview of generated configuration</p>
       </section>
     </div>
   );

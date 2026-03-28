@@ -1,4 +1,4 @@
-import { Copy, Loader2 } from "lucide-react";
+import { Copy, Link2, QrCode } from "lucide-react";
 
 import { HysteriaClient, HysteriaUserPayload } from "@/domain/clients/types";
 import { qrURL } from "@/domain/clients/services";
@@ -43,35 +43,54 @@ export function ClientArtifactsDialog({
       }
     >
       {loading ? (
-        <div className="flex min-h-[220px] items-center justify-center">
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 size={20} strokeWidth={1.4} className="animate-spin text-accent-light" />
+        <div className="flex min-h-[280px] items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent/20 border-t-accent-light" />
             <p className="text-[12px] text-txt-secondary">Loading connection artifacts...</p>
           </div>
         </div>
       ) : artifacts && currentClient ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <p className="text-center text-[11px] text-txt-secondary">Configuration QR</p>
-            <img alt="Configuration QR" src={shareQRSrc} className="mx-auto h-[220px] w-[220px] rounded-btn border border-border bg-white p-1" />
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div className="space-y-3">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-txt-secondary">
+              <QrCode size={13} strokeWidth={1.4} />
+              Configuration QR
+            </div>
+            <div className="flex justify-center">
+              <img
+                alt="Configuration QR"
+                src={shareQRSrc}
+                className="h-[200px] w-[200px] rounded-[10px] border border-border bg-white p-1.5 shadow-sm"
+              />
+            </div>
             <Button variant="ghost" className="w-full justify-center" onClick={() => onCopy(shareURI)} disabled={!shareURI}>
-              <Copy size={16} strokeWidth={1.4} />
+              <Copy size={14} strokeWidth={1.4} />
               Copy Config Link
             </Button>
           </div>
 
-          <div className="space-y-2">
-            <p className="text-center text-[11px] text-txt-secondary">Subscription QR</p>
-            <img alt="Subscription QR" src={subscriptionQRSrc} className="mx-auto h-[220px] w-[220px] rounded-btn border border-border bg-white p-1" />
+          <div className="space-y-3">
+            <div className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-txt-secondary">
+              <Link2 size={13} strokeWidth={1.4} />
+              Subscription QR
+            </div>
+            <div className="flex justify-center">
+              <img
+                alt="Subscription QR"
+                src={subscriptionQRSrc}
+                className="h-[200px] w-[200px] rounded-[10px] border border-border bg-white p-1.5 shadow-sm"
+              />
+            </div>
             <Button variant="ghost" className="w-full justify-center" onClick={() => onCopy(subscriptionURL)} disabled={!subscriptionURL}>
-              <Copy size={16} strokeWidth={1.4} />
+              <Copy size={14} strokeWidth={1.4} />
               Copy Subscription URL
             </Button>
           </div>
         </div>
       ) : (
-        <div className="rounded-btn border border-status-warning/20 bg-status-warning/10 px-3 py-2 text-[12px] text-status-warning">
-          No active artifacts for this client.
+        <div className="flex min-h-[160px] flex-col items-center justify-center gap-3 rounded-[10px] border border-status-warning/15 bg-status-warning/5 p-6">
+          <QrCode size={24} strokeWidth={1.2} className="text-status-warning/60" />
+          <p className="text-[12px] text-status-warning">No active artifacts for this client.</p>
         </div>
       )}
     </Dialog>

@@ -3,7 +3,7 @@ import type { HTMLAttributes, TableHTMLAttributes, TdHTMLAttributes, ThHTMLAttri
 import { cn } from "./cn";
 
 export function TableContainer({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("overflow-hidden rounded-card border border-border bg-surface-2", className)} {...props} />;
+  return <div className={cn("overflow-hidden rounded-[12px] border border-border/80 bg-surface-2", className)} {...props} />;
 }
 
 export function Table({ className, ...props }: TableHTMLAttributes<HTMLTableElement>) {
@@ -11,7 +11,7 @@ export function Table({ className, ...props }: TableHTMLAttributes<HTMLTableElem
 }
 
 export function TableHeader({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
-  return <thead className={cn("border-b border-border", className)} {...props} />;
+  return <thead className={cn("border-b border-border/60 bg-surface-1/30", className)} {...props} />;
 }
 
 export function TableBody({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
@@ -19,11 +19,11 @@ export function TableBody({ className, ...props }: HTMLAttributes<HTMLTableSecti
 }
 
 export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
-  return <tr className={cn("border-t border-border transition-colors hover:bg-surface-3", className)} {...props} />;
+  return <tr className={cn("border-t border-border/50 transition-colors hover:bg-surface-3/40", className)} {...props} />;
 }
 
 export function TableHead({ className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
-  return <th className={cn("px-4 py-3 text-left text-[11px] font-medium text-txt-muted", className)} {...props} />;
+  return <th className={cn("px-4 py-3 text-left text-[10px] font-semibold uppercase tracking-wider text-txt-muted", className)} {...props} />;
 }
 
 export function TableCell({ className, ...props }: TdHTMLAttributes<HTMLTableCellElement>) {

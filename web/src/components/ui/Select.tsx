@@ -14,14 +14,14 @@ const SelectTrigger = forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex h-[34px] w-full items-center justify-between rounded-btn border border-border bg-surface-1 px-3 text-left text-[12px] text-txt outline-none transition-colors placeholder:text-txt-muted focus:border-accent/50 data-[placeholder]:text-txt-muted",
+      "inline-flex h-[34px] w-full items-center justify-between rounded-[8px] border border-border bg-surface-1 px-3 text-left text-[12px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent/40 focus:shadow-[0_0_0_3px_rgba(99,102,241,0.06)] data-[placeholder]:text-txt-muted",
       className,
     )}
     {...props}
   >
     {children}
     <SelectPrimitive.Icon>
-      <ChevronDown size={14} strokeWidth={1.4} className="text-txt-tertiary" />
+      <ChevronDown size={14} strokeWidth={1.4} className="text-txt-tertiary transition-transform" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ));
@@ -37,7 +37,7 @@ const SelectContent = forwardRef<
       ref={ref}
       position={position}
       className={cn(
-        "z-50 overflow-hidden rounded-card border border-border bg-surface-2 shadow-xl",
+        "z-50 overflow-hidden rounded-[10px] border border-border/80 bg-surface-2/95 shadow-2xl shadow-black/20 backdrop-blur-xl",
         position === "popper" && "translate-y-1",
         className,
       )}
@@ -57,7 +57,7 @@ const SelectItem = forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer select-none items-center rounded-btn px-3 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3 data-[state=checked]:text-accent-light",
+      "relative flex cursor-pointer select-none items-center rounded-[7px] px-3 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60 data-[state=checked]:text-accent-light",
       className,
     )}
     {...props}
