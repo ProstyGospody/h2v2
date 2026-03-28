@@ -9,17 +9,6 @@ import { APIError, apiFetch } from "@/services/api";
 
 type LoginFormValues = { email: string; password: string };
 
-function FloatingOrb({ className, delay = 0 }: { className?: string; delay?: number }) {
-  return (
-    <motion.div
-      className={className}
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{ opacity: [0.12, 0.25, 0.12], scale: [0.8, 1.1, 0.8], y: [0, -30, 0], x: [0, 15, 0] }}
-      transition={{ duration: 8, repeat: Infinity, delay, ease: "easeInOut" }}
-    />
-  );
-}
-
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -56,13 +45,6 @@ export default function LoginPage() {
 
   return (
     <div className="relative grid min-h-screen place-items-center overflow-hidden bg-surface-0 px-5">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <FloatingOrb className="absolute -left-40 -top-40 h-[600px] w-[600px] rounded-full bg-accent/15 blur-[140px]" delay={0} />
-        <FloatingOrb className="absolute -bottom-52 -right-40 h-[700px] w-[700px] rounded-full bg-accent-secondary/10 blur-[160px]" delay={2} />
-        <FloatingOrb className="absolute left-1/2 top-1/3 h-[350px] w-[350px] -translate-x-1/2 rounded-full bg-accent/8 blur-[120px]" delay={4} />
-        <div className="absolute inset-0 opacity-[0.025]" style={{ backgroundImage: `linear-gradient(rgba(6,182,212,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(6,182,212,0.3) 1px, transparent 1px)`, backgroundSize: "64px 64px" }} />
-      </div>
-
       <motion.div initial={{ opacity: 0, y: 24, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }} className="relative w-full max-w-[440px]">
         <div className="glass-strong gradient-border rounded-2xl p-9 shadow-2xl shadow-accent/5">
           <div className="space-y-7">
