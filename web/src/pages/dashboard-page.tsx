@@ -259,7 +259,7 @@ export default function DashboardPage() {
       <motion.div variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }} initial="hidden" animate="show" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
         {/* CPU */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl border border-border/70 bg-surface-2 p-5">
+        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl bg-surface-2 p-5">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">CPU</p>
@@ -267,14 +267,13 @@ export default function DashboardPage() {
                 <AnimatedNumber value={cpuPercent} format={(v) => v.toFixed(1)} />
                 <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
               </p>
-              <p className="mt-2 text-[13px] text-txt-secondary">System load</p>
             </div>
             <ProgressRing value={cpuPercent} color="var(--data-2)" />
           </div>
         </motion.div>
 
         {/* RAM */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl border border-border/70 bg-surface-2 p-5">
+        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl bg-surface-2 p-5">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">RAM</p>
@@ -282,19 +281,17 @@ export default function DashboardPage() {
                 <AnimatedNumber value={ramPercent} format={(v) => v.toFixed(1)} />
                 <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
               </p>
-              <p className="mt-2 text-[13px] text-txt-secondary">Memory usage</p>
             </div>
             <ProgressRing value={ramPercent} color="var(--data-4)" />
           </div>
         </motion.div>
 
         {/* Online */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl border border-border/70 bg-surface-2 p-5">
+        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl bg-surface-2 p-5">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Online</p>
               <p className="mt-2 text-metric text-txt-primary"><AnimatedNumber value={onlineUsers} /></p>
-              <p className="mt-2 text-[13px] text-txt-secondary">Connected users</p>
             </div>
             <div className="grid h-[52px] w-[52px] place-items-center rounded-full bg-status-success/10">
               <Users2 size={22} strokeWidth={1.6} className="text-status-success" />
@@ -303,12 +300,11 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* Uptime */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl border border-border/70 bg-surface-2 p-5">
+        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl bg-surface-2 p-5">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Uptime</p>
               <p className="mt-2 text-metric text-txt-primary">{uptime}</p>
-              <p className="mt-2 text-[13px] text-txt-secondary">Current session</p>
             </div>
             <div className="grid h-[52px] w-[52px] place-items-center rounded-full bg-status-warning/10">
               <Clock size={22} strokeWidth={1.6} className="text-status-warning" />
@@ -319,7 +315,7 @@ export default function DashboardPage() {
 
       {/* ── Secondary stats ── */}
       <motion.div variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }} initial="hidden" animate="show" className="grid gap-4 sm:grid-cols-3">
-        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="flex items-center gap-4 rounded-2xl border border-border/70 bg-surface-2 p-5">
+        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="flex items-center gap-4 rounded-2xl bg-surface-2 p-5">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent/10">
             <Network size={22} strokeWidth={1.6} className="text-accent-light" />
           </div>
@@ -332,7 +328,7 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="flex items-center gap-4 rounded-2xl border border-border/70 bg-surface-2 p-5">
+        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="flex items-center gap-4 rounded-2xl bg-surface-2 p-5">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent-secondary/10">
             <Globe size={22} strokeWidth={1.6} className="text-accent-secondary-light" />
           </div>
@@ -342,7 +338,7 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="flex items-center gap-4 rounded-2xl border border-border/70 bg-surface-2 p-5">
+        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="flex items-center gap-4 rounded-2xl bg-surface-2 p-5">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent/10">
             <Zap size={22} strokeWidth={1.6} className="text-accent-light" />
           </div>
@@ -375,7 +371,7 @@ export default function DashboardPage() {
         )}
         {historyError && <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">{historyError}</div>}
 
-        <div className="rounded-2xl border border-border/70 bg-surface-2 p-6">
+        <div className="rounded-2xl bg-surface-2 p-6">
           <div className="mb-4 flex items-center gap-5 text-[13px]">
             <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-full bg-accent" />Upload</span>
             <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-full bg-accent-secondary" />Download</span>
@@ -398,7 +394,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/70 bg-surface-2 p-6">
+        <div className="rounded-2xl bg-surface-2 p-6">
           <div className="mb-4 flex items-center gap-5 text-[13px]">
             <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-sm bg-accent" />Download</span>
             <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-sm bg-accent-secondary" />Upload</span>
@@ -420,7 +416,7 @@ export default function DashboardPage() {
 
       {/* ── Live & Snapshot ── */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-border/70 bg-surface-2 p-6">
+        <div className="rounded-2xl bg-surface-2 p-6">
           <SectionHeader icon={<Activity size={18} strokeWidth={1.6} />} title="Live Feed" />
           <div className="mt-5 space-y-3">
             {(live?.services || []).length ? (live?.services || []).map((item, i) => (
@@ -435,7 +431,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/70 bg-surface-2 p-6">
+        <div className="rounded-2xl bg-surface-2 p-6">
           <SectionHeader icon={<HardDrive size={18} strokeWidth={1.6} />} title="Service Snapshot" />
           <div className="mt-5">
             <TableContainer className="border-0 bg-transparent shadow-none">
@@ -465,7 +461,7 @@ export default function DashboardPage() {
         <SectionHeader icon={<Cpu size={18} strokeWidth={1.6} />} title="Managed Services" />
         {servicesError && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{servicesError}</div>}
         {servicesLoading ? (
-          <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-border/70 bg-surface-2">
+          <div className="flex min-h-[180px] items-center justify-center rounded-2xl bg-surface-2">
             <div className="flex flex-col items-center gap-3">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent/20 border-t-accent-light" />
               <p className="text-[14px] text-txt-secondary">Loading services...</p>
@@ -474,7 +470,7 @@ export default function DashboardPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
             {serviceItems.length ? serviceItems.map((item) => (
-              <motion.div key={item.service_name} whileHover={{ y: -3 }} transition={{ duration: 0.15 }} className="group relative overflow-hidden rounded-2xl border border-border/70 bg-surface-2 p-6 transition-colors hover:border-accent/20">
+              <motion.div key={item.service_name} whileHover={{ y: -3 }} transition={{ duration: 0.15 }} className="group relative overflow-hidden rounded-2xl bg-surface-2 p-6 transition-colors">
                 <div className="absolute left-0 right-0 top-0 h-[2px] bg-gradient-to-r from-accent to-accent-secondary opacity-50 transition-opacity group-hover:opacity-100" />
                 <div className="mb-4 flex items-center justify-between">
                   <h4 className="text-[15px] font-bold text-txt-primary">{item.service_name}</h4>
@@ -492,7 +488,7 @@ export default function DashboardPage() {
                   <Button size="sm" onClick={() => setServiceActionState({ name: item.service_name, action: "restart" })} disabled={servicesBusy}><RotateCcw size={16} strokeWidth={1.6} />Restart</Button>
                 </div>
               </motion.div>
-            )) : <div className="rounded-2xl border border-border/70 bg-surface-2 p-6 text-[14px] text-txt-secondary">Service activity is not available yet.</div>}
+            )) : <div className="rounded-2xl bg-surface-2 p-6 text-[14px] text-txt-secondary">Service activity is not available yet.</div>}
           </div>
         )}
       </div>

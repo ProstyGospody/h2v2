@@ -19,12 +19,12 @@ export function MetricCard({ label, value, caption, tone = "primary", trend }: {
 
   return (
     <div className={cn(
-      "group h-full rounded-2xl border bg-surface-2 p-5 transition-colors",
-      tone === "primary" && "border-accent/20 hover:border-accent/35",
-      tone === "secondary" && "border-accent-secondary/20 hover:border-accent-secondary/35",
-      tone === "success" && "border-status-success/20 hover:border-status-success/35",
-      tone === "warning" && "border-status-warning/20 hover:border-status-warning/35",
-      tone === "error" && "border-status-danger/20 hover:border-status-danger/35",
+      "group h-full rounded-2xl bg-surface-2 p-5 transition-colors",
+      tone === "primary" && "shadow-[inset_0_1px_0_var(--shell-highlight)]",
+      tone === "secondary" && "shadow-[inset_0_1px_0_var(--shell-highlight)]",
+      tone === "success" && "shadow-[inset_0_1px_0_var(--status-success-soft)]",
+      tone === "warning" && "shadow-[inset_0_1px_0_var(--status-warning-soft)]",
+      tone === "error" && "shadow-[inset_0_1px_0_var(--status-danger-soft)]",
     )}>
       <div className="flex h-full flex-col gap-2">
         <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">{label}</p>

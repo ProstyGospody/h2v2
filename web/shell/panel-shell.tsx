@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity,
   ChevronLeft,
@@ -27,6 +26,9 @@ type NavItem = {
 };
 
 const SIDEBAR_COLLAPSED_KEY = "panel-sidebar-collapsed";
+const SIDEBAR_EXPANDED_WIDTH = 288;
+const SIDEBAR_RAIL_WIDTH = 96;
+const SIDEBAR_SHIFT = SIDEBAR_EXPANDED_WIDTH - SIDEBAR_RAIL_WIDTH;
 
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: <Activity size={24} strokeWidth={1.8} />, section: "MAIN" },
@@ -43,6 +45,7 @@ function isActive(pathname: string, href: string): boolean {
 export function PanelShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>(() => resolveTheme());
   const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -51,18 +54,18 @@ export function PanelShell({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  useEffect(() => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
     }
   }, [collapsed]);
 
-  const sectionMain = navItems.filter((n) => n.section === "MAIN");
-  const sectionSystem = navItems.filter((n) => n.section === "SYSTEM");
-
-  function changeTheme(next: ThemeMode) {
-    setTheme(next);
-    applyTheme(next);
-  }
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   async function logout() {
     try {
@@ -73,6 +76,9 @@ export function PanelShell({ children }: { children: ReactNode }) {
     navigate("/login", { replace: true });
   }
 
+  const sectionMain = navItems.filter((item) => item.section === "MAIN");
+  const sectionSystem = navItems.filter((item) => item.section === "SYSTEM");
+
   function SidebarNavLink({ item, compact }: { item: NavItem; compact: boolean }) {
     const selected = isActive(pathname, item.href);
 
@@ -80,23 +86,29 @@ export function PanelShell({ children }: { children: ReactNode }) {
       <button
         type="button"
         title={compact ? item.label : undefined}
-        onClick={() => {
-          navigate(item.href);
-          setMobileOpen(false);
-        }}
+        onClick={() => navigate(item.href)}
         className={cn(
-          "group relative flex w-full items-center rounded-2xl py-3 transition-all duration-200",
+          "group flex h-12 w-full items-center rounded-2xl",
           compact ? "justify-center px-0" : "gap-3 px-4",
           selected
             ? "bg-surface-3/70 text-txt-primary shadow-[inset_0_1px_0_var(--shell-highlight)]"
             : "text-txt-secondary hover:bg-surface-3/45 hover:text-txt-primary",
         )}
       >
-        <span className={cn("relative z-10 transition-colors", selected ? "text-accent-light" : "text-txt-tertiary group-hover:text-txt-primary")}>
+        <span className={cn("shrink-0", selected ? "text-accent-light" : "text-txt-tertiary group-hover:text-txt-primary")}>
           {item.icon}
         </span>
-        {!compact && <span className="relative z-10 text-[14px] font-semibold">{item.label}</span>}
-        {!compact && selected && <ChevronRight size={17} strokeWidth={1.8} className="relative z-10 ml-auto text-accent-light/75" />}
+
+        <span
+          className={cn(
+            "text-[14px] font-semibold whitespace-nowrap transition-opacity duration-150",
+            compact ? "w-0 overflow-hidden opacity-0" : "opacity-100",
+          )}
+        >
+          {item.label}
+        </span>
+
+        {!compact && selected && <ChevronRight size={17} strokeWidth={1.8} className="ml-auto shrink-0 text-accent-light/75" />}
       </button>
     );
   }
@@ -105,25 +117,25 @@ export function PanelShell({ children }: { children: ReactNode }) {
     return (
       <div className={cn("flex h-full flex-col", compact && "items-center")}>
         <div className={cn("flex w-full items-center border-b border-border/50 pb-4 pt-5", compact ? "justify-center px-2" : "justify-between px-5")}>
-          <div className={cn("relative", compact ? "h-11 w-11" : "h-12 w-12")}>
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent to-accent-secondary opacity-25 blur-lg" />
-            <div className="relative grid h-full w-full place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-secondary shadow-lg shadow-accent/20">
-              <Zap size={compact ? 22 : 24} strokeWidth={2} className="text-white" />
-            </div>
+          <div className={cn("grid place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-secondary", compact ? "h-11 w-11" : "h-12 w-12")}>
+            <Zap size={compact ? 22 : 24} strokeWidth={2} className="text-white" />
           </div>
 
-          {!compact && (
-            <div className="min-w-0 flex-1 pl-3">
-              <p className="truncate text-[17px] font-bold text-txt-primary">Nexus</p>
-              <p className="text-[12px] text-txt-muted">Control Panel</p>
-            </div>
-          )}
+          <div
+            className={cn(
+              "min-w-0 flex-1 pl-3 transition-opacity duration-150",
+              compact && "w-0 overflow-hidden pl-0 opacity-0",
+            )}
+          >
+            <p className="truncate text-[17px] font-bold text-txt-primary">Nexus</p>
+            <p className="text-[12px] text-txt-muted">Control Panel</p>
+          </div>
 
           {!mobile && (
             <button
               type="button"
               onClick={() => setCollapsed((prev) => !prev)}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface-2/80 text-txt-tertiary transition-colors hover:text-txt-primary"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2/80 text-txt-tertiary hover:text-txt-primary"
               aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
             >
               {compact ? <ChevronRight size={20} strokeWidth={2} /> : <ChevronLeft size={20} strokeWidth={2} />}
@@ -166,10 +178,10 @@ export function PanelShell({ children }: { children: ReactNode }) {
 
           <button
             type="button"
-            onClick={() => changeTheme(theme === "dark" ? "light" : "dark")}
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             title={compact ? "Toggle theme" : undefined}
             className={cn(
-              "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-colors hover:bg-surface-3/40 hover:text-txt-primary",
+              "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted hover:bg-surface-3/40 hover:text-txt-primary",
               compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
             )}
           >
@@ -182,7 +194,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
             onClick={() => void logout()}
             title={compact ? "Sign out" : undefined}
             className={cn(
-              "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-colors hover:bg-surface-3/40 hover:text-status-danger",
+              "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted hover:bg-surface-3/40 hover:text-status-danger",
               compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
             )}
           >
@@ -198,41 +210,23 @@ export function PanelShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-surface-0 text-txt">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden border-r border-border/50 bg-surface-1 backdrop-blur-xl transition-[width] duration-300 lg:block",
-          collapsed ? "w-[96px]" : "w-[288px]",
+          "fixed inset-y-0 left-0 z-30 hidden border-r border-border/50 bg-surface-1 shadow-[inset_0_1px_0_var(--shell-highlight)] lg:block",
+          "transform-gpu will-change-transform motion-reduce:transition-none",
+          "transition-transform duration-200 ease-out",
         )}
+        style={{
+          width: `${SIDEBAR_EXPANDED_WIDTH}px`,
+          transform: collapsed ? `translateX(-${SIDEBAR_SHIFT}px)` : "translateX(0)",
+        }}
       >
         <SidebarContent compact={collapsed} mobile={false} />
       </aside>
 
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setMobileOpen(false)}
-          >
-            <motion.aside
-              className="h-full w-[288px] border-r border-border/50 bg-surface-1"
-              initial={{ x: -56, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -56, opacity: 0 }}
-              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <SidebarContent compact={false} mobile />
-            </motion.aside>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className={cn("transition-[padding] duration-300", collapsed ? "lg:pl-[96px]" : "lg:pl-[288px]")}>
-        <header className="sticky top-0 z-20 border-b border-border/40 bg-surface-0/85 px-6 py-4 backdrop-blur-xl lg:hidden">
+      <div className="lg:pl-[96px]">
+        <header className="sticky top-0 z-20 border-b border-border/40 bg-surface-0/90 px-6 py-4 lg:hidden">
           <button
             type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface-1 text-txt-secondary transition-colors hover:text-txt"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface-1 text-txt-secondary hover:text-txt"
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
           >
@@ -240,19 +234,28 @@ export function PanelShell({ children }: { children: ReactNode }) {
           </button>
         </header>
 
-        <main className="p-5 md:p-8">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={pathname}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.24, ease: [0.25, 0.1, 0.25, 1] }}
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
-        </main>
+        <main className="p-5 md:p-8">{children}</main>
+      </div>
+
+      <div
+        className={cn(
+          "fixed inset-0 z-50 lg:hidden",
+          "transition-opacity duration-200 ease-out motion-reduce:transition-none",
+          mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
+        )}
+      >
+        <div className="absolute inset-0 bg-black/55" onClick={() => setMobileOpen(false)} />
+        <aside
+          className={cn(
+            "absolute inset-y-0 left-0 h-full border-r border-border/50 bg-surface-1 shadow-2xl shadow-black/30",
+            "transform-gpu will-change-transform motion-reduce:transition-none",
+            "transition-transform duration-220 ease-out",
+            mobileOpen ? "translate-x-0" : "-translate-x-full",
+          )}
+          style={{ width: `${SIDEBAR_EXPANDED_WIDTH}px` }}
+        >
+          <SidebarContent compact={false} mobile />
+        </aside>
       </div>
     </div>
   );

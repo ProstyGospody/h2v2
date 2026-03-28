@@ -49,7 +49,7 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
 
   return (
     <div className="space-y-5">
-      <section className="space-y-5 rounded-2xl border border-border/70 bg-surface-2 p-6">
+      <section className="space-y-5 rounded-2xl bg-surface-2 p-6">
         <SectionTitle icon={<Globe size={18} strokeWidth={1.6} />} title="Connection Profile" description="Listener and encryption settings" />
         <div className="grid gap-4 md:grid-cols-4">
           <Input label="Listen" value={draft.listen} onChange={(e) => onDraftChange({ ...draft, listen: e.target.value.replace(/^:/, "") })} />
@@ -71,7 +71,7 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
         {obfsType === "salamander" && <Input label="OBFS Password" value={draft.obfs?.salamander?.password || ""} onChange={(e) => onDraftChange({ ...draft, obfs: { type: "salamander", salamander: { password: e.target.value } } })} />}
       </section>
 
-      <section className="space-y-5 rounded-2xl border border-border/70 bg-surface-2 p-6">
+      <section className="space-y-5 rounded-2xl bg-surface-2 p-6">
         <SectionTitle icon={<Wrench size={18} strokeWidth={1.6} />} title="Runtime Defaults" description="Bandwidth, transport and protocol options" />
         <div className="grid gap-4 md:grid-cols-3">
           <LabeledToggle label="TLS Insecure" checked={Boolean(draft.clientTLSInsecure)} onCheckedChange={(v) => onDraftChange({ ...draft, clientTLSInsecure: v })} />
@@ -85,7 +85,7 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
       </section>
 
       {masqueradeType !== "none" && (
-        <section className="space-y-5 rounded-2xl border border-border/70 bg-surface-2 p-6">
+        <section className="space-y-5 rounded-2xl bg-surface-2 p-6">
           <SectionTitle icon={<Shield size={18} strokeWidth={1.6} />} title="Masquerade Details" description="Traffic camouflage configuration" />
           {masqueradeType === "proxy" && (
             <div className="space-y-4">
@@ -112,7 +112,7 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
         </section>
       )}
 
-      <section className="space-y-5 rounded-2xl border border-border/70 bg-surface-2 p-6">
+      <section className="space-y-5 rounded-2xl bg-surface-2 p-6">
         <SectionTitle icon={<SlidersHorizontal size={18} strokeWidth={1.6} />} title="QUIC Tuning" description="Advanced transport parameters" />
         <LabeledToggle label="Enable Custom QUIC" checked={draft.quicEnabled} onCheckedChange={(v) => onDraftChange({ ...draft, quicEnabled: v })} />
         {draft.quicEnabled && (
@@ -123,7 +123,7 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
         )}
       </section>
 
-      <section className="space-y-5 rounded-2xl border border-border/70 bg-surface-2 p-6">
+      <section className="space-y-5 rounded-2xl bg-surface-2 p-6">
         <SectionTitle icon={<Code size={18} strokeWidth={1.6} />} title="Generated YAML" description="Preview of the configuration file" />
         <textarea readOnly value={rawYaml} rows={16}
           className="w-full rounded-xl border border-border/50 bg-surface-0/80 px-5 py-4 font-mono text-[13px] leading-6 text-accent-light/70 outline-none" />
