@@ -2,7 +2,7 @@ import { Code, Globe, Shield, SlidersHorizontal, Wrench } from "lucide-react";
 import { ReactNode, useEffect } from "react";
 
 import { Hy2Settings } from "@/domain/settings/types";
-import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Toggle } from "@/src/components/ui";
+import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Toggle, cn } from "@/src/components/ui";
 
 function SectionTitle({ icon, title, description }: { icon: ReactNode; title: string; description?: string }) {
   return (
@@ -20,8 +20,8 @@ function SectionTitle({ icon, title, description }: { icon: ReactNode; title: st
 
 function LabeledToggle({ label, checked, onCheckedChange }: { label: string; checked: boolean; onCheckedChange: (v: boolean) => void }) {
   return (
-    <div className="flex items-center justify-between rounded-xl border border-border/50 bg-surface-1/40 px-4 py-3 transition-colors hover:border-border">
-      <p className="text-[14px] text-txt-secondary">{label}</p>
+    <div className="flex min-h-[52px] items-center justify-between rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] px-4 py-3 transition-colors hover:border-[var(--control-border-strong)] hover:bg-[var(--control-bg-hover)]">
+      <p className="text-[14px] font-medium text-txt-primary">{label}</p>
       <Toggle checked={checked} onCheckedChange={onCheckedChange} />
     </div>
   );
@@ -48,10 +48,10 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
   useEffect(() => { if (obfsType !== "none" && masqueradeType !== "none") onDraftChange({ ...draft, masquerade: undefined }); }, [draft, masqueradeType, obfsType, onDraftChange]);
 
   return (
-    <div className="space-y-5">
-      <section className="space-y-5 rounded-2xl bg-surface-2 p-6">
+    <div className="grid gap-5 xl:grid-cols-12">
+      <section className="space-y-5 rounded-2xl bg-surface-2 p-6 xl:col-span-7">
         <SectionTitle icon={<Globe size={18} strokeWidth={1.6} />} title="Connection Profile" description="Listener and encryption settings" />
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Input label="Listen" value={draft.listen} onChange={(e) => onDraftChange({ ...draft, listen: e.target.value.replace(/^:/, "") })} />
           <SelectField label="TLS Mode" value={tlsMode} onValueChange={(v) => onDraftChange({ ...draft, tlsMode: v, tlsEnabled: true })} options={[{ value: "acme", label: "ACME" }, { value: "tls", label: "Manual TLS" }]} />
           <SelectField label="OBFS" value={obfsType} onValueChange={(v) => { if (v === "salamander") { onDraftChange({ ...draft, obfs: { type: "salamander", salamander: { password: draft.obfs?.salamander?.password || "" } }, masquerade: undefined }); return; } onDraftChange({ ...draft, obfs: undefined }); }} options={[{ value: "none", label: "Disabled" }, { value: "salamander", label: "Salamander" }]} />
@@ -71,9 +71,9 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
         {obfsType === "salamander" && <Input label="OBFS Password" value={draft.obfs?.salamander?.password || ""} onChange={(e) => onDraftChange({ ...draft, obfs: { type: "salamander", salamander: { password: e.target.value } } })} />}
       </section>
 
-      <section className="space-y-5 rounded-2xl bg-surface-2 p-6">
+      <section className="space-y-5 rounded-2xl bg-surface-2 p-6 xl:col-span-5">
         <SectionTitle icon={<Wrench size={18} strokeWidth={1.6} />} title="Runtime Defaults" description="Bandwidth, transport and protocol options" />
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <LabeledToggle label="TLS Insecure" checked={Boolean(draft.clientTLSInsecure)} onCheckedChange={(v) => onDraftChange({ ...draft, clientTLSInsecure: v })} />
           <LabeledToggle label="Ignore Client Bandwidth" checked={Boolean(draft.ignoreClientBandwidth)} onCheckedChange={(v) => onDraftChange({ ...draft, ignoreClientBandwidth: v })} />
           <LabeledToggle label="Disable UDP" checked={Boolean(draft.disableUDP)} onCheckedChange={(v) => onDraftChange({ ...draft, disableUDP: v })} />
@@ -85,7 +85,7 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
       </section>
 
       {masqueradeType !== "none" && (
-        <section className="space-y-5 rounded-2xl bg-surface-2 p-6">
+        <section className="space-y-5 rounded-2xl bg-surface-2 p-6 xl:col-span-7">
           <SectionTitle icon={<Shield size={18} strokeWidth={1.6} />} title="Masquerade Details" description="Traffic camouflage configuration" />
           {masqueradeType === "proxy" && (
             <div className="space-y-4">
@@ -102,7 +102,7 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
               <div className="md:col-span-9">
                 <label className="mb-2 block text-[13px] font-medium text-txt-secondary">Masquerade String Content</label>
                 <textarea value={draft.masquerade?.string?.content || ""} onChange={(e) => onDraftChange({ ...draft, masquerade: { type: "string", string: { content: e.target.value, statusCode: draft.masquerade?.string?.statusCode || 200 } } })} rows={3}
-                  className="w-full rounded-lg border border-border bg-surface-1 px-4 py-2.5 text-[14px] text-txt outline-none transition-all focus:border-accent/40 focus:shadow-[0_0_0_3px_var(--primary-soft)]" />
+                  className="w-full rounded-lg border border-[var(--control-border)] bg-[var(--control-bg)] px-4 py-2.5 text-[14px] font-medium text-txt-primary outline-none transition-colors focus:border-accent/50 focus:bg-[var(--control-bg-hover)] focus:shadow-[0_0_0_3px_var(--primary-soft)]" />
               </div>
               <div className="md:col-span-3">
                 <Input label="Status Code" type="number" value={String(draft.masquerade?.string?.statusCode ?? 200)} onChange={(e) => { const p = Number.parseInt(e.target.value, 10); onDraftChange({ ...draft, masquerade: { type: "string", string: { content: draft.masquerade?.string?.content || "", statusCode: Number.isFinite(p) ? p : 200 } } }); }} min={100} max={599} />
@@ -112,7 +112,7 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
         </section>
       )}
 
-      <section className="space-y-5 rounded-2xl bg-surface-2 p-6">
+      <section className={cn("space-y-5 rounded-2xl bg-surface-2 p-6", masqueradeType !== "none" ? "xl:col-span-5" : "xl:col-span-12")}>
         <SectionTitle icon={<SlidersHorizontal size={18} strokeWidth={1.6} />} title="QUIC Tuning" description="Advanced transport parameters" />
         <LabeledToggle label="Enable Custom QUIC" checked={draft.quicEnabled} onCheckedChange={(v) => onDraftChange({ ...draft, quicEnabled: v })} />
         {draft.quicEnabled && (
@@ -123,10 +123,10 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
         )}
       </section>
 
-      <section className="space-y-5 rounded-2xl bg-surface-2 p-6">
+      <section className="space-y-5 rounded-2xl bg-surface-2 p-6 xl:col-span-12">
         <SectionTitle icon={<Code size={18} strokeWidth={1.6} />} title="Generated YAML" description="Preview of the configuration file" />
         <textarea readOnly value={rawYaml} rows={16}
-          className="w-full rounded-xl border border-border/50 bg-surface-0/80 px-5 py-4 font-mono text-[13px] leading-6 text-accent-light/70 outline-none" />
+          className="w-full rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] px-5 py-4 font-mono text-[13px] leading-6 text-accent-light/80 outline-none" />
         <p className="text-[13px] text-txt-muted">Read-only preview of generated configuration</p>
       </section>
     </div>

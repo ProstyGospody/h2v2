@@ -109,7 +109,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
   function SidebarContent({ compact, mobile }: { compact: boolean; mobile: boolean }) {
     return (
       <div className={cn("flex h-full flex-col", compact && "items-center")}>
-        <div className={cn("flex w-full items-center border-b border-border/50 pb-4 pt-5", compact ? "justify-center px-2" : "justify-between px-5")}>
+        <div className={cn("flex w-full items-center border-b border-border/50 pb-4 pt-5", compact ? "justify-center px-2" : "justify-start px-5")}>
           <div className={cn("grid place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-secondary", compact ? "h-11 w-11" : "h-12 w-12")}>
             <Zap size={compact ? 22 : 24} strokeWidth={2} className="text-white" />
           </div>
@@ -121,17 +121,23 @@ export function PanelShell({ children }: { children: ReactNode }) {
             </div>
           )}
 
-          {!mobile && (
+        </div>
+
+        {!mobile && (
+          <div className={cn("w-full border-b border-border/35 pb-3", compact ? "px-2 pt-3" : "px-4 pt-3")}>
             <button
               type="button"
               onClick={() => setCollapsed((prev) => !prev)}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2/80 text-txt-tertiary hover:text-txt-primary"
+              className={cn(
+                "inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] text-txt-tertiary transition-colors hover:border-[var(--control-border-strong)] hover:bg-[var(--control-bg-hover)] hover:text-txt-primary",
+                compact ? "mx-auto" : "ml-auto",
+              )}
               aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
             >
               {compact ? <ChevronRight size={20} strokeWidth={2} /> : <ChevronLeft size={20} strokeWidth={2} />}
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         <nav className={cn("w-full flex-1 overflow-y-auto pt-4", compact ? "px-2" : "px-3")}>
           <div>

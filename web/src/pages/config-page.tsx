@@ -110,9 +110,7 @@ export default function ConfigPage() {
       {validation?.errors?.length ? <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{validation.errors.join(" | ")}</div> : null}
       {validation?.warnings?.length ? <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">{validation.warnings.join(" | ")}</div> : null}
 
-      <div className="max-w-[800px]">
-        <ServerSettingsForm draft={draft} rawYaml={rawYaml} onDraftChange={setDraft} />
-      </div>
+      <ServerSettingsForm draft={draft} rawYaml={rawYaml} onDraftChange={setDraft} />
 
       <ConfirmDialog open={applyDialog} title="Apply configuration" description="Restart hysteria-server with the current saved settings?" busy={applying} confirmColor="secondary" confirmText="Apply & Restart" onClose={() => setApplyDialog(false)} onConfirm={() => void applyConfig()} />
       <Toast open={Boolean(snack)} onOpenChange={(open) => !open && setSnack("")} message={snack} variant="success" />

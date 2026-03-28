@@ -58,6 +58,11 @@
   --border: rgba(255, 255, 255, 0.42);
   --border-hover: rgba(255, 255, 255, 0.54);
   --border-focus: rgba(122, 108, 246, 0.36);
+
+  --control-bg: rgba(255, 255, 255, 0.74);
+  --control-bg-hover: rgba(255, 255, 255, 0.88);
+  --control-border: rgba(130, 146, 176, 0.34);
+  --control-border-strong: rgba(120, 136, 166, 0.52);
 }
 
 html.dark {
@@ -110,9 +115,14 @@ html.dark {
   --surface-3: var(--panel-strong);
   --surface-4: var(--panel-hover);
 
-  --border: rgba(228, 234, 255, 0.1);
-  --border-hover: rgba(228, 234, 255, 0.17);
+  --border: rgba(228, 234, 255, 0.16);
+  --border-hover: rgba(228, 234, 255, 0.26);
   --border-focus: rgba(157, 144, 255, 0.34);
+
+  --control-bg: rgba(21, 27, 40, 0.88);
+  --control-bg-hover: rgba(29, 36, 52, 0.96);
+  --control-border: rgba(200, 214, 240, 0.22);
+  --control-border-strong: rgba(214, 226, 248, 0.34);
 }
 
 @theme {
