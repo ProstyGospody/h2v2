@@ -124,18 +124,17 @@ export function PanelShell({ children }: { children: ReactNode }) {
         </div>
 
         {!mobile && (
-          <div className={cn("w-full border-b border-border/35 pb-3", compact ? "px-2 pt-3" : "px-4 pt-3")}>
-            <button
-              type="button"
-              onClick={() => setCollapsed((prev) => !prev)}
-              className={cn(
-                "inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] text-txt-tertiary transition-colors hover:border-[var(--control-border-strong)] hover:bg-[var(--control-bg-hover)] hover:text-txt-primary",
-                compact ? "mx-auto" : "ml-auto",
-              )}
-              aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {compact ? <ChevronRight size={20} strokeWidth={2} /> : <ChevronLeft size={20} strokeWidth={2} />}
-            </button>
+          <div className={cn("w-full pb-3 pt-2", compact ? "px-2" : "px-4")}>
+            <div className={cn("flex", compact ? "justify-center" : "justify-end")}>
+              <button
+                type="button"
+                onClick={() => setCollapsed((prev) => !prev)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] text-txt-tertiary shadow-[inset_0_1px_0_var(--shell-highlight)] transition-colors hover:border-[var(--control-border-strong)] hover:bg-[var(--control-bg-hover)] hover:text-txt-primary"
+                aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                {compact ? <ChevronRight size={18} strokeWidth={2} /> : <ChevronLeft size={18} strokeWidth={2} />}
+              </button>
+            </div>
           </div>
         )}
 
@@ -206,7 +205,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-surface-0 text-txt">
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-30 hidden bg-surface-0 shadow-[inset_0_1px_0_var(--shell-highlight)] lg:block",
+          "fixed inset-y-0 left-0 z-30 hidden border-r border-border/40 bg-surface-0 shadow-[inset_0_1px_0_var(--shell-highlight)] lg:block",
           collapsed ? SIDEBAR_COLLAPSED_CLASS : SIDEBAR_EXPANDED_CLASS,
         )}
       >
@@ -231,7 +230,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/55" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-[280px] bg-surface-0 shadow-2xl shadow-black/30">
+          <aside className="absolute inset-y-0 left-0 w-[280px] border-r border-border/40 bg-surface-0 shadow-2xl shadow-black/30">
             <SidebarContent compact={false} mobile />
           </aside>
         </div>

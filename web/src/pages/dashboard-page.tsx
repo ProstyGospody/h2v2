@@ -1,15 +1,11 @@
 import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 import {
-  Activity,
   ArrowDownToLine,
   ArrowUpFromLine,
-  BarChart3,
   Clock,
   Cpu,
   Eye,
   Globe,
-  HardDrive,
-  Loader2,
   Network,
   RefreshCw,
   RotateCcw,
@@ -34,7 +30,7 @@ import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { PageHeader } from "@/components/ui/page-header";
 import { APIError, apiFetch } from "@/services/api";
 import { ServiceDetails, ServiceSummary, SystemHistoryResponse, SystemLiveResponse } from "@/types/common";
-import { Button, Dialog, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow, cn } from "@/src/components/ui";
+import { Button, Dialog, cn } from "@/src/components/ui";
 import { formatBytes, formatDateTime, formatRate, formatUptime } from "@/utils/format";
 
 const LIVE_POLL_MS = 5000;
@@ -414,78 +410,36 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Live & Snapshot ── */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl bg-surface-2 p-6">
-          <SectionHeader icon={<Activity size={18} strokeWidth={1.6} />} title="Live Feed" />
-          <div className="mt-5 space-y-3">
-            {(live?.services || []).length ? (live?.services || []).map((item, i) => (
-              <motion.div key={`${item.service_name}-${i}`} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="flex items-start gap-3 border-b border-border/30 pb-3 last:border-0">
-                <span className={cn("mt-2 h-2 w-2 shrink-0 rounded-full", statusColor(item.status))} />
-                <div>
-                  <p className="text-[14px]"><span className="font-semibold text-txt-primary">{item.service_name}</span><span className="ml-2 text-txt-tertiary">{item.status}</span></p>
-                  <p className="mt-0.5 text-[12px] text-txt-muted">{formatDateTime(item.last_check_at)}</p>
-                </div>
-              </motion.div>
-            )) : <p className="py-6 text-center text-[14px] text-txt-secondary">No recent events.</p>}
-          </div>
-        </div>
-
-        <div className="rounded-2xl bg-surface-2 p-6">
-          <SectionHeader icon={<HardDrive size={18} strokeWidth={1.6} />} title="Service Snapshot" />
-          <div className="mt-5">
-            <TableContainer className="border-0 bg-transparent shadow-none">
-              <Table>
-                <TableHeader><TableRow className="border-t-0 hover:bg-transparent"><TableHead>Service</TableHead><TableHead>Status</TableHead><TableHead>Checked</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {(live?.services || []).map((item) => (
-                    <TableRow key={item.service_name} className="cursor-default">
-                      <TableCell className="font-medium">{item.service_name}</TableCell>
-                      <TableCell>
-                        <span className={cn("inline-flex items-center gap-2", item.status.includes("running") ? "text-status-success" : "text-status-warning")}>
-                          <span className={cn("h-2 w-2 rounded-full", statusColor(item.status))} />{item.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-txt-secondary">{formatDateTime(item.last_check_at)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </div>
-        </div>
-      </div>
 
       {/* ── Managed services ── */}
-      <div className="space-y-4">
+      <div className="space-y-2.5">
         <SectionHeader icon={<Cpu size={18} strokeWidth={1.6} />} title="Managed Services" />
         {servicesError && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{servicesError}</div>}
         {servicesLoading ? (
-          <div className="flex min-h-[180px] items-center justify-center rounded-2xl bg-surface-2">
+          <div className="flex min-h-[120px] items-center justify-center rounded-2xl bg-surface-2">
             <div className="flex flex-col items-center gap-3">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent/20 border-t-accent-light" />
               <p className="text-[14px] text-txt-secondary">Loading services...</p>
             </div>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {serviceItems.length ? serviceItems.map((item) => (
-              <motion.div key={item.service_name} whileHover={{ y: -3 }} transition={{ duration: 0.15 }} className="group relative overflow-hidden rounded-2xl bg-surface-2 p-6 transition-colors">
-                <div className="absolute left-0 right-0 top-0 h-[2px] bg-gradient-to-r from-accent to-accent-secondary opacity-50 transition-opacity group-hover:opacity-100" />
-                <div className="mb-4 flex items-center justify-between">
+              <motion.div key={item.service_name} className="relative overflow-hidden rounded-2xl bg-surface-2 p-4">
+                <div className="mb-2.5 flex items-center justify-between gap-3">
                   <h4 className="text-[15px] font-bold text-txt-primary">{item.service_name}</h4>
                   <span className="inline-flex items-center gap-2 text-[13px] text-txt-secondary">
                     <span className={cn("h-2 w-2 rounded-full", statusColor(item.status || "unknown"))} />{(item.status || "unknown").toLowerCase()}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2.5">
                   <div><p className="text-[12px] font-medium text-txt-muted">Version</p><p className="mt-1 text-[14px] font-medium text-txt">{item.version || "-"}</p></div>
                   <div><p className="text-[12px] font-medium text-txt-muted">Last check</p><p className="mt-1 text-[14px] font-medium text-txt">{formatDateTime(item.last_check_at)}</p></div>
                 </div>
-                <div className="mt-5 flex items-center gap-3 border-t border-border/40 pt-4">
-                  <Button size="sm" onClick={() => void openServiceDetails(item.service_name)} disabled={servicesBusy}><Eye size={16} strokeWidth={1.6} />Details</Button>
-                  <Button size="sm" onClick={() => setServiceActionState({ name: item.service_name, action: "reload" })} disabled={servicesBusy}><RefreshCw size={16} strokeWidth={1.6} />Reload</Button>
-                  <Button size="sm" onClick={() => setServiceActionState({ name: item.service_name, action: "restart" })} disabled={servicesBusy}><RotateCcw size={16} strokeWidth={1.6} />Restart</Button>
+                <div className="mt-2.5 flex items-center gap-2 border-t border-border/40 pt-2.5">
+                  <Button size="sm" className="h-8 px-3" onClick={() => void openServiceDetails(item.service_name)} disabled={servicesBusy}><Eye size={15} strokeWidth={1.6} />Details</Button>
+                  <Button size="sm" className="h-8 px-3" onClick={() => setServiceActionState({ name: item.service_name, action: "reload" })} disabled={servicesBusy}><RefreshCw size={15} strokeWidth={1.6} />Reload</Button>
+                  <Button size="sm" className="h-8 px-3" onClick={() => setServiceActionState({ name: item.service_name, action: "restart" })} disabled={servicesBusy}><RotateCcw size={15} strokeWidth={1.6} />Restart</Button>
                 </div>
               </motion.div>
             )) : <div className="rounded-2xl bg-surface-2 p-6 text-[14px] text-txt-secondary">Service activity is not available yet.</div>}
