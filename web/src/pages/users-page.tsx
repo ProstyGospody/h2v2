@@ -338,33 +338,33 @@ export default function UsersPage() {
         title="Users"
         actions={
           <>
-            <Button variant="primary" onClick={openCreate}>
+            <Button variant="primary" onClick={openCreate} className="h-12 rounded-2xl px-5">
               <Plus size={18} strokeWidth={1.6} />
               Add user
             </Button>
-            <Button variant="danger" disabled={!selectedClientIDs.length} onClick={() => setBulkDeleteOpen(true)}>
+            <Button variant="danger" disabled={!selectedClientIDs.length} onClick={() => setBulkDeleteOpen(true)} className="h-12 rounded-2xl px-5">
               <Trash2 size={18} strokeWidth={1.6} />
               Delete selected ({selectedClientIDs.length})
             </Button>
-            <div className="relative min-w-[220px]">
+            <div className="relative min-w-[240px]">
               <Search size={16} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
               <Input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search users..."
-                className="rounded-full pl-11"
+                className="h-12 rounded-2xl border-border/80 bg-surface-2/70 pl-11 shadow-[inset_0_1px_0_var(--shell-highlight)]"
               />
             </div>
-            <div className="inline-flex items-center rounded-full bg-surface-3/50 p-1">
+            <div className="inline-flex h-12 items-center rounded-2xl border border-border/70 bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)]">
               {(["all", "online", "enabled", "disabled"] as ClientFilter[]).map((item) => (
                 <button
                   key={item}
                   type="button"
                   onClick={(event) => handleFilterChange(event, item)}
                   className={cn(
-                    "rounded-full px-4 py-1.5 text-[13px] font-semibold capitalize transition-all",
-                    filter === item && "bg-accent text-white shadow-sm shadow-accent/25",
-                    filter !== item && "text-txt-secondary hover:text-txt",
+                    "rounded-xl px-4 py-2 text-[13px] font-semibold capitalize transition-all",
+                    filter === item && "bg-accent text-white shadow-sm shadow-accent/30",
+                    filter !== item && "text-txt-secondary hover:text-txt-primary",
                   )}
                 >
                   {item}

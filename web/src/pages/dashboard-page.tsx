@@ -259,8 +259,7 @@ export default function DashboardPage() {
       <motion.div variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }} initial="hidden" animate="show" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
         {/* CPU */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="group relative overflow-hidden rounded-2xl border border-border/70 bg-surface-2 p-5 transition-colors hover:border-accent/25">
-          <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-accent/5 transition-all group-hover:bg-accent/10" />
+        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl border border-border/70 bg-surface-2 p-5">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">CPU</p>
@@ -275,8 +274,7 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* RAM */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="group relative overflow-hidden rounded-2xl border border-border/70 bg-surface-2 p-5 transition-colors hover:border-accent-secondary/25">
-          <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-accent-secondary/5 transition-all group-hover:bg-accent-secondary/10" />
+        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl border border-border/70 bg-surface-2 p-5">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">RAM</p>
@@ -291,8 +289,7 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* Online */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="group relative overflow-hidden rounded-2xl border border-border/70 bg-surface-2 p-5 transition-colors hover:border-status-success/25">
-          <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-status-success/5 transition-all group-hover:bg-status-success/10" />
+        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl border border-border/70 bg-surface-2 p-5">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Online</p>
@@ -306,8 +303,7 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* Uptime */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="group relative overflow-hidden rounded-2xl border border-border/70 bg-surface-2 p-5 transition-colors hover:border-status-warning/25">
-          <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-status-warning/5 transition-all group-hover:bg-status-warning/10" />
+        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl border border-border/70 bg-surface-2 p-5">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Uptime</p>

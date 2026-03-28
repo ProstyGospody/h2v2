@@ -1,17 +1,18 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  Activity,
+  ChevronLeft,
   ChevronRight,
-  FileText,
-  LayoutGrid,
+  HardDrive,
   LogOut,
   Moon,
   PanelLeft,
-  Settings2,
+  Shield,
+  SlidersHorizontal,
   Sun,
-  Users2,
   Zap,
 } from "lucide-react";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { cn } from "@/src/components/ui";
@@ -25,11 +26,13 @@ type NavItem = {
   section: "MAIN" | "SYSTEM";
 };
 
+const SIDEBAR_COLLAPSED_KEY = "panel-sidebar-collapsed";
+
 const navItems: NavItem[] = [
-  { href: "/", label: "Dashboard", icon: <LayoutGrid size={20} strokeWidth={1.6} />, section: "MAIN" },
-  { href: "/users", label: "Users", icon: <Users2 size={20} strokeWidth={1.6} />, section: "MAIN" },
-  { href: "/config", label: "Settings", icon: <Settings2 size={20} strokeWidth={1.6} />, section: "SYSTEM" },
-  { href: "/audit", label: "Audit Log", icon: <FileText size={20} strokeWidth={1.6} />, section: "SYSTEM" },
+  { href: "/", label: "Dashboard", icon: <Activity size={24} strokeWidth={1.8} />, section: "MAIN" },
+  { href: "/users", label: "Users", icon: <Shield size={24} strokeWidth={1.8} />, section: "MAIN" },
+  { href: "/config", label: "Settings", icon: <SlidersHorizontal size={24} strokeWidth={1.8} />, section: "SYSTEM" },
+  { href: "/audit", label: "Audit Log", icon: <HardDrive size={24} strokeWidth={1.8} />, section: "SYSTEM" },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -37,18 +40,24 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function resolveTitle(pathname: string): string {
-  if (pathname === "/") return "Dashboard";
-  return navItems.find((item) => item.href === pathname)?.label || "Panel";
-}
-
 export function PanelShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>(() => resolveTheme());
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+  });
 
-  const activeTitle = useMemo(() => resolveTitle(pathname), [pathname]);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+    }
+  }, [collapsed]);
+
+  const sectionMain = navItems.filter((n) => n.section === "MAIN");
+  const sectionSystem = navItems.filter((n) => n.section === "SYSTEM");
 
   function changeTheme(next: ThemeMode) {
     setTheme(next);
@@ -64,111 +73,138 @@ export function PanelShell({ children }: { children: ReactNode }) {
     navigate("/login", { replace: true });
   }
 
-  const sectionMain = navItems.filter((n) => n.section === "MAIN");
-  const sectionSystem = navItems.filter((n) => n.section === "SYSTEM");
-
-  function NavLink({ item }: { item: NavItem }) {
+  function SidebarNavLink({ item, compact }: { item: NavItem; compact: boolean }) {
     const selected = isActive(pathname, item.href);
+
     return (
       <button
         type="button"
-        onClick={() => { navigate(item.href); setMobileOpen(false); }}
+        title={compact ? item.label : undefined}
+        onClick={() => {
+          navigate(item.href);
+          setMobileOpen(false);
+        }}
         className={cn(
-          "group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium transition-all duration-200",
+          "group relative flex w-full items-center rounded-2xl py-3 transition-all duration-200",
+          compact ? "justify-center px-0" : "gap-3 px-4",
           selected
-            ? "bg-accent/10 text-accent-light"
-            : "text-txt-secondary hover:bg-surface-3/50 hover:text-txt",
+            ? "bg-surface-3/70 text-txt-primary shadow-[inset_0_1px_0_var(--shell-highlight)]"
+            : "text-txt-secondary hover:bg-surface-3/45 hover:text-txt-primary",
         )}
       >
-        {selected && (
-          <motion.div
-            layoutId="sidebar-active"
-            className="absolute inset-0 rounded-xl bg-accent/10 border border-accent/15"
-            transition={{ type: "spring", stiffness: 350, damping: 28 }}
-          />
-        )}
-        <span className={cn("relative z-10 transition-colors", selected ? "text-accent-light" : "text-txt-tertiary group-hover:text-txt-secondary")}>
+        <span className={cn("relative z-10 transition-colors", selected ? "text-accent-light" : "text-txt-tertiary group-hover:text-txt-primary")}>
           {item.icon}
         </span>
-        <span className="relative z-10">{item.label}</span>
-        {selected && (
-          <ChevronRight size={16} strokeWidth={1.6} className="relative z-10 ml-auto text-accent/50" />
-        )}
+        {!compact && <span className="relative z-10 text-[14px] font-semibold">{item.label}</span>}
+        {!compact && selected && <ChevronRight size={17} strokeWidth={1.8} className="relative z-10 ml-auto text-accent-light/75" />}
       </button>
     );
   }
 
-  const sidebar = (
-    <div className="flex h-full flex-col">
-      {/* Logo */}
-      <div className="px-5 pb-8 pt-6">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent to-accent-light opacity-25 blur-lg" />
-            <div className="relative grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-secondary shadow-lg shadow-accent/20">
-              <Zap size={22} strokeWidth={2} className="text-white" />
+  function SidebarContent({ compact, mobile }: { compact: boolean; mobile: boolean }) {
+    return (
+      <div className={cn("flex h-full flex-col", compact && "items-center")}>
+        <div className={cn("flex w-full items-center border-b border-border/50 pb-4 pt-5", compact ? "justify-center px-2" : "justify-between px-5")}>
+          <div className={cn("relative", compact ? "h-11 w-11" : "h-12 w-12")}>
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent to-accent-secondary opacity-25 blur-lg" />
+            <div className="relative grid h-full w-full place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-secondary shadow-lg shadow-accent/20">
+              <Zap size={compact ? 22 : 24} strokeWidth={2} className="text-white" />
             </div>
           </div>
+
+          {!compact && (
+            <div className="min-w-0 flex-1 pl-3">
+              <p className="truncate text-[17px] font-bold text-txt-primary">Nexus</p>
+              <p className="text-[12px] text-txt-muted">Control Panel</p>
+            </div>
+          )}
+
+          {!mobile && (
+            <button
+              type="button"
+              onClick={() => setCollapsed((prev) => !prev)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface-2/80 text-txt-tertiary transition-colors hover:text-txt-primary"
+              aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {compact ? <ChevronRight size={20} strokeWidth={2} /> : <ChevronLeft size={20} strokeWidth={2} />}
+            </button>
+          )}
+        </div>
+
+        <nav className={cn("w-full flex-1 overflow-y-auto pt-4", compact ? "px-2" : "px-3")}>
           <div>
-            <h1 className="text-[18px] font-bold text-txt-primary">Nexus</h1>
-            <p className="text-[12px] text-txt-muted">Control Panel</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 space-y-6 px-3 overflow-y-auto">
-        <div>
-          <p className="mb-2 px-3 text-section-label uppercase text-txt-muted">Overview</p>
-          <div className="space-y-1">
-            {sectionMain.map((item) => <NavLink key={item.href} item={item} />)}
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-2 px-3 text-section-label uppercase text-txt-muted">System</p>
-          <div className="space-y-1">
-            {sectionSystem.map((item) => <NavLink key={item.href} item={item} />)}
-          </div>
-        </div>
-      </nav>
-
-      {/* Footer */}
-      <div className="border-t border-border/50 p-4 space-y-3">
-        {/* User card */}
-        <div className="flex items-center gap-3 rounded-xl bg-surface-3/40 px-3 py-3">
-          <div className="relative">
-            <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent/20 to-accent-secondary/20 text-[14px] font-bold text-accent-light">
-              A
+            {!compact && <p className="mb-2 px-4 text-section-label uppercase text-txt-muted">Main</p>}
+            <div className="space-y-1.5">
+              {sectionMain.map((item) => (
+                <SidebarNavLink key={item.href} item={item} compact={compact} />
+              ))}
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface-1 bg-status-success" />
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold text-txt">Admin</p>
-            <p className="truncate text-[12px] text-txt-muted">root@nexus</p>
-          </div>
-        </div>
 
-        <button
-          type="button"
-          onClick={() => void logout()}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-txt-muted transition-colors hover:bg-surface-3/40 hover:text-status-danger"
-        >
-          <LogOut size={18} strokeWidth={1.6} />
-          Sign out
-        </button>
+          <div className="mt-6">
+            {!compact && <p className="mb-2 px-4 text-section-label uppercase text-txt-muted">System</p>}
+            <div className="space-y-1.5">
+              {sectionSystem.map((item) => (
+                <SidebarNavLink key={item.href} item={item} compact={compact} />
+              ))}
+            </div>
+          </div>
+        </nav>
+
+        <div className={cn("w-full border-t border-border/50 p-3", compact ? "space-y-2" : "space-y-3")}>
+          {!compact && (
+            <div className="flex items-center gap-3 rounded-xl bg-surface-3/40 px-3 py-3">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent/20 to-accent-secondary/20 text-[14px] font-bold text-accent-light">
+                A
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-semibold text-txt">Admin</p>
+                <p className="truncate text-[12px] text-txt-muted">root@nexus</p>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => changeTheme(theme === "dark" ? "light" : "dark")}
+            title={compact ? "Toggle theme" : undefined}
+            className={cn(
+              "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-colors hover:bg-surface-3/40 hover:text-txt-primary",
+              compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
+            )}
+          >
+            {theme === "dark" ? <Sun size={compact ? 22 : 18} strokeWidth={1.8} /> : <Moon size={compact ? 22 : 18} strokeWidth={1.8} />}
+            {!compact && (theme === "dark" ? "Light theme" : "Dark theme")}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void logout()}
+            title={compact ? "Sign out" : undefined}
+            className={cn(
+              "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-colors hover:bg-surface-3/40 hover:text-status-danger",
+              compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
+            )}
+          >
+            <LogOut size={compact ? 22 : 18} strokeWidth={1.8} />
+            {!compact && "Sign out"}
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
     <div className="min-h-screen bg-surface-0 text-txt">
-      {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[260px] border-r border-border/50 bg-surface-1 lg:block">
-        {sidebar}
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-30 hidden border-r border-border/50 bg-surface-1 backdrop-blur-xl transition-[width] duration-300 lg:block",
+          collapsed ? "w-[96px]" : "w-[288px]",
+        )}
+      >
+        <SidebarContent compact={collapsed} mobile={false} />
       </aside>
 
-      {/* Mobile sidebar */}
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
@@ -179,73 +215,29 @@ export function PanelShell({ children }: { children: ReactNode }) {
             onClick={() => setMobileOpen(false)}
           >
             <motion.aside
-              className="h-full w-[280px] border-r border-border/50 bg-surface-1"
-              initial={{ x: -50, opacity: 0 }}
+              className="h-full w-[288px] border-r border-border/50 bg-surface-1"
+              initial={{ x: -56, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -50, opacity: 0 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              onClick={(e) => e.stopPropagation()}
+              exit={{ x: -56, opacity: 0 }}
+              transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(event) => event.stopPropagation()}
             >
-              {sidebar}
+              <SidebarContent compact={false} mobile />
             </motion.aside>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Main area */}
-      <div className="lg:pl-[260px]">
-        <header className="sticky top-0 z-20 border-b border-border/40 bg-surface-0/85 px-6 py-4 backdrop-blur-xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface-1 text-txt-secondary transition-colors hover:text-txt lg:hidden"
-                onClick={() => setMobileOpen(true)}
-                aria-label="Open menu"
-              >
-                <PanelLeft size={20} strokeWidth={1.6} />
-              </button>
-              <div>
-                <h2 className="text-[20px] font-bold text-txt-primary">{activeTitle}</h2>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="hidden items-center rounded-xl border border-border/70 bg-surface-2/70 p-1 backdrop-blur-xl sm:inline-flex">
-                {(["light", "dark"] as ThemeMode[]).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => changeTheme(mode)}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors",
-                      theme === mode
-                        ? "bg-surface-4 text-txt-primary shadow-sm"
-                        : "text-txt-secondary hover:text-txt-primary",
-                    )}
-                  >
-                    {mode === "light" ? <Sun size={14} strokeWidth={1.8} /> : <Moon size={14} strokeWidth={1.8} />}
-                    {mode === "light" ? "Light" : "Dark"}
-                  </button>
-                ))}
-              </div>
-              <div className="hidden items-center gap-2 rounded-full border border-status-success/15 bg-status-success/6 px-4 py-2 text-[13px] font-medium text-status-success sm:flex">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-success opacity-50" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-status-success" />
-                </span>
-                Systems online
-              </div>
-              <button
-                type="button"
-                onClick={() => changeTheme(theme === "dark" ? "light" : "dark")}
-                className="grid h-10 w-10 place-items-center rounded-xl border border-border bg-surface-1 text-txt-tertiary transition-colors hover:text-txt sm:hidden"
-                aria-label="Toggle theme"
-              >
-                {theme === "dark" ? <Sun size={18} strokeWidth={1.8} /> : <Moon size={18} strokeWidth={1.8} />}
-              </button>
-            </div>
-          </div>
+      <div className={cn("transition-[padding] duration-300", collapsed ? "lg:pl-[96px]" : "lg:pl-[288px]")}>
+        <header className="sticky top-0 z-20 border-b border-border/40 bg-surface-0/85 px-6 py-4 backdrop-blur-xl lg:hidden">
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface-1 text-txt-secondary transition-colors hover:text-txt"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+          >
+            <PanelLeft size={20} strokeWidth={1.8} />
+          </button>
         </header>
 
         <main className="p-5 md:p-8">
@@ -255,7 +247,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+              transition={{ duration: 0.24, ease: [0.25, 0.1, 0.25, 1] }}
             >
               {children}
             </motion.div>
