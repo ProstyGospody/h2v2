@@ -26,35 +26,22 @@ export function ConfirmDialog({
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => {
-        if (!next && !busy) {
-          onClose();
-        }
-      }}
+      onOpenChange={(next) => { if (!next && !busy) onClose(); }}
       title={title}
       footer={
         <>
-          <Button onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
+          <Button onClick={onClose} disabled={busy}>Cancel</Button>
           <Button variant={variant} onClick={onConfirm} disabled={busy}>
-            {busy ? (
-              <>
-                <Loader2 size={14} strokeWidth={1.6} className="animate-spin" />
-                Processing...
-              </>
-            ) : (
-              confirmText || "Confirm"
-            )}
+            {busy ? <><Loader2 size={16} strokeWidth={1.8} className="animate-spin" />Processing...</> : confirmText || "Confirm"}
           </Button>
         </>
       }
     >
-      <div className="flex items-start gap-3">
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-status-warning/10">
-          <AlertTriangle size={17} strokeWidth={1.4} className="text-status-warning" />
+      <div className="flex items-start gap-4">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-status-warning/10">
+          <AlertTriangle size={20} strokeWidth={1.6} className="text-status-warning" />
         </div>
-        <p className="pt-1.5 text-[13px] leading-relaxed text-txt-secondary">{description}</p>
+        <p className="pt-2 text-[15px] leading-relaxed text-txt-secondary">{description}</p>
       </div>
     </Dialog>
   );

@@ -6,52 +6,60 @@
 @import "tailwindcss";
 
 @theme {
-  --color-surface-0: #0c0c0f;
-  --color-surface-1: #111115;
-  --color-surface-2: #18181c;
-  --color-surface-3: #1e1e24;
-  --color-surface-4: #27272a;
+  /* ── Surface: deep navy base ── */
+  --color-surface-0: #080c14;
+  --color-surface-1: #0e1420;
+  --color-surface-2: #151d2e;
+  --color-surface-3: #1c2740;
+  --color-surface-4: #263350;
 
-  --color-border: #1e1e24;
-  --color-border-hover: #27272a;
-  --color-border-focus: #3f3f46;
+  /* ── Borders: navy-tinted ── */
+  --color-border: #1a2540;
+  --color-border-hover: #263350;
+  --color-border-focus: #34466a;
 
-  --color-txt: #e4e4e7;
-  --color-txt-primary: #ffffff;
-  --color-txt-secondary: #a1a1aa;
-  --color-txt-tertiary: #71717a;
-  --color-txt-muted: #52525a;
+  /* ── Text: slate tones ── */
+  --color-txt: #c8d6e5;
+  --color-txt-primary: #f0f4f8;
+  --color-txt-secondary: #8899b0;
+  --color-txt-tertiary: #5c7394;
+  --color-txt-muted: #3d5470;
 
-  --color-accent: #6366f1;
-  --color-accent-light: #818cf8;
-  --color-accent-secondary: #8b5cf6;
-  --color-accent-secondary-light: #a78bfa;
+  /* ── Accent: cyan / teal ── */
+  --color-accent: #06b6d4;
+  --color-accent-light: #22d3ee;
+  --color-accent-secondary: #f59e0b;
+  --color-accent-secondary-light: #fbbf24;
 
+  /* ── Status ── */
   --color-status-success: #34d399;
-  --color-status-warning: #f59e0b;
-  --color-status-danger: #ef4444;
+  --color-status-warning: #fbbf24;
+  --color-status-danger: #f87171;
 
+  /* ── Typography ── */
   --font-sans: Inter, system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", monospace;
 
-  --radius-card: 12px;
-  --radius-btn: 8px;
-  --radius-badge: 6px;
-  --radius-pill: 20px;
+  /* ── Radii ── */
+  --radius-card: 14px;
+  --radius-btn: 10px;
+  --radius-badge: 8px;
+  --radius-pill: 24px;
 
-  --text-metric: 28px;
+  /* ── Custom font sizes ── */
+  --text-metric: 34px;
   --text-metric--line-height: 1;
   --text-metric--font-weight: 700;
   --text-metric--letter-spacing: -1px;
 
-  --text-metric-unit: 13px;
+  --text-metric-unit: 15px;
   --text-metric-unit--line-height: 1;
   --text-metric-unit--font-weight: 500;
 
-  --text-section-label: 10px;
+  --text-section-label: 11px;
   --text-section-label--line-height: 1;
-  --text-section-label--font-weight: 500;
-  --text-section-label--letter-spacing: 0.8px;
+  --text-section-label--font-weight: 600;
+  --text-section-label--letter-spacing: 0.6px;
 }
 
 @layer base {
@@ -73,11 +81,13 @@
 
   body {
     @apply bg-surface-0 text-txt font-sans antialiased;
+    font-size: 14px;
+    line-height: 1.6;
   }
 
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
   }
 
   ::-webkit-scrollbar-track {
@@ -85,16 +95,16 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #27272a;
-    border-radius: 3px;
+    background: #263350;
+    border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #3f3f46;
+    background: #34466a;
   }
 
   ::selection {
-    background: #6366f140;
+    background: #06b6d440;
     color: #fff;
   }
 }
@@ -128,22 +138,17 @@
   100% { background-position: 0% 50%; }
 }
 
-@keyframes orbit {
-  from { transform: rotate(0deg) translateX(120px) rotate(0deg); }
-  to { transform: rotate(360deg) translateX(120px) rotate(-360deg); }
-}
-
 /* ── Utility classes ── */
 
 @layer utilities {
   .glass {
-    background: rgba(17, 17, 21, 0.6);
+    background: rgba(14, 20, 32, 0.6);
     backdrop-filter: blur(20px) saturate(1.4);
     -webkit-backdrop-filter: blur(20px) saturate(1.4);
   }
 
   .glass-strong {
-    background: rgba(24, 24, 28, 0.75);
+    background: rgba(21, 29, 46, 0.75);
     backdrop-filter: blur(32px) saturate(1.6);
     -webkit-backdrop-filter: blur(32px) saturate(1.6);
   }
@@ -158,7 +163,7 @@
     inset: 0;
     border-radius: inherit;
     padding: 1px;
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.15), transparent 60%);
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(245, 158, 11, 0.15), transparent 60%);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
@@ -166,7 +171,7 @@
   }
 
   .text-gradient {
-    background: linear-gradient(135deg, #818cf8, #a78bfa, #818cf8);
+    background: linear-gradient(135deg, #22d3ee, #06b6d4, #22d3ee);
     background-size: 200% auto;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -189,19 +194,5 @@
   .animate-gradient {
     background-size: 200% 200%;
     animation: gradient-shift 8s ease infinite;
-  }
-
-  .noise-bg {
-    position: relative;
-  }
-
-  .noise-bg::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    opacity: 0.02;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-    pointer-events: none;
-    border-radius: inherit;
   }
 }

@@ -333,37 +333,37 @@ export default function UsersPage() {
   const pageCount = Math.max(1, Math.ceil(filteredClients.length / rowsPerPage));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         title="Users"
         actions={
           <>
             <Button variant="primary" onClick={openCreate}>
-              <Plus size={16} strokeWidth={1.4} />
+              <Plus size={18} strokeWidth={1.6} />
               Add user
             </Button>
             <Button variant="danger" disabled={!selectedClientIDs.length} onClick={() => setBulkDeleteOpen(true)}>
-              <Trash2 size={16} strokeWidth={1.4} />
+              <Trash2 size={18} strokeWidth={1.6} />
               Delete selected ({selectedClientIDs.length})
             </Button>
-            <div className="relative min-w-[180px]">
-              <Search size={14} strokeWidth={1.4} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-txt-tertiary" />
+            <div className="relative min-w-[220px]">
+              <Search size={16} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
               <Input
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search users..."
-                className="rounded-full pl-9"
+                className="rounded-full pl-11"
               />
             </div>
-            <div className="inline-flex items-center rounded-full bg-surface-3/60 p-0.5">
+            <div className="inline-flex items-center rounded-full bg-surface-3/50 p-1">
               {(["all", "online", "enabled", "disabled"] as ClientFilter[]).map((item) => (
                 <button
                   key={item}
                   type="button"
                   onClick={(event) => handleFilterChange(event, item)}
                   className={cn(
-                    "rounded-full px-3 py-1 text-[11px] font-medium capitalize transition-all",
-                    filter === item && "bg-accent text-white shadow-sm shadow-accent/20",
+                    "rounded-full px-4 py-1.5 text-[13px] font-semibold capitalize transition-all",
+                    filter === item && "bg-accent text-white shadow-sm shadow-accent/25",
                     filter !== item && "text-txt-secondary hover:text-txt",
                   )}
                 >
@@ -375,26 +375,26 @@ export default function UsersPage() {
         }
       />
 
-      {error ? <div className="rounded-[10px] border border-status-danger/20 bg-status-danger/8 px-4 py-3 text-[12px] text-status-danger">{error}</div> : null}
+      {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
 
       <TableContainer>
         {loading ? (
-          <div className="flex min-h-[220px] items-center justify-center">
-            <div className="flex flex-col items-center gap-2">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-accent/20 border-t-accent-light" />
-              <p className="text-[12px] text-txt-secondary">Loading users...</p>
+          <div className="flex min-h-[260px] items-center justify-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent/20 border-t-accent-light" />
+              <p className="text-[14px] text-txt-secondary">Loading users...</p>
             </div>
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <p className="text-[11px] text-txt-muted">{filteredClients.length} users</p>
-              <div className="flex items-center gap-2 text-[11px] text-txt-secondary">
+            <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
+              <p className="text-[13px] text-txt-secondary">{filteredClients.length} users</p>
+              <div className="flex items-center gap-2 text-[13px] text-txt-secondary">
                 <span>Rows:</span>
                 <select
                   value={rowsPerPage}
                   onChange={(event) => handleRowsPerPageChange(event.target.value)}
-                  className="rounded-btn border border-border bg-surface-1 px-2 py-1 text-[11px] text-txt outline-none"
+                  className="rounded-lg border border-border bg-surface-1 px-3 py-1.5 text-[13px] text-txt outline-none"
                 >
                   {rowsPerPageOptions.map((value) => (
                     <option key={value} value={value}>
@@ -451,15 +451,15 @@ export default function UsersPage() {
                             <button
                               type="button"
                               onClick={() => void openArtifacts(client)}
-                              className="grid h-[30px] w-[30px] place-items-center rounded-[8px] bg-gradient-to-br from-accent/15 to-accent-secondary/10 text-[11px] font-semibold text-accent-light transition-all hover:from-accent/25 hover:to-accent-secondary/20"
+                              className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-accent/15 to-accent-secondary/10 text-[13px] font-bold text-accent-light transition-all hover:from-accent/25 hover:to-accent-secondary/20"
                             >
                               {initials(client.username)}
                             </button>
                             <div>
-                              <button type="button" onClick={() => void openArtifacts(client)} className="text-[13px] font-medium text-txt hover:text-white">
+                              <button type="button" onClick={() => void openArtifacts(client)} className="text-[14px] font-medium text-txt hover:text-txt-primary">
                                 {client.username}
                               </button>
-                              <p className="text-[11px] text-txt-muted">{client.note || "-"}</p>
+                              <p className="text-[12px] text-txt-muted">{client.note || "-"}</p>
                             </div>
                           </div>
                         </TableCell>
@@ -551,8 +551,8 @@ export default function UsersPage() {
               </TableBody>
             </Table>
 
-            <div className="flex items-center justify-between border-t border-border px-4 py-3">
-              <p className="text-[11px] text-txt-muted">
+            <div className="flex items-center justify-between border-t border-border/50 px-5 py-3.5">
+              <p className="text-[13px] text-txt-secondary">
                 Page {Math.min(page + 1, pageCount)} of {pageCount}
               </p>
               <div className="flex items-center gap-2">

@@ -9,16 +9,16 @@ const Checkbox = forwardRef<ElementRef<typeof CheckboxPrimitive.Root>, Component
     <CheckboxPrimitive.Root
       ref={ref}
       className={cn(
-        "h-4 w-4 shrink-0 rounded-[4px] border border-border bg-surface-1 text-accent-light outline-none transition-all focus:border-accent/50 focus:shadow-[0_0_0_3px_rgba(99,102,241,0.06)] data-[state=checked]:border-accent/50 data-[state=checked]:bg-accent/15 data-[state=indeterminate]:border-accent/50 data-[state=indeterminate]:bg-accent/15",
+        "h-[18px] w-[18px] shrink-0 rounded-md border border-border bg-surface-1 text-accent-light outline-none transition-all focus:border-accent/50 focus:shadow-[0_0_0_3px_rgba(6,182,212,0.08)] data-[state=checked]:border-accent/50 data-[state=checked]:bg-accent/15 data-[state=indeterminate]:border-accent/50 data-[state=indeterminate]:bg-accent/15",
         className,
       )}
       {...props}
     >
       <CheckboxPrimitive.Indicator className="flex items-center justify-center">
         {props.checked === "indeterminate" ? (
-          <Minus size={11} strokeWidth={2.5} />
+          <Minus size={12} strokeWidth={2.5} />
         ) : (
-          <Check size={12} strokeWidth={2} />
+          <Check size={13} strokeWidth={2.2} />
         )}
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>

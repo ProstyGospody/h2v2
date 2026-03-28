@@ -1,19 +1,21 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  LayoutDashboard,
+  Activity,
+  ChevronRight,
+  FileText,
+  LayoutGrid,
   LogOut,
-  Menu,
-  ReceiptText,
-  Server,
-  Settings,
-  Users,
+  PanelLeft,
+  Settings2,
+  Shield,
+  Users2,
   X,
   Zap,
 } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { Button, Separator, cn } from "@/src/components/ui";
+import { cn } from "@/src/components/ui";
 import { apiFetch } from "@/services/api";
 
 type NavItem = {
@@ -24,75 +26,20 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { href: "/", label: "Dashboard", icon: <LayoutDashboard size={16} strokeWidth={1.4} />, section: "MAIN" },
-  { href: "/users", label: "Users", icon: <Users size={16} strokeWidth={1.4} />, section: "MAIN" },
-  { href: "/config", label: "Settings", icon: <Settings size={16} strokeWidth={1.4} />, section: "SYSTEM" },
-  { href: "/audit", label: "Audit", icon: <Server size={16} strokeWidth={1.4} />, section: "SYSTEM" },
+  { href: "/", label: "Dashboard", icon: <LayoutGrid size={20} strokeWidth={1.6} />, section: "MAIN" },
+  { href: "/users", label: "Users", icon: <Users2 size={20} strokeWidth={1.6} />, section: "MAIN" },
+  { href: "/config", label: "Settings", icon: <Settings2 size={20} strokeWidth={1.6} />, section: "SYSTEM" },
+  { href: "/audit", label: "Audit Log", icon: <FileText size={20} strokeWidth={1.6} />, section: "SYSTEM" },
 ];
 
-function isNavItemSelected(pathname: string, href: string): boolean {
-  if (href === "/") {
-    return pathname === "/";
-  }
+function isActive(pathname: string, href: string): boolean {
+  if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function resolveTitle(pathname: string): string {
-  if (pathname === "/") {
-    return "Dashboard";
-  }
+  if (pathname === "/") return "Dashboard";
   return navItems.find((item) => item.href === pathname)?.label || "Panel";
-}
-
-function UserCard() {
-  return (
-    <div className="rounded-[10px] border border-border bg-surface-0/50 p-3">
-      <div className="flex items-center gap-2.5">
-        <div className="relative">
-          <div className="grid h-9 w-9 place-items-center rounded-[8px] bg-gradient-to-br from-accent to-accent-secondary text-[13px] font-semibold text-white">
-            A
-          </div>
-          <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface-1 bg-status-success" />
-        </div>
-        <div>
-          <p className="text-[12px] font-semibold text-txt">Admin</p>
-          <p className="text-[11px] text-txt-muted">root@nexus</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function NavButton({
-  item,
-  selected,
-  onClick,
-}: {
-  item: NavItem;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "group relative flex w-full items-center gap-2.5 rounded-[8px] px-3 py-2 text-[12px] transition-all duration-200",
-        selected && "font-medium text-white",
-        !selected && "text-txt-tertiary hover:bg-surface-3/50 hover:text-txt-secondary",
-      )}
-    >
-      {selected ? (
-        <motion.div
-          layoutId="nav-active"
-          className="absolute inset-0 rounded-[8px] bg-gradient-to-r from-accent/15 to-accent-secondary/8 border border-accent/10"
-          transition={{ type: "spring", stiffness: 380, damping: 30 }}
-        />
-      ) : null}
-      <span className={cn("relative z-10 transition-colors", selected && "text-accent-light")}>{item.icon}</span>
-      <span className="relative z-10">{item.label}</span>
-    </button>
-  );
 }
 
 export function PanelShell({ children }: { children: ReactNode }) {
@@ -111,77 +58,99 @@ export function PanelShell({ children }: { children: ReactNode }) {
     navigate("/login", { replace: true });
   }
 
-  const sectionMain = navItems.filter((item) => item.section === "MAIN");
-  const sectionSystem = navItems.filter((item) => item.section === "SYSTEM");
+  const sectionMain = navItems.filter((n) => n.section === "MAIN");
+  const sectionSystem = navItems.filter((n) => n.section === "SYSTEM");
 
-  const sidebarContent = (
+  function NavLink({ item }: { item: NavItem }) {
+    const selected = isActive(pathname, item.href);
+    return (
+      <button
+        type="button"
+        onClick={() => { navigate(item.href); setMobileOpen(false); }}
+        className={cn(
+          "group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium transition-all duration-200",
+          selected
+            ? "bg-accent/10 text-accent-light"
+            : "text-txt-secondary hover:bg-surface-3/50 hover:text-txt",
+        )}
+      >
+        {selected && (
+          <motion.div
+            layoutId="sidebar-active"
+            className="absolute inset-0 rounded-xl bg-accent/10 border border-accent/15"
+            transition={{ type: "spring", stiffness: 350, damping: 28 }}
+          />
+        )}
+        <span className={cn("relative z-10 transition-colors", selected ? "text-accent-light" : "text-txt-tertiary group-hover:text-txt-secondary")}>
+          {item.icon}
+        </span>
+        <span className="relative z-10">{item.label}</span>
+        {selected && (
+          <ChevronRight size={16} strokeWidth={1.6} className="relative z-10 ml-auto text-accent/50" />
+        )}
+      </button>
+    );
+  }
+
+  const sidebar = (
     <div className="flex h-full flex-col">
-      {/* Brand */}
-      <div className="px-4 pb-6 pt-5">
-        <div className="flex items-center gap-2.5">
+      {/* Logo */}
+      <div className="px-5 pb-8 pt-6">
+        <div className="flex items-center gap-3">
           <div className="relative">
-            <div className="absolute inset-0 rounded-[10px] bg-gradient-to-br from-accent to-accent-secondary opacity-30 blur-lg" />
-            <div className="relative grid h-[36px] w-[36px] place-items-center rounded-[10px] bg-gradient-to-br from-accent to-accent-secondary text-white shadow-lg shadow-accent/20">
-              <Zap size={17} strokeWidth={1.8} />
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent to-accent-light opacity-25 blur-lg" />
+            <div className="relative grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-accent to-cyan-400 shadow-lg shadow-accent/20">
+              <Zap size={22} strokeWidth={2} className="text-white" />
             </div>
           </div>
           <div>
-            <p className="text-[15px] font-bold text-white">Nexus</p>
-            <p className="text-[10px] font-medium text-txt-muted">Control Panel</p>
+            <h1 className="text-[18px] font-bold text-txt-primary">Nexus</h1>
+            <p className="text-[12px] text-txt-muted">Control Panel</p>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <div className="space-y-5 px-3">
+      <nav className="flex-1 space-y-6 px-3 overflow-y-auto">
         <div>
-          <p className="mb-2 px-2 text-section-label uppercase text-txt-muted/70">Main</p>
-          <div className="space-y-0.5">
-            {sectionMain.map((item) => (
-              <NavButton
-                key={item.href}
-                item={item}
-                selected={isNavItemSelected(pathname, item.href)}
-                onClick={() => {
-                  navigate(item.href);
-                  setMobileOpen(false);
-                }}
-              />
-            ))}
+          <p className="mb-2 px-3 text-section-label uppercase text-txt-muted">Overview</p>
+          <div className="space-y-1">
+            {sectionMain.map((item) => <NavLink key={item.href} item={item} />)}
           </div>
         </div>
 
-        <Separator className="opacity-50" />
-
         <div>
-          <p className="mb-2 px-2 text-section-label uppercase text-txt-muted/70">System</p>
-          <div className="space-y-0.5">
-            {sectionSystem.map((item) => (
-              <NavButton
-                key={item.href}
-                item={item}
-                selected={isNavItemSelected(pathname, item.href)}
-                onClick={() => {
-                  navigate(item.href);
-                  setMobileOpen(false);
-                }}
-              />
-            ))}
+          <p className="mb-2 px-3 text-section-label uppercase text-txt-muted">System</p>
+          <div className="space-y-1">
+            {sectionSystem.map((item) => <NavLink key={item.href} item={item} />)}
           </div>
         </div>
-      </div>
+      </nav>
 
       {/* Footer */}
-      <div className="mt-auto space-y-3 p-3">
-        <UserCard />
-        <Button
-          variant="ghost"
-          className="w-full justify-start border-transparent text-txt-muted hover:border-border hover:text-txt-secondary"
+      <div className="border-t border-border/50 p-4 space-y-3">
+        {/* User card */}
+        <div className="flex items-center gap-3 rounded-xl bg-surface-3/40 px-3 py-3">
+          <div className="relative">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent/20 to-accent-secondary/20 text-[14px] font-bold text-accent-light">
+              A
+            </div>
+            <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface-1 bg-status-success" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-semibold text-txt">Admin</p>
+            <p className="truncate text-[12px] text-txt-muted">root@nexus</p>
+          </div>
+        </div>
+
+        <button
+          type="button"
           onClick={() => void logout()}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-txt-muted transition-colors hover:bg-surface-3/40 hover:text-status-danger"
         >
-          <LogOut size={15} strokeWidth={1.4} />
+          <LogOut size={18} strokeWidth={1.6} />
           Sign out
-        </Button>
+        </button>
       </div>
     </div>
   );
@@ -189,72 +158,75 @@ export function PanelShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-surface-0 text-txt">
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[220px] border-r border-border/60 bg-surface-1/95 backdrop-blur-sm lg:block">
-        {sidebarContent}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[260px] border-r border-border/50 bg-surface-1 lg:block">
+        {sidebar}
       </aside>
 
       {/* Mobile sidebar */}
       <AnimatePresence>
-        {mobileOpen ? (
+        {mobileOpen && (
           <motion.div
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            onClick={() => setMobileOpen(false)}
           >
             <motion.aside
-              className="h-full w-[220px] border-r border-border/60 bg-surface-1"
-              initial={{ x: -40, opacity: 0 }}
+              className="h-full w-[280px] border-r border-border/50 bg-surface-1"
+              initial={{ x: -50, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -40, opacity: 0 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              exit={{ x: -50, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
             >
-              {sidebarContent}
+              {sidebar}
             </motion.aside>
-            <button
-              type="button"
-              className="absolute right-3 top-3 rounded-[8px] border border-border bg-surface-2 p-2 text-txt-secondary transition-colors hover:text-txt"
-              onClick={() => setMobileOpen(false)}
-            >
-              <X size={16} strokeWidth={1.4} />
-            </button>
           </motion.div>
-        ) : null}
+        )}
       </AnimatePresence>
 
-      {/* Main content */}
-      <div className="lg:pl-[220px]">
-        <header className="sticky top-0 z-20 border-b border-border/60 bg-surface-0/80 px-6 py-3.5 backdrop-blur-xl">
-          <div className="flex items-center justify-between gap-3">
+      {/* Main area */}
+      <div className="lg:pl-[260px]">
+        <header className="sticky top-0 z-20 border-b border-border/40 bg-surface-0/85 px-6 py-4 backdrop-blur-xl">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-border bg-surface-1 text-txt-secondary transition-colors hover:text-txt lg:hidden"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface-1 text-txt-secondary transition-colors hover:text-txt lg:hidden"
                 onClick={() => setMobileOpen(true)}
-                aria-label="Open sidebar"
+                aria-label="Open menu"
               >
-                <Menu size={16} strokeWidth={1.4} />
+                <PanelLeft size={20} strokeWidth={1.6} />
               </button>
-              <h2 className="text-[17px] font-semibold text-white">{activeTitle}</h2>
+              <div>
+                <h2 className="text-[20px] font-bold text-txt-primary">{activeTitle}</h2>
+              </div>
             </div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-status-success/15 bg-status-success/6 px-3 py-1.5 text-[11px] font-medium text-status-success">
-              <span className="relative flex h-[6px] w-[6px]">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-success opacity-50" />
-                <span className="relative inline-flex h-[6px] w-[6px] rounded-full bg-status-success" />
-              </span>
-              All systems online
+
+            <div className="flex items-center gap-3">
+              <div className="hidden items-center gap-2 rounded-full border border-status-success/15 bg-status-success/6 px-4 py-2 text-[13px] font-medium text-status-success sm:flex">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-success opacity-50" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-status-success" />
+                </span>
+                Systems online
+              </div>
+              <div className="grid h-10 w-10 place-items-center rounded-xl border border-border bg-surface-1 text-txt-tertiary transition-colors hover:text-txt sm:hidden">
+                <Activity size={18} strokeWidth={1.6} />
+              </div>
             </div>
           </div>
         </header>
 
-        <main className="p-4 md:p-6">
+        <main className="p-5 md:p-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={pathname}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
             >
               {children}
             </motion.div>

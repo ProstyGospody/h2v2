@@ -5,12 +5,7 @@ import { qrURL } from "@/domain/clients/services";
 import { Button, Dialog } from "@/src/components/ui";
 
 export function ClientArtifactsDialog({
-  open,
-  client,
-  payload,
-  loading,
-  onClose,
-  onCopy,
+  open, client, payload, loading, onClose, onCopy,
 }: {
   open: boolean;
   client: HysteriaClient | null;
@@ -27,70 +22,44 @@ export function ClientArtifactsDialog({
   const subscriptionQRSrc = currentClient ? `${qrURL(currentClient.id, 360, "subscription")}&v=${encodeURIComponent(subscriptionURL)}` : "";
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) {
-          onClose();
-        }
-      }}
-      title={currentClient?.username || "Client"}
-      contentClassName="max-w-[760px]"
-      footer={
-        <Button onClick={onClose} variant="ghost">
-          Close
-        </Button>
-      }
-    >
+    <Dialog open={open} onOpenChange={(n) => { if (!n) onClose(); }} title={currentClient?.username || "Client"} contentClassName="max-w-[780px]"
+      footer={<Button onClick={onClose} variant="ghost">Close</Button>}>
       {loading ? (
-        <div className="flex min-h-[280px] items-center justify-center">
+        <div className="flex min-h-[300px] items-center justify-center">
           <div className="flex flex-col items-center gap-3">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent/20 border-t-accent-light" />
-            <p className="text-[12px] text-txt-secondary">Loading connection artifacts...</p>
+            <div className="h-7 w-7 animate-spin rounded-full border-2 border-accent/20 border-t-accent-light" />
+            <p className="text-[14px] text-txt-secondary">Loading connection artifacts...</p>
           </div>
         </div>
       ) : artifacts && currentClient ? (
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="space-y-3">
-            <div className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-txt-secondary">
-              <QrCode size={13} strokeWidth={1.4} />
-              Configuration QR
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-4">
+            <div className="flex items-center justify-center gap-2 text-[13px] font-semibold text-txt-secondary">
+              <QrCode size={16} strokeWidth={1.6} />Configuration QR
             </div>
             <div className="flex justify-center">
-              <img
-                alt="Configuration QR"
-                src={shareQRSrc}
-                className="h-[200px] w-[200px] rounded-[10px] border border-border bg-white p-1.5 shadow-sm"
-              />
+              <img alt="Configuration QR" src={shareQRSrc} className="h-[220px] w-[220px] rounded-xl border border-border bg-white p-2 shadow-sm" />
             </div>
             <Button variant="ghost" className="w-full justify-center" onClick={() => onCopy(shareURI)} disabled={!shareURI}>
-              <Copy size={14} strokeWidth={1.4} />
-              Copy Config Link
+              <Copy size={16} strokeWidth={1.6} />Copy Config Link
             </Button>
           </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-txt-secondary">
-              <Link2 size={13} strokeWidth={1.4} />
-              Subscription QR
+          <div className="space-y-4">
+            <div className="flex items-center justify-center gap-2 text-[13px] font-semibold text-txt-secondary">
+              <Link2 size={16} strokeWidth={1.6} />Subscription QR
             </div>
             <div className="flex justify-center">
-              <img
-                alt="Subscription QR"
-                src={subscriptionQRSrc}
-                className="h-[200px] w-[200px] rounded-[10px] border border-border bg-white p-1.5 shadow-sm"
-              />
+              <img alt="Subscription QR" src={subscriptionQRSrc} className="h-[220px] w-[220px] rounded-xl border border-border bg-white p-2 shadow-sm" />
             </div>
             <Button variant="ghost" className="w-full justify-center" onClick={() => onCopy(subscriptionURL)} disabled={!subscriptionURL}>
-              <Copy size={14} strokeWidth={1.4} />
-              Copy Subscription URL
+              <Copy size={16} strokeWidth={1.6} />Copy Subscription URL
             </Button>
           </div>
         </div>
       ) : (
-        <div className="flex min-h-[160px] flex-col items-center justify-center gap-3 rounded-[10px] border border-status-warning/15 bg-status-warning/5 p-6">
-          <QrCode size={24} strokeWidth={1.2} className="text-status-warning/60" />
-          <p className="text-[12px] text-status-warning">No active artifacts for this client.</p>
+        <div className="flex min-h-[180px] flex-col items-center justify-center gap-4 rounded-xl border border-status-warning/15 bg-status-warning/5 p-8">
+          <QrCode size={28} strokeWidth={1.4} className="text-status-warning/60" />
+          <p className="text-[14px] text-status-warning">No active artifacts for this client.</p>
         </div>
       )}
     </Dialog>

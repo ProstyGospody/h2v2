@@ -14,14 +14,14 @@ const SelectTrigger = forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex h-[34px] w-full items-center justify-between rounded-[8px] border border-border bg-surface-1 px-3 text-left text-[12px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent/40 focus:shadow-[0_0_0_3px_rgba(99,102,241,0.06)] data-[placeholder]:text-txt-muted",
+      "inline-flex h-10 w-full items-center justify-between rounded-lg border border-border bg-surface-1 px-4 text-left text-[14px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent/40 focus:shadow-[0_0_0_3px_rgba(6,182,212,0.08)] data-[placeholder]:text-txt-muted",
       className,
     )}
     {...props}
   >
     {children}
     <SelectPrimitive.Icon>
-      <ChevronDown size={14} strokeWidth={1.4} className="text-txt-tertiary transition-transform" />
+      <ChevronDown size={16} strokeWidth={1.6} className="text-txt-tertiary" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ));
@@ -37,13 +37,13 @@ const SelectContent = forwardRef<
       ref={ref}
       position={position}
       className={cn(
-        "z-50 overflow-hidden rounded-[10px] border border-border/80 bg-surface-2/95 shadow-2xl shadow-black/20 backdrop-blur-xl",
+        "z-50 overflow-hidden rounded-xl border border-border/70 bg-surface-2/95 shadow-2xl shadow-black/20 backdrop-blur-xl",
         position === "popper" && "translate-y-1",
         className,
       )}
       {...props}
     >
-      <SelectPrimitive.Viewport className="p-1">{children}</SelectPrimitive.Viewport>
+      <SelectPrimitive.Viewport className="p-1.5">{children}</SelectPrimitive.Viewport>
     </SelectPrimitive.Content>
   </SelectPrimitive.Portal>
 ));
@@ -57,17 +57,17 @@ const SelectItem = forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer select-none items-center rounded-[7px] px-3 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60 data-[state=checked]:text-accent-light",
+      "relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2.5 text-[14px] text-txt outline-none transition-colors hover:bg-surface-3/50 data-[state=checked]:text-accent-light",
       className,
     )}
     {...props}
   >
-    <span className="absolute left-2 inline-flex h-3.5 w-3.5 items-center justify-center">
+    <span className="absolute left-2 inline-flex h-4 w-4 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
-        <Check size={13} strokeWidth={1.5} className="text-accent-light" />
+        <Check size={15} strokeWidth={1.6} className="text-accent-light" />
       </SelectPrimitive.ItemIndicator>
     </span>
-    <SelectPrimitive.ItemText className="pl-4">{children}</SelectPrimitive.ItemText>
+    <SelectPrimitive.ItemText className="pl-5">{children}</SelectPrimitive.ItemText>
   </SelectPrimitive.Item>
 ));
 
