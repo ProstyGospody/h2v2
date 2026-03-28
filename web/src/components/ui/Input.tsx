@@ -12,7 +12,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({ label, classNam
     <input
       ref={ref}
       className={cn(
-        "w-full rounded-lg border border-border bg-surface-1 px-4 py-2.5 text-[14px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent/40 focus:shadow-[0_0_0_3px_rgba(6,182,212,0.08)]",
+        "w-full rounded-lg border border-border bg-surface-1 px-4 py-2.5 text-[14px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent/40 focus:shadow-[0_0_0_3px_var(--primary-soft)]",
         className,
       )}
       {...props}

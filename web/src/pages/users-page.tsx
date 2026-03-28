@@ -471,7 +471,7 @@ export default function UsersPage() {
                             <span
                               className={cn(
                                 "h-[6px] w-[6px] rounded-full",
-                                statusOnline && client.enabled && "bg-status-success shadow-[0_0_8px_#34d39960]",
+                                statusOnline && client.enabled && "bg-status-success shadow-[0_0_8px_var(--status-success-soft)]",
                                 !statusOnline && client.enabled && "bg-status-warning",
                                 !client.enabled && "bg-txt-muted",
                               )}

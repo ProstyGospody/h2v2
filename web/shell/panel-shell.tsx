@@ -1,21 +1,21 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Activity,
   ChevronRight,
   FileText,
   LayoutGrid,
   LogOut,
+  Moon,
   PanelLeft,
   Settings2,
-  Shield,
+  Sun,
   Users2,
-  X,
   Zap,
 } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { cn } from "@/src/components/ui";
+import { applyTheme, resolveTheme, type ThemeMode } from "@/src/theme";
 import { apiFetch } from "@/services/api";
 
 type NavItem = {
@@ -46,8 +46,14 @@ export function PanelShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [theme, setTheme] = useState<ThemeMode>(() => resolveTheme());
 
   const activeTitle = useMemo(() => resolveTitle(pathname), [pathname]);
+
+  function changeTheme(next: ThemeMode) {
+    setTheme(next);
+    applyTheme(next);
+  }
 
   async function logout() {
     try {
@@ -99,7 +105,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
         <div className="flex items-center gap-3">
           <div className="relative">
             <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent to-accent-light opacity-25 blur-lg" />
-            <div className="relative grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-accent to-cyan-400 shadow-lg shadow-accent/20">
+            <div className="relative grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-secondary shadow-lg shadow-accent/20">
               <Zap size={22} strokeWidth={2} className="text-white" />
             </div>
           </div>
@@ -205,6 +211,24 @@ export function PanelShell({ children }: { children: ReactNode }) {
             </div>
 
             <div className="flex items-center gap-3">
+              <div className="hidden items-center rounded-xl border border-border/70 bg-surface-2/70 p-1 backdrop-blur-xl sm:inline-flex">
+                {(["light", "dark"] as ThemeMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => changeTheme(mode)}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors",
+                      theme === mode
+                        ? "bg-surface-4 text-txt-primary shadow-sm"
+                        : "text-txt-secondary hover:text-txt-primary",
+                    )}
+                  >
+                    {mode === "light" ? <Sun size={14} strokeWidth={1.8} /> : <Moon size={14} strokeWidth={1.8} />}
+                    {mode === "light" ? "Light" : "Dark"}
+                  </button>
+                ))}
+              </div>
               <div className="hidden items-center gap-2 rounded-full border border-status-success/15 bg-status-success/6 px-4 py-2 text-[13px] font-medium text-status-success sm:flex">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-success opacity-50" />
@@ -212,9 +236,14 @@ export function PanelShell({ children }: { children: ReactNode }) {
                 </span>
                 Systems online
               </div>
-              <div className="grid h-10 w-10 place-items-center rounded-xl border border-border bg-surface-1 text-txt-tertiary transition-colors hover:text-txt sm:hidden">
-                <Activity size={18} strokeWidth={1.6} />
-              </div>
+              <button
+                type="button"
+                onClick={() => changeTheme(theme === "dark" ? "light" : "dark")}
+                className="grid h-10 w-10 place-items-center rounded-xl border border-border bg-surface-1 text-txt-tertiary transition-colors hover:text-txt sm:hidden"
+                aria-label="Toggle theme"
+              >
+                {theme === "dark" ? <Sun size={18} strokeWidth={1.8} /> : <Moon size={18} strokeWidth={1.8} />}
+              </button>
             </div>
           </div>
         </header>

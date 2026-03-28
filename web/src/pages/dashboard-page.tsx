@@ -79,13 +79,13 @@ function AnimatedNumber({ value, format = (n) => n.toFixed(0) }: { value: number
   return <motion.span>{display}</motion.span>;
 }
 
-function ProgressRing({ value, size = 52, strokeWidth = 4, color = "#06b6d4" }: { value: number; size?: number; strokeWidth?: number; color?: string }) {
+function ProgressRing({ value, size = 52, strokeWidth = 4, color = "var(--data-2)" }: { value: number; size?: number; strokeWidth?: number; color?: string }) {
   const r = (size - strokeWidth) / 2;
   const c = 2 * Math.PI * r;
   const offset = c - (clampPercent(value) / 100) * c;
   return (
     <svg width={size} height={size} className="-rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.04)" strokeWidth={strokeWidth} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={strokeWidth} />
       <motion.circle
         cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"
         strokeDasharray={c} initial={{ strokeDashoffset: c }} animate={{ strokeDashoffset: offset }}
@@ -97,7 +97,7 @@ function ProgressRing({ value, size = 52, strokeWidth = 4, color = "#06b6d4" }: 
 
 function statusColor(status: string): string {
   const n = status.toLowerCase();
-  if (n.includes("running") || n.includes("active")) return "bg-status-success shadow-[0_0_8px_#34d39960]";
+  if (n.includes("running") || n.includes("active")) return "bg-status-success shadow-[0_0_8px_var(--status-success-soft)]";
   if (n.includes("failed") || n.includes("error")) return "bg-status-danger";
   if (n.includes("inactive") || n.includes("stopped")) return "bg-status-warning";
   return "bg-txt-muted";
@@ -116,13 +116,13 @@ function SectionHeader({ icon, title, children }: { icon: React.ReactNode; title
 }
 
 const tooltipStyle = {
-  backgroundColor: "rgba(21, 29, 46, 0.95)",
-  border: "1px solid rgba(26, 37, 64, 0.8)",
+  backgroundColor: "var(--surface-2)",
+  border: "1px solid var(--border)",
   borderRadius: 12,
-  color: "#c8d6e5",
+  color: "var(--txt-body)",
   fontSize: 13,
   backdropFilter: "blur(12px)",
-  boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+  boxShadow: "0 8px 32px var(--shell-shadow)",
 };
 
 export default function DashboardPage() {
@@ -270,7 +270,7 @@ export default function DashboardPage() {
               </p>
               <p className="mt-2 text-[13px] text-txt-secondary">System load</p>
             </div>
-            <ProgressRing value={cpuPercent} color="#06b6d4" />
+            <ProgressRing value={cpuPercent} color="var(--data-2)" />
           </div>
         </motion.div>
 
@@ -286,7 +286,7 @@ export default function DashboardPage() {
               </p>
               <p className="mt-2 text-[13px] text-txt-secondary">Memory usage</p>
             </div>
-            <ProgressRing value={ramPercent} color="#f59e0b" />
+            <ProgressRing value={ramPercent} color="var(--data-4)" />
           </div>
         </motion.div>
 
@@ -388,15 +388,15 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={historyPoints}>
                 <defs>
-                  <linearGradient id="upG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#06b6d4" stopOpacity={0.25} /><stop offset="100%" stopColor="#06b6d4" stopOpacity={0} /></linearGradient>
-                  <linearGradient id="dnG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f59e0b" stopOpacity={0.2} /><stop offset="100%" stopColor="#f59e0b" stopOpacity={0} /></linearGradient>
+                  <linearGradient id="upG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--data-2)" stopOpacity={0.25} /><stop offset="100%" stopColor="var(--data-2)" stopOpacity={0} /></linearGradient>
+                  <linearGradient id="dnG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--data-1)" stopOpacity={0.2} /><stop offset="100%" stopColor="var(--data-1)" stopOpacity={0} /></linearGradient>
                 </defs>
-                <CartesianGrid stroke="rgba(26,37,64,0.5)" strokeDasharray="4 4" vertical={false} />
-                <XAxis dataKey="timestamp" tickFormatter={(v) => formatShortTime(new Date(v))} tick={{ fill: "#3d5470", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "rgba(26,37,64,0.5)" }} />
-                <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "#3d5470", fontSize: 12 }} tickLine={false} axisLine={false} width={60} />
-                <Tooltip labelFormatter={(v) => formatDateTime(v instanceof Date ? v.toISOString() : String(v))} formatter={(v: number) => formatRate(Number(v))} contentStyle={tooltipStyle} cursor={{ stroke: "rgba(6,182,212,0.15)", strokeWidth: 1 }} />
-                <Area type="monotone" dataKey="upload" stroke="#06b6d4" fill="url(#upG)" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "#06b6d4", stroke: "#151d2e", strokeWidth: 2 }} name="Upload" />
-                <Area type="monotone" dataKey="download" stroke="#f59e0b" fill="url(#dnG)" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "#f59e0b", stroke: "#151d2e", strokeWidth: 2 }} name="Download" />
+                <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
+                <XAxis dataKey="timestamp" tickFormatter={(v) => formatShortTime(new Date(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
+                <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={60} />
+                <Tooltip labelFormatter={(v) => formatDateTime(v instanceof Date ? v.toISOString() : String(v))} formatter={(v: number) => formatRate(Number(v))} contentStyle={tooltipStyle} cursor={{ stroke: "var(--primary-soft)", strokeWidth: 1 }} />
+                <Area type="monotone" dataKey="upload" stroke="var(--data-2)" fill="url(#upG)" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "var(--data-2)", stroke: "var(--surface-2)", strokeWidth: 2 }} name="Upload" />
+                <Area type="monotone" dataKey="download" stroke="var(--data-1)" fill="url(#dnG)" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "var(--data-1)", stroke: "var(--surface-2)", strokeWidth: 2 }} name="Download" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -410,12 +410,12 @@ export default function DashboardPage() {
           <div className="h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={trafficUsageBars} barGap={2}>
-                <CartesianGrid stroke="rgba(26,37,64,0.5)" strokeDasharray="4 4" vertical={false} />
-                <XAxis dataKey="timestamp" tickFormatter={(v) => formatShortTime(new Date(v))} tick={{ fill: "#3d5470", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "rgba(26,37,64,0.5)" }} />
-                <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "#3d5470", fontSize: 12 }} tickLine={false} axisLine={false} width={60} />
-                <Tooltip formatter={(v: number) => formatBytes(Number(v))} contentStyle={tooltipStyle} cursor={{ fill: "rgba(6,182,212,0.04)" }} />
-                <Bar dataKey="download_bytes" fill="#06b6d4" radius={[4, 4, 0, 0]} name="Download" />
-                <Bar dataKey="upload_bytes" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Upload" />
+                <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
+                <XAxis dataKey="timestamp" tickFormatter={(v) => formatShortTime(new Date(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
+                <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={60} />
+                <Tooltip formatter={(v: number) => formatBytes(Number(v))} contentStyle={tooltipStyle} cursor={{ fill: "var(--accent-soft)" }} />
+                <Bar dataKey="download_bytes" fill="var(--data-2)" radius={[4, 4, 0, 0]} name="Download" />
+                <Bar dataKey="upload_bytes" fill="var(--data-4)" radius={[4, 4, 0, 0]} name="Upload" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -479,7 +479,7 @@ export default function DashboardPage() {
           <div className="grid gap-4 md:grid-cols-2">
             {serviceItems.length ? serviceItems.map((item) => (
               <motion.div key={item.service_name} whileHover={{ y: -3 }} transition={{ duration: 0.15 }} className="group relative overflow-hidden rounded-2xl border border-border/70 bg-surface-2 p-6 transition-colors hover:border-accent/20">
-                <div className="absolute left-0 right-0 top-0 h-[2px] bg-gradient-to-r from-accent to-cyan-400 opacity-50 transition-opacity group-hover:opacity-100" />
+                <div className="absolute left-0 right-0 top-0 h-[2px] bg-gradient-to-r from-accent to-accent-secondary opacity-50 transition-opacity group-hover:opacity-100" />
                 <div className="mb-4 flex items-center justify-between">
                   <h4 className="text-[15px] font-bold text-txt-primary">{item.service_name}</h4>
                   <span className="inline-flex items-center gap-2 text-[13px] text-txt-secondary">

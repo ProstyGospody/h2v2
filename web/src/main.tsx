@@ -8,9 +8,10 @@ import ReactDOM from "react-dom/client";
 
 import App from "./App";
 import "./styles/globals.css";
+import { applyTheme, resolveTheme } from "./theme";
 
 if (typeof document !== "undefined") {
-  document.documentElement.classList.add("dark");
+  applyTheme(resolveTheme());
 }
 
 const queryClient = new QueryClient({
