@@ -39,8 +39,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
-        mono: ["JetBrains Mono", "Fira Code", "monospace"],
+        sans: ["Almost Mono", "JetBrains Mono", "Fira Code", "system-ui", "-apple-system", "sans-serif"],
+        mono: ["Almost Mono", "JetBrains Mono", "Fira Code", "monospace"],
       },
       borderRadius: {
         card: "12px",

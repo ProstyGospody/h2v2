@@ -152,8 +152,8 @@ html.dark {
   --color-status-danger: var(--status-danger);
   --color-status-info: var(--status-info);
 
-  --font-sans: Inter, system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+  --font-sans: "Almost Mono", "JetBrains Mono", "Fira Code", system-ui, -apple-system, sans-serif;
+  --font-mono: "Almost Mono", "JetBrains Mono", "Fira Code", monospace;
 
   --radius-card: 14px;
   --radius-btn: 10px;
