@@ -61,10 +61,10 @@
 }
 
 html.dark {
-  --canvas-gradient: linear-gradient(135deg, #0F1424 0%, #141B2E 42%, #171B27 100%);
-  --orb-a: #8275F2;
-  --orb-b: #53B9DA;
-  --orb-c: #2A334A;
+  --canvas-gradient: linear-gradient(135deg, #080808 0%, #080808 50%, #080808 100%);
+  --orb-a: #080808;
+  --orb-b: #080808;
+  --orb-c: #080808;
 
   --shell: rgba(16, 21, 36, 0.54);
   --shell-highlight: rgba(228, 234, 255, 0.08);
@@ -104,7 +104,7 @@ html.dark {
   --data-3: #78C995;
   --data-4: #E0B169;
 
-  --surface-0: #0F1424;
+  --surface-0: #080808;
   --surface-1: var(--shell);
   --surface-2: var(--panel-base);
   --surface-3: var(--panel-strong);
