@@ -5,7 +5,7 @@ Production-oriented control plane for managing a native Hysteria 2 service on Ub
 Control plane stack:
 
 - `panel-api`: Go
-- `panel-web`: React + Vite + MUI + React Router + TanStack Query + react-hook-form
+- `panel-web`: React + Vite + Tailwind CSS + Radix UI + React Router + TanStack Query + react-hook-form + Recharts + Framer Motion
 - Local filesystem storage under `/var/lib/proxy-panel`
 - Caddy (TLS reverse proxy and certificate issuer)
 - Native procfs-based host metrics (live CPU/RAM/network)

@@ -640,11 +640,6 @@ wait_for_hysteria_certificate() {
   bash "${SRC_DIR}/scripts/sync-hysteria-cert.sh" "${ENV_FILE}" --wait
 }
 
-disable_legacy_prometheus() {
-  action "Disabling legacy Prometheus services"
-  systemctl disable --now prometheus.service prometheus-node-exporter.service >/dev/null 2>&1 || true
-}
-
 install_sudoers_policy() {
   action "Installing restricted sudoers policy"
 
@@ -751,7 +746,6 @@ main() {
   build_backend
   build_frontend
   render_runtime_configs
-  disable_legacy_prometheus
   install_sudoers_policy
   install_systemd_units
 
