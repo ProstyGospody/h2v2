@@ -55,9 +55,9 @@
   --surface-3: var(--panel-strong);
   --surface-4: var(--panel-hover);
 
-  --border: rgba(255, 255, 255, 0.42);
-  --border-hover: rgba(255, 255, 255, 0.54);
-  --border-focus: rgba(122, 108, 246, 0.36);
+  --border: rgba(100, 116, 148, 0.18);
+  --border-hover: rgba(100, 116, 148, 0.28);
+  --border-focus: rgba(83, 185, 218, 0.36);
 
   --control-bg: rgba(255, 255, 255, 0.74);
   --control-bg-hover: rgba(255, 255, 255, 0.88);

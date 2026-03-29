@@ -21,7 +21,7 @@ function ToastIcon({ variant }: { variant: ToastVariant }) {
   if (variant === "error") {
     return <AlertCircle size={18} strokeWidth={1.6} className="shrink-0 text-status-danger" />;
   }
-  return <Info size={18} strokeWidth={1.6} className="shrink-0 text-accent-light" />;
+  return <Info size={18} strokeWidth={1.6} className="shrink-0 text-status-info" />;
 }
 
 export function Toast({ open, onOpenChange, message, variant = "info", duration = 2800 }: ToastProps) {

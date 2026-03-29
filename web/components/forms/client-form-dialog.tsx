@@ -29,7 +29,7 @@ export function ClientFormDialog({
   return (
     <Dialog open={open} onOpenChange={(n) => { if (!n && !busy) onClose(); }} title={mode === "create" ? "Create User" : "Edit User"} contentClassName="max-w-[660px]" hideClose={busy}>
       <form className="space-y-5" onSubmit={submit}>
-        <p className="rounded-xl bg-accent/6 px-4 py-3 text-[13px] text-accent-light/80">Inherited: {defaultsSummary(defaults)}</p>
+        <p className="rounded-xl bg-surface-3/50 px-4 py-3 text-[13px] text-txt-secondary">Inherited: {defaultsSummary(defaults)}</p>
 
         {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
 
@@ -38,7 +38,7 @@ export function ClientFormDialog({
         <div>
           <label className="mb-2 block text-[13px] font-medium text-txt-secondary">Note</label>
           <textarea value={values.note} onChange={(e) => setValues((p) => ({ ...p, note: e.target.value }))} rows={2}
-            className="w-full rounded-lg border border-border bg-surface-1 px-4 py-2.5 text-[14px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent/40 focus:shadow-[0_0_0_3px_var(--primary-soft)]" />
+            className="w-full rounded-lg border border-border bg-surface-1 px-4 py-2.5 text-[14px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent-secondary/40 focus:shadow-[0_0_0_3px_var(--accent-soft)]" />
         </div>
 
         <Input label="Auth Secret (optional)" value={values.authSecret} onChange={(e) => setValues((p) => ({ ...p, authSecret: e.target.value }))}
@@ -53,7 +53,7 @@ export function ClientFormDialog({
           {previewOpen && (
             <div className="border-t border-border/50 p-4">
               <textarea readOnly value={previewConfig} rows={12}
-                className="w-full rounded-lg border border-border/50 bg-surface-0/80 px-4 py-3 font-mono text-[13px] leading-6 text-accent-light/80 outline-none" />
+                className="w-full rounded-lg border border-border/50 bg-surface-0/80 px-4 py-3 font-mono text-[13px] leading-6 text-txt outline-none" />
               <p className="mt-2 text-[12px] text-txt-muted">Read-only preview</p>
             </div>
           )}

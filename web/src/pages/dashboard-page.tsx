@@ -242,7 +242,7 @@ export default function DashboardPage() {
       <PageHeader title="Dashboard" />
 
       {showInitialLoading && (
-        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-accent/20 bg-accent/8 px-5 py-3.5 text-[14px] text-accent-light">
+        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-status-info/20 bg-status-info/8 px-5 py-3.5 text-[14px] text-status-info">
           Loading latest dashboard metrics...
         </motion.div>
       )}
@@ -312,14 +312,14 @@ export default function DashboardPage() {
       {/* ── Secondary stats ── */}
       <motion.div variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }} initial="hidden" animate="show" className="grid gap-4 sm:grid-cols-3">
         <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="flex items-center gap-4 rounded-2xl bg-surface-2 p-5">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent/10">
-            <Network size={22} strokeWidth={1.6} className="text-accent-light" />
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60">
+            <Network size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Network</p>
             <div className="mt-1.5 flex items-center gap-4 text-[15px] font-semibold text-txt-primary">
-              <span className="inline-flex items-center gap-1.5"><ArrowDownToLine size={14} strokeWidth={1.8} className="text-accent-light" />{formatRate(networkRx)}</span>
-              <span className="inline-flex items-center gap-1.5"><ArrowUpFromLine size={14} strokeWidth={1.8} className="text-accent-secondary-light" />{formatRate(networkTx)}</span>
+              <span className="inline-flex items-center gap-1.5"><ArrowDownToLine size={14} strokeWidth={1.8} className="text-status-success" />{formatRate(networkRx)}</span>
+              <span className="inline-flex items-center gap-1.5"><ArrowUpFromLine size={14} strokeWidth={1.8} className="text-status-warning" />{formatRate(networkTx)}</span>
             </div>
           </div>
         </motion.div>
@@ -335,8 +335,8 @@ export default function DashboardPage() {
         </motion.div>
 
         <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="flex items-center gap-4 rounded-2xl bg-surface-2 p-5">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent/10">
-            <Zap size={22} strokeWidth={1.6} className="text-accent-light" />
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60">
+            <Zap size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Connections</p>
@@ -355,7 +355,7 @@ export default function DashboardPage() {
           <div className="inline-flex rounded-xl bg-surface-3/50 p-1 text-[13px]">
             {(["1h", "24h"] as HistoryWindow[]).map((w) => (
               <button key={w} type="button" onClick={() => setHistoryWindow(w)}
-                className={cn("rounded-lg px-4 py-1.5 font-semibold transition-all", historyWindow === w ? "bg-accent text-white shadow-sm shadow-accent/25" : "text-txt-secondary hover:text-txt")}>
+                className={cn("rounded-lg px-4 py-1.5 font-semibold transition-all", historyWindow === w ? "bg-surface-4 text-txt-primary shadow-sm" : "text-txt-secondary hover:text-txt")}>
                 {w}
               </button>
             ))}
@@ -363,7 +363,7 @@ export default function DashboardPage() {
         </SectionHeader>
 
         {historyLoading && !historyPoints.length && (
-          <div className="rounded-xl border border-accent/20 bg-accent/8 px-5 py-3.5 text-[14px] text-accent-light">Loading system history...</div>
+          <div className="rounded-xl border border-status-info/20 bg-status-info/8 px-5 py-3.5 text-[14px] text-status-info">Loading system history...</div>
         )}
         {historyError && <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">{historyError}</div>}
 
@@ -382,7 +382,7 @@ export default function DashboardPage() {
                 <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
                 <XAxis dataKey="timestamp" tickFormatter={(v) => formatShortTime(new Date(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
                 <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={60} />
-                <Tooltip labelFormatter={(v) => formatDateTime(v instanceof Date ? v.toISOString() : String(v))} formatter={(v: number) => formatRate(Number(v))} contentStyle={tooltipStyle} cursor={{ stroke: "var(--primary-soft)", strokeWidth: 1 }} />
+                <Tooltip labelFormatter={(v) => formatDateTime(v instanceof Date ? v.toISOString() : String(v))} formatter={(v: number) => formatRate(Number(v))} contentStyle={tooltipStyle} cursor={{ stroke: "var(--accent-soft)", strokeWidth: 1 }} />
                 <Area type="monotone" dataKey="upload" stroke="var(--data-2)" fill="url(#upG)" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "var(--data-2)", stroke: "var(--surface-2)", strokeWidth: 2 }} name="Upload" />
                 <Area type="monotone" dataKey="download" stroke="var(--data-1)" fill="url(#dnG)" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "var(--data-1)", stroke: "var(--surface-2)", strokeWidth: 2 }} name="Download" />
               </AreaChart>

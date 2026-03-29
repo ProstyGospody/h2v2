@@ -7,8 +7,8 @@ import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, T
 function SectionTitle({ icon, title, description }: { icon: ReactNode; title: string; description?: string }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-accent/10">
-        <span className="text-accent-light">{icon}</span>
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-3/60">
+        <span className="text-txt-secondary">{icon}</span>
       </div>
       <div>
         <h3 className="text-[15px] font-bold text-txt-primary">{title}</h3>
@@ -102,7 +102,7 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
               <div className="md:col-span-9">
                 <label className="mb-2 block text-[13px] font-medium text-txt-secondary">Masquerade String Content</label>
                 <textarea value={draft.masquerade?.string?.content || ""} onChange={(e) => onDraftChange({ ...draft, masquerade: { type: "string", string: { content: e.target.value, statusCode: draft.masquerade?.string?.statusCode || 200 } } })} rows={3}
-                  className="w-full rounded-lg border border-[var(--control-border)] bg-[var(--control-bg)] px-4 py-2.5 text-[14px] font-medium text-txt-primary outline-none transition-colors focus:border-accent/50 focus:bg-[var(--control-bg-hover)] focus:shadow-[0_0_0_3px_var(--primary-soft)]" />
+                  className="w-full rounded-lg border border-[var(--control-border)] bg-[var(--control-bg)] px-4 py-2.5 text-[14px] font-medium text-txt-primary outline-none transition-colors focus:border-accent-secondary/50 focus:bg-[var(--control-bg-hover)] focus:shadow-[0_0_0_3px_var(--accent-soft)]" />
               </div>
               <div className="md:col-span-3">
                 <Input label="Status Code" type="number" value={String(draft.masquerade?.string?.statusCode ?? 200)} onChange={(e) => { const p = Number.parseInt(e.target.value, 10); onDraftChange({ ...draft, masquerade: { type: "string", string: { content: draft.masquerade?.string?.content || "", statusCode: Number.isFinite(p) ? p : 200 } } }); }} min={100} max={599} />
@@ -126,7 +126,7 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
       <section className="space-y-5 rounded-2xl bg-surface-2 p-6 xl:col-span-12">
         <SectionTitle icon={<Code size={18} strokeWidth={1.6} />} title="Generated YAML" description="Preview of the configuration file" />
         <textarea readOnly value={rawYaml} rows={16}
-          className="w-full rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] px-5 py-4 font-mono text-[13px] leading-6 text-accent-light/80 outline-none" />
+          className="w-full rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] px-5 py-4 font-mono text-[13px] leading-6 text-txt outline-none" />
         <p className="text-[13px] text-txt-muted">Read-only preview of generated configuration</p>
       </section>
     </div>

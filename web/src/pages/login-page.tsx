@@ -90,12 +90,12 @@ export default function LoginPage() {
                 <div className="relative">
                   <Mail size={18} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-muted" />
                   <input type="email" required autoComplete="username" placeholder="Admin email" {...register("email", { required: true })}
-                    className="w-full rounded-xl border border-border bg-surface-0/50 py-3.5 pl-12 pr-4 text-[15px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent/40 focus:bg-surface-0/80 focus:shadow-[0_0_0_3px_var(--primary-soft)]" />
+                    className="w-full rounded-xl border border-border bg-surface-0/50 py-3.5 pl-12 pr-4 text-[15px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent-secondary/40 focus:bg-surface-0/80 focus:shadow-[0_0_0_3px_var(--accent-soft)]" />
                 </div>
                 <div className="relative">
                   <Lock size={18} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-muted" />
                   <input type="password" required autoComplete="current-password" placeholder="Password" {...register("password", { required: true })}
-                    className="w-full rounded-xl border border-border bg-surface-0/50 py-3.5 pl-12 pr-4 text-[15px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent/40 focus:bg-surface-0/80 focus:shadow-[0_0_0_3px_var(--primary-soft)]" />
+                    className="w-full rounded-xl border border-border bg-surface-0/50 py-3.5 pl-12 pr-4 text-[15px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent-secondary/40 focus:bg-surface-0/80 focus:shadow-[0_0_0_3px_var(--accent-soft)]" />
                 </div>
               </div>
               <Button type="submit" variant="primary" className="w-full justify-center rounded-xl py-3.5 text-[15px]" disabled={isSubmitting}>

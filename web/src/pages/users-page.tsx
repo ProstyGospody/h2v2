@@ -363,7 +363,7 @@ export default function UsersPage() {
                   onClick={(event) => handleFilterChange(event, item)}
                   className={cn(
                     "rounded-xl px-4 py-2 text-[13px] font-semibold capitalize transition-all",
-                    filter === item && "bg-accent text-white shadow-sm shadow-accent/30",
+                    filter === item && "bg-surface-4 text-txt-primary shadow-sm",
                     filter !== item && "text-txt-secondary hover:text-txt-primary",
                   )}
                 >
@@ -451,7 +451,7 @@ export default function UsersPage() {
                             <button
                               type="button"
                               onClick={() => void openArtifacts(client)}
-                              className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-accent/15 to-accent-secondary/10 text-[13px] font-bold text-accent-light transition-all hover:from-accent/25 hover:to-accent-secondary/20"
+                              className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-accent/15 to-accent-secondary/10 text-[13px] font-bold text-txt-primary transition-all hover:from-accent/25 hover:to-accent-secondary/20"
                             >
                               {initials(client.username)}
                             </button>

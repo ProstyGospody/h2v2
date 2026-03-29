@@ -97,7 +97,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
             : "text-txt-secondary hover:bg-surface-3/45 hover:text-txt-primary",
         )}
       >
-        <span className={cn("shrink-0", selected ? "text-accent-light" : "text-txt-tertiary group-hover:text-txt-primary")}>
+        <span className={cn("shrink-0", selected ? "text-accent-secondary" : "text-txt-tertiary group-hover:text-txt-primary")}>
           {item.icon}
         </span>
 
@@ -124,15 +124,15 @@ export function PanelShell({ children }: { children: ReactNode }) {
         </div>
 
         {!mobile && (
-          <div className={cn("w-full pb-3 pt-2", compact ? "px-2" : "px-4")}>
+          <div className={cn("w-full pb-1 pt-1", compact ? "px-2" : "px-4")}>
             <div className={cn("flex", compact ? "justify-center" : "justify-end")}>
               <button
                 type="button"
                 onClick={() => setCollapsed((prev) => !prev)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] text-txt-tertiary shadow-[inset_0_1px_0_var(--shell-highlight)] transition-colors hover:border-[var(--control-border-strong)] hover:bg-[var(--control-bg-hover)] hover:text-txt-primary"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-txt-muted opacity-50 transition-all hover:opacity-100 hover:text-txt-secondary"
                 aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
               >
-                {compact ? <ChevronRight size={18} strokeWidth={2} /> : <ChevronLeft size={18} strokeWidth={2} />}
+                {compact ? <ChevronRight size={15} strokeWidth={1.6} /> : <ChevronLeft size={15} strokeWidth={1.6} />}
               </button>
             </div>
           </div>
@@ -161,7 +161,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
         <div className={cn("w-full border-t border-border/50 p-3", compact ? "space-y-2" : "space-y-3")}>
           {!compact && (
             <div className="flex items-center gap-3 rounded-xl bg-surface-3/40 px-3 py-3">
-              <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent/20 to-accent-secondary/20 text-[14px] font-bold text-accent-light">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent/20 to-accent-secondary/20 text-[14px] font-bold text-txt-primary">
                 A
               </div>
               <div className="min-w-0 flex-1">
