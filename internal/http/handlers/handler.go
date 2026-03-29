@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	"proxy-panel/internal/config"
-	"proxy-panel/internal/http/middleware"
-	"proxy-panel/internal/http/render"
-	"proxy-panel/internal/repository"
-	"proxy-panel/internal/services"
+	"h2v2/internal/config"
+	"h2v2/internal/http/middleware"
+	"h2v2/internal/http/render"
+	"h2v2/internal/repository"
+	"h2v2/internal/services"
 )
 
 type Handler struct {

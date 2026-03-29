@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"time"
 
-	"proxy-panel/internal/config"
-	"proxy-panel/internal/http/render"
-	"proxy-panel/internal/repository"
-	"proxy-panel/internal/security"
+	"h2v2/internal/config"
+	"h2v2/internal/http/render"
+	"h2v2/internal/repository"
+	"h2v2/internal/security"
 )
 
 func RequireAuth(cfg config.Config, repo *repository.Repository, logger *slog.Logger) func(http.Handler) http.Handler {

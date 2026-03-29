@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENV_FILE="${1:-/opt/proxy-panel/.env.generated}"
+ENV_FILE="${1:-/opt/h2v2/.env.generated}"
 if [[ -f "${ENV_FILE}" ]]; then
   set -a
   # shellcheck disable=SC1090
@@ -16,7 +16,7 @@ SMOKE_ADMIN_PASSWORD="${SMOKE_ADMIN_PASSWORD:-${INITIAL_ADMIN_PASSWORD:-}}"
 CURL_CONNECT_TIMEOUT="${CURL_CONNECT_TIMEOUT:-3}"
 CURL_MAX_TIME="${CURL_MAX_TIME:-10}"
 
-services=(proxy-panel-api proxy-panel-web hysteria-server caddy)
+services=(h2v2-api h2v2-web hysteria-server caddy)
 
 echo "[step] checking systemd services"
 for service in "${services[@]}"; do

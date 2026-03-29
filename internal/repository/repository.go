@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"proxy-panel/internal/fsutil"
+	"h2v2/internal/fsutil"
 )
 
 var (

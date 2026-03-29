@@ -8,11 +8,11 @@ Type=simple
 PermissionsStartOnly=true
 User=hysteria
 Group=hysteria
-SupplementaryGroups=proxy-panel
+SupplementaryGroups=h2v2
 WorkingDirectory=/var/lib/hysteria
 StateDirectory=hysteria
-ExecStartPre=/opt/proxy-panel/current/scripts/sync-hysteria-cert.sh /opt/proxy-panel/.env.generated
-ExecStart=/usr/local/bin/hysteria server -c /etc/proxy-panel/hysteria/server.yaml
+ExecStartPre=/opt/h2v2/current/scripts/sync-hysteria-cert.sh /opt/h2v2/.env.generated
+ExecStart=/usr/local/bin/hysteria server -c /etc/h2v2/hysteria/server.yaml
 Restart=always
 RestartSec=2
 AmbientCapabilities=CAP_NET_BIND_SERVICE
@@ -21,7 +21,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=true
-ReadWritePaths=/etc/proxy-panel/hysteria /var/lib/hysteria
+ReadWritePaths=/etc/h2v2/hysteria /var/lib/hysteria
 
 [Install]
 WantedBy=multi-user.target

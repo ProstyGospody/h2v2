@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"proxy-panel/internal/config"
-	"proxy-panel/internal/repository"
-	"proxy-panel/internal/security"
+	"h2v2/internal/config"
+	"h2v2/internal/repository"
+	"h2v2/internal/security"
 )
 
 func OpenRepository(cfg config.Config) (*repository.Repository, error) {

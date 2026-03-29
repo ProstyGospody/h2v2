@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"proxy-panel/internal/repository"
+	"h2v2/internal/repository"
 )
 
 func TestHysteriaUserArtifactsRejectsDisabledUser(t *testing.T) {

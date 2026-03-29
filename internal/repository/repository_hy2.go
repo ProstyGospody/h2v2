@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	hysteriadomain "proxy-panel/internal/domain/hysteria"
+	hysteriadomain "h2v2/internal/domain/hysteria"
 )
 
 func (r *Repository) CreateHysteriaUser(ctx context.Context, username string, password string, note *string, overrides *hysteriadomain.ClientOverrides) (HysteriaUser, error) {

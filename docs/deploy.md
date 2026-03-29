@@ -39,7 +39,7 @@ sudo bash ./deploy/ubuntu24-host-install.sh
 You can preseed values with environment variables and run:
 
 ```bash
-PROXY_PANEL_NONINTERACTIVE=1 \
+H2V2_NONINTERACTIVE=1 \
 PANEL_PUBLIC_HOST=panel.example.com \
 SUBSCRIPTION_PUBLIC_HOST=sub.example.com \
 HY2_DOMAIN=hy2.example.com \
@@ -55,11 +55,11 @@ sudo bash ./deploy/install.sh --reconfigure
 
 ## What gets generated
 
-- `/opt/proxy-panel/.env.generated`
-- `/root/proxy-panel-initial-admin.txt`
-- `/etc/proxy-panel/hysteria/server.yaml`
-- `/etc/proxy-panel/hysteria/tls.crt`
-- `/etc/proxy-panel/hysteria/tls.key`
+- `/opt/h2v2/.env.generated`
+- `/root/h2v2-initial-admin.txt`
+- `/etc/h2v2/hysteria/server.yaml`
+- `/etc/h2v2/hysteria/tls.crt`
+- `/etc/h2v2/hysteria/tls.key`
 
 ## Post-install verification
 

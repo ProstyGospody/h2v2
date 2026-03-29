@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENV_FILE="${1:-/opt/proxy-panel/.env.generated}"
+ENV_FILE="${1:-/opt/h2v2/.env.generated}"
 MODE="${2:-}"
 
 if [[ -f "${ENV_FILE}" ]]; then
@@ -21,8 +21,8 @@ fatal() {
 }
 
 : "${HY2_DOMAIN:?HY2_DOMAIN is required}"
-HY2_CERT_PATH="${HY2_CERT_PATH:-/etc/proxy-panel/hysteria/tls.crt}"
-HY2_KEY_PATH="${HY2_KEY_PATH:-/etc/proxy-panel/hysteria/tls.key}"
+HY2_CERT_PATH="${HY2_CERT_PATH:-/etc/h2v2/hysteria/tls.crt}"
+HY2_KEY_PATH="${HY2_KEY_PATH:-/etc/h2v2/hysteria/tls.key}"
 HY2_CERT_WAIT_TIMEOUT="${HY2_CERT_WAIT_TIMEOUT:-180}"
 CADDY_CERT_SEARCH_ROOT="${CADDY_CERT_SEARCH_ROOT:-/var/lib/caddy}"
 
@@ -56,7 +56,7 @@ copy_if_changed() {
     return 0
   fi
 
-  install -D -o root -g proxy-panel -m 0640 "${source_path}" "${target_path}"
+  install -D -o root -g h2v2 -m 0640 "${source_path}" "${target_path}"
   printf -v "${changed_ref_name}" '%s' 1
 }
 

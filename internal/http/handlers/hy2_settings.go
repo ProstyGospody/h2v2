@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
-	auditdomain "proxy-panel/internal/domain/audit"
-	"proxy-panel/internal/http/render"
-	"proxy-panel/internal/services"
+	auditdomain "h2v2/internal/domain/audit"
+	"h2v2/internal/http/render"
+	"h2v2/internal/services"
 )
 
 type hysteriaSettingsValidateResponse struct {

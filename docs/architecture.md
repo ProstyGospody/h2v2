@@ -18,24 +18,24 @@ The application is file-backed and does not use a database.
 
 Primary storage roots:
 
-- `/var/lib/proxy-panel/state`
+- `/var/lib/h2v2/state`
   - admins
   - sessions
   - hysteria users
   - service-state cache
   - metadata counters
-- `/var/lib/proxy-panel/snapshots/hy2`
+- `/var/lib/h2v2/snapshots/hy2`
   - per-user traffic/online snapshots
-- `/var/lib/proxy-panel/snapshots/system`
+- `/var/lib/h2v2/snapshots/system`
   - host CPU/RAM/network trend snapshots for dashboard history
-- `/var/lib/proxy-panel/backups`
+- `/var/lib/h2v2/backups`
   - saved config backups
-- `/var/log/proxy-panel/audit`
+- `/var/log/h2v2/audit`
   - audit trail entries
 
 ## Hysteria configuration ownership
 
-- Active config path: `/etc/proxy-panel/hysteria/server.yaml`
+- Active config path: `/etc/h2v2/hysteria/server.yaml`
 - Managed auth mode is `userpass`
 - User credentials are sourced from panel-managed Hysteria users
 - During validate/save/apply, panel-managed auth is injected to prevent drift
@@ -53,6 +53,6 @@ Primary storage roots:
 Service actions are mediated through restricted sudo rules and limited to configured `MANAGED_SERVICES`.
 Default:
 
-- `proxy-panel-api`
-- `proxy-panel-web`
+- `h2v2-api`
+- `h2v2-web`
 - `hysteria-server`

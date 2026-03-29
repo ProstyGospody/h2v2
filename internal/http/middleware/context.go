@@ -3,7 +3,7 @@ package middleware
 import (
 	"context"
 
-	"proxy-panel/internal/repository"
+	"h2v2/internal/repository"
 )
 
 type contextKey string

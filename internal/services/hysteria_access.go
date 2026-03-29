@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"proxy-panel/internal/config"
-	hysteriadomain "proxy-panel/internal/domain/hysteria"
-	"proxy-panel/internal/repository"
+	"h2v2/internal/config"
+	hysteriadomain "h2v2/internal/domain/hysteria"
+	"h2v2/internal/repository"
 )
 
 type HysteriaUserArtifacts struct {
@@ -129,7 +129,7 @@ func (m *HysteriaAccessManager) managedAuth(ctx context.Context) (Hy2ServerAuth,
 	if len(userPass) == 0 {
 		bootstrapPassword := strings.TrimSpace(m.cfg.InternalAuthToken)
 		if bootstrapPassword == "" {
-			bootstrapPassword = "proxy-panel-bootstrap"
+			bootstrapPassword = "h2v2-bootstrap"
 		}
 		userPass["__bootstrap__"] = bootstrapPassword
 	}

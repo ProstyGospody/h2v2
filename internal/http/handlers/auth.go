@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"proxy-panel/internal/http/middleware"
-	"proxy-panel/internal/http/render"
-	"proxy-panel/internal/security"
+	"h2v2/internal/http/middleware"
+	"h2v2/internal/http/render"
+	"h2v2/internal/security"
 )
 
 type loginRequest struct {

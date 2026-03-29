@@ -1,4 +1,4 @@
-module proxy-panel
+module h2v2
 
 go 1.24
 

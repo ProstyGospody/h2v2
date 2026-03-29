@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"proxy-panel/internal/app"
-	"proxy-panel/internal/config"
+	"h2v2/internal/app"
+	"h2v2/internal/config"
 )
 
 func main() {

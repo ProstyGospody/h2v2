@@ -11,15 +11,15 @@ require_cmd() {
   command -v "${name}" >/dev/null 2>&1 || fatal "${name} is required"
 }
 
-REPO_OWNER="${PROXY_PANEL_REPO_OWNER:-ProstyGospody}"
-REPO_NAME="${PROXY_PANEL_REPO_NAME:-h2v2}"
-REPO_REF="${PROXY_PANEL_REPO_REF:-main}"
-ARCHIVE_URL="${PROXY_PANEL_ARCHIVE_URL:-https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${REPO_REF}.tar.gz}"
+REPO_OWNER="${H2V2_REPO_OWNER:-ProstyGospody}"
+REPO_NAME="${H2V2_REPO_NAME:-h2v2}"
+REPO_REF="${H2V2_REPO_REF:-main}"
+ARCHIVE_URL="${H2V2_ARCHIVE_URL:-https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${REPO_REF}.tar.gz}"
 
 require_cmd curl
 require_cmd tar
 
-WORK_DIR="$(mktemp -d /tmp/proxy-panel-install.XXXXXX)"
+WORK_DIR="$(mktemp -d /tmp/h2v2-install.XXXXXX)"
 cleanup() {
   rm -rf "${WORK_DIR}"
 }

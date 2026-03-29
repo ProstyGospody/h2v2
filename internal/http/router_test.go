@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"proxy-panel/internal/config"
-	"proxy-panel/internal/http/handlers"
+	"h2v2/internal/config"
+	"h2v2/internal/http/handlers"
 )
 
 func TestRouterExposesHysteriaRoutesAndDropsLegacyRoutes(t *testing.T) {

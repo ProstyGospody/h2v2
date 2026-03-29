@@ -9,12 +9,12 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	auditdomain "proxy-panel/internal/domain/audit"
-	hysteriadomain "proxy-panel/internal/domain/hysteria"
-	"proxy-panel/internal/http/render"
-	"proxy-panel/internal/repository"
-	"proxy-panel/internal/security"
-	"proxy-panel/internal/services"
+	auditdomain "h2v2/internal/domain/audit"
+	hysteriadomain "h2v2/internal/domain/hysteria"
+	"h2v2/internal/http/render"
+	"h2v2/internal/repository"
+	"h2v2/internal/security"
+	"h2v2/internal/services"
 )
 
 type createHysteriaUserRequest struct {

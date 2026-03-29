@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"proxy-panel/internal/http/render"
-	"proxy-panel/internal/repository"
-	"proxy-panel/internal/services"
+	"h2v2/internal/http/render"
+	"h2v2/internal/repository"
+	"h2v2/internal/services"
 )
 
 const (

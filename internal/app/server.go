@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"time"
 
-	"proxy-panel/internal/config"
-	httpserver "proxy-panel/internal/http"
-	"proxy-panel/internal/http/handlers"
-	"proxy-panel/internal/http/middleware"
-	"proxy-panel/internal/repository"
-	"proxy-panel/internal/scheduler"
-	"proxy-panel/internal/services"
+	"h2v2/internal/config"
+	httpserver "h2v2/internal/http"
+	"h2v2/internal/http/handlers"
+	"h2v2/internal/http/middleware"
+	"h2v2/internal/repository"
+	"h2v2/internal/scheduler"
+	"h2v2/internal/services"
 )
 
 type Server struct {

@@ -1,15 +1,15 @@
 [Unit]
-Description=Proxy Panel Web (Vite Preview)
+Description=H2V2 Web (Vite Preview)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=proxy-panel
-Group=proxy-panel
-EnvironmentFile=/opt/proxy-panel/.env.generated
+User=h2v2
+Group=h2v2
+EnvironmentFile=/opt/h2v2/.env.generated
 Environment=NODE_ENV=production
-WorkingDirectory=/opt/proxy-panel/current/web
+WorkingDirectory=/opt/h2v2/current/web
 ExecStart=/usr/bin/npm run start -- --port ${PANEL_WEB_PORT}
 Restart=always
 RestartSec=2

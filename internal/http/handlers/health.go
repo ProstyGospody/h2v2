@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"proxy-panel/internal/http/render"
-	"proxy-panel/internal/version"
+	"h2v2/internal/http/render"
+	"h2v2/internal/version"
 )
 
 func (h *Handler) Healthz(w http.ResponseWriter, r *http.Request) {

@@ -3,7 +3,7 @@ package repository
 import (
 	"time"
 
-	hysteriadomain "proxy-panel/internal/domain/hysteria"
+	hysteriadomain "h2v2/internal/domain/hysteria"
 )
 
 type Admin struct {

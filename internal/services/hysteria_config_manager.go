@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"proxy-panel/internal/fsutil"
+	"h2v2/internal/fsutil"
 
 	"gopkg.in/yaml.v3"
 )

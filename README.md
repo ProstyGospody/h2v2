@@ -6,7 +6,7 @@ Control plane stack:
 
 - `panel-api`: Go
 - `panel-web`: React + Vite + Tailwind CSS + Radix UI + React Router + TanStack Query + react-hook-form + Recharts + Framer Motion
-- Local filesystem storage under `/var/lib/proxy-panel`
+- Local filesystem storage under `/var/lib/h2v2`
 - Caddy (TLS reverse proxy and certificate issuer)
 - Native procfs-based host metrics (live CPU/RAM/network)
 - systemd
@@ -38,39 +38,39 @@ Installer phases:
 1. Validates host OS support (Ubuntu 24.04 or Debian 12+) + root access
 2. Installs host dependencies (Go, Node.js/npm, Caddy)
 3. Installs Hysteria binary
-4. Creates system users (`proxy-panel`, `hysteria`)
+4. Creates system users (`h2v2`, `hysteria`)
 5. Generates runtime env files and admin credentials
 6. Builds backend and frontend
 7. Renders Caddy + Hysteria runtime configuration
 8. Bootstraps file storage and admin account
 9. Installs systemd units + restricted sudoers policy
 10. Starts panel services, Hysteria, and Caddy
-11. Syncs Caddy-issued cert into `/etc/proxy-panel/hysteria/`
+11. Syncs Caddy-issued cert into `/etc/h2v2/hysteria/`
 12. Runs smoke checks
 
 ## Generated files and directories
 
-- Main generated env: `/opt/proxy-panel/.env.generated`
-- Initial admin credentials file: `/root/proxy-panel-initial-admin.txt`
-- File-backed control-plane state: `/var/lib/proxy-panel/state/`
-- Historical snapshots: `/var/lib/proxy-panel/snapshots/`
-- Backups: `/var/lib/proxy-panel/backups/`
-- Audit records: `/var/log/proxy-panel/audit/`
-- Runtime locks/temp: `/run/proxy-panel/`
-- Hysteria config: `/etc/proxy-panel/hysteria/server.yaml`
-- Hysteria synced TLS cert/key: `/etc/proxy-panel/hysteria/tls.crt`, `/etc/proxy-panel/hysteria/tls.key`
+- Main generated env: `/opt/h2v2/.env.generated`
+- Initial admin credentials file: `/root/h2v2-initial-admin.txt`
+- File-backed control-plane state: `/var/lib/h2v2/state/`
+- Historical snapshots: `/var/lib/h2v2/snapshots/`
+- Backups: `/var/lib/h2v2/backups/`
+- Audit records: `/var/log/h2v2/audit/`
+- Runtime locks/temp: `/run/h2v2/`
+- Hysteria config: `/etc/h2v2/hysteria/server.yaml`
+- Hysteria synced TLS cert/key: `/etc/h2v2/hysteria/tls.crt`, `/etc/h2v2/hysteria/tls.key`
 
 ## Service names
 
-- `proxy-panel-api.service`
-- `proxy-panel-web.service`
+- `h2v2-api.service`
+- `h2v2-web.service`
 - `hysteria-server.service`
 - `caddy.service`
 
 Check status:
 
 ```bash
-systemctl status proxy-panel-api proxy-panel-web hysteria-server caddy
+systemctl status h2v2-api h2v2-web hysteria-server caddy
 ```
 
 ## Smoke check
@@ -82,7 +82,7 @@ sudo bash ./deploy/verify.sh
 Or directly:
 
 ```bash
-sudo bash /opt/proxy-panel/current/scripts/smoke-check.sh /opt/proxy-panel/.env.generated
+sudo bash /opt/h2v2/current/scripts/smoke-check.sh /opt/h2v2/.env.generated
 ```
 
 ## Documentation

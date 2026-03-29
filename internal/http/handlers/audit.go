@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"proxy-panel/internal/http/render"
+	"h2v2/internal/http/render"
 )
 
 func (h *Handler) ListAudit(w http.ResponseWriter, r *http.Request) {

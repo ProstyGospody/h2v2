@@ -16,9 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"proxy-panel/internal/config"
-	hysteriadomain "proxy-panel/internal/domain/hysteria"
-	"proxy-panel/internal/repository"
+	"h2v2/internal/config"
+	hysteriadomain "h2v2/internal/domain/hysteria"
+	"h2v2/internal/repository"
 )
 
 func writeTestTLSCertificate(t *testing.T, dir string) (certPath string, keyPath string, pinSHA256 string) {

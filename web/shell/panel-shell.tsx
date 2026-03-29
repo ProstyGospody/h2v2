@@ -125,7 +125,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
 
             {!compact && (
               <div className="min-w-0 flex-1 pl-3">
-                <p className="truncate text-[17px] font-bold text-txt-primary">Nexus</p>
+                <p className="truncate text-[17px] font-bold text-txt-primary">H2V2</p>
                 <p className="text-[12px] text-txt-muted">Control Panel</p>
               </div>
             )}
@@ -169,7 +169,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-semibold text-txt">Admin</p>
-                <p className="truncate text-[12px] text-txt-muted">root@nexus</p>
+                <p className="truncate text-[12px] text-txt-muted">root@h2v2</p>
               </div>
             </div>
           )}

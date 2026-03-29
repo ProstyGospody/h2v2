@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"time"
 
-	"proxy-panel/internal/config"
-	"proxy-panel/internal/repository"
-	"proxy-panel/internal/services"
+	"h2v2/internal/config"
+	"h2v2/internal/repository"
+	"h2v2/internal/services"
 )
 
 type Jobs struct {
@@ -106,9 +106,9 @@ func (j *Jobs) pollServices(ctx context.Context) error {
 		switch service {
 		case "hysteria-server":
 			version, _ = services.DetectBinaryVersion(ctx, j.cfg.Hy2BinaryPath, "version")
-		case "proxy-panel-api":
+		case "h2v2-api":
 			version = "managed-by-systemd"
-		case "proxy-panel-web":
+		case "h2v2-web":
 			version = "managed-by-systemd"
 		}
 		var versionPtr *string

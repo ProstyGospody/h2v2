@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"proxy-panel/internal/config"
-	"proxy-panel/internal/http/render"
+	"h2v2/internal/config"
+	"h2v2/internal/http/render"
 )
 
 func RequireCSRF(cfg config.Config) func(http.Handler) http.Handler {

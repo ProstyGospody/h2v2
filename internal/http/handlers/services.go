@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"proxy-panel/internal/http/render"
+	"h2v2/internal/http/render"
 )
 
 func (h *Handler) ListServices(w http.ResponseWriter, r *http.Request) {

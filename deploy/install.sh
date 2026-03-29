@@ -2,7 +2,7 @@
 set -euo pipefail
 
 RECONFIGURE=0
-NONINTERACTIVE="${PROXY_PANEL_NONINTERACTIVE:-0}"
+NONINTERACTIVE="${H2V2_NONINTERACTIVE:-0}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --reconfigure)
@@ -22,13 +22,13 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-APP_ROOT="/opt/proxy-panel"
+APP_ROOT="/opt/h2v2"
 SRC_DIR="${APP_ROOT}/current"
 BIN_DIR="${APP_ROOT}/bin"
 ENV_FILE="${APP_ROOT}/.env.generated"
-CREDENTIALS_FILE="/root/proxy-panel-initial-admin.txt"
+CREDENTIALS_FILE="/root/h2v2-initial-admin.txt"
 
-ETC_ROOT="/etc/proxy-panel"
+ETC_ROOT="/etc/h2v2"
 HY2_DIR="${ETC_ROOT}/hysteria"
 
 PANEL_API_PORT="18080"
@@ -249,10 +249,10 @@ install_hysteria() {
 
 create_system_users() {
   action "Creating system users"
-  id -u proxy-panel >/dev/null 2>&1 || useradd --system --home /opt/proxy-panel --shell /usr/sbin/nologin proxy-panel
+  id -u h2v2 >/dev/null 2>&1 || useradd --system --home /opt/h2v2 --shell /usr/sbin/nologin h2v2
   id -u hysteria >/dev/null 2>&1 || useradd --system --home /var/lib/hysteria --shell /usr/sbin/nologin hysteria
 
-  usermod -a -G proxy-panel hysteria || true
+  usermod -a -G h2v2 hysteria || true
 }
 
 capture_env_overrides() {
@@ -278,14 +278,14 @@ prepare_directories() {
   action "Preparing directories"
 
   mkdir -p "${APP_ROOT}" "${BIN_DIR}" "${ETC_ROOT}" "${HY2_DIR}"
-  mkdir -p /var/lib/proxy-panel /var/lib/proxy-panel/backups /var/log/proxy-panel/audit /var/lib/hysteria /run/proxy-panel /run/proxy-panel/locks /run/proxy-panel/tmp
+  mkdir -p /var/lib/h2v2 /var/lib/h2v2/backups /var/log/h2v2/audit /var/lib/hysteria /run/h2v2 /run/h2v2/locks /run/h2v2/tmp
 
-  chown -R proxy-panel:proxy-panel /var/lib/proxy-panel /var/log/proxy-panel /run/proxy-panel
+  chown -R h2v2:h2v2 /var/lib/h2v2 /var/log/h2v2 /run/h2v2
   chown -R hysteria:hysteria /var/lib/hysteria
 
-  chmod 0750 /run/proxy-panel /run/proxy-panel/locks /run/proxy-panel/tmp
+  chmod 0750 /run/h2v2 /run/h2v2/locks /run/h2v2/tmp
 
-  chown root:proxy-panel "${HY2_DIR}"
+  chown root:h2v2 "${HY2_DIR}"
   chmod 2770 "${HY2_DIR}"
 }
 
@@ -430,9 +430,9 @@ collect_configuration() {
   SUBSCRIPTION_PUBLIC_URL="https://${SUBSCRIPTION_PUBLIC_HOST}:${PANEL_PUBLIC_PORT}"
   HY2_STATS_URL="http://127.0.0.1:${HY2_STATS_PORT}"
 
-  PANEL_STORAGE_ROOT="${PANEL_STORAGE_ROOT:-/var/lib/proxy-panel}"
-  PANEL_AUDIT_DIR="${PANEL_AUDIT_DIR:-/var/log/proxy-panel/audit}"
-  PANEL_RUNTIME_DIR="${PANEL_RUNTIME_DIR:-/run/proxy-panel}"
+  PANEL_STORAGE_ROOT="${PANEL_STORAGE_ROOT:-/var/lib/h2v2}"
+  PANEL_AUDIT_DIR="${PANEL_AUDIT_DIR:-/var/log/h2v2/audit}"
+  PANEL_RUNTIME_DIR="${PANEL_RUNTIME_DIR:-/run/h2v2}"
 
   SESSION_COOKIE_NAME="${SESSION_COOKIE_NAME:-pp_session}"
   CSRF_COOKIE_NAME="${CSRF_COOKIE_NAME:-pp_csrf}"
@@ -443,7 +443,7 @@ collect_configuration() {
   HY2_POLL_INTERVAL="${HY2_POLL_INTERVAL:-20s}"
   SERVICE_POLL_INTERVAL="${SERVICE_POLL_INTERVAL:-60s}"
 
-  MANAGED_SERVICES="proxy-panel-api,proxy-panel-web,hysteria-server"
+  MANAGED_SERVICES="h2v2-api,h2v2-web,hysteria-server"
   SYSTEMCTL_PATH="/usr/bin/systemctl"
   SUDO_PATH="/usr/bin/sudo"
   JOURNALCTL_PATH="/usr/bin/journalctl"
@@ -510,7 +510,7 @@ AUTH_RATE_LIMIT_BURST=${AUTH_RATE_LIMIT_BURST}
 HY2_BINARY_PATH=${HY2_BINARY_PATH}
 EOF
 
-  chown root:proxy-panel "${ENV_FILE}"
+  chown root:h2v2 "${ENV_FILE}"
   chmod 0640 "${ENV_FILE}"
 
   cat > "${CREDENTIALS_FILE}" <<EOF
@@ -521,7 +521,7 @@ SUBSCRIPTION_PUBLIC_URL=${SUBSCRIPTION_PUBLIC_URL}
 EOF
   chmod 0600 "${CREDENTIALS_FILE}"
 
-  cat > /etc/caddy/proxy-panel.env <<EOF
+  cat > /etc/caddy/h2v2.env <<EOF
 PANEL_PUBLIC_HOST=${PANEL_PUBLIC_HOST}
 PANEL_PUBLIC_PORT=${PANEL_PUBLIC_PORT}
 PANEL_API_PORT=${PANEL_API_PORT}
@@ -530,12 +530,12 @@ PANEL_ACME_EMAIL=${PANEL_ACME_EMAIL}
 SUBSCRIPTION_PUBLIC_HOST=${SUBSCRIPTION_PUBLIC_HOST}
 HY2_DOMAIN=${HY2_DOMAIN}
 EOF
-  chmod 0640 /etc/caddy/proxy-panel.env
+  chmod 0640 /etc/caddy/h2v2.env
 
   mkdir -p /etc/systemd/system/caddy.service.d
-  cat > /etc/systemd/system/caddy.service.d/proxy-panel-env.conf <<'EOF'
+  cat > /etc/systemd/system/caddy.service.d/h2v2-env.conf <<'EOF'
 [Service]
-EnvironmentFile=/etc/caddy/proxy-panel.env
+EnvironmentFile=/etc/caddy/h2v2.env
 EOF
 }
 
@@ -581,8 +581,8 @@ EOF
     PANEL_ACME_EMAIL="${PANEL_ACME_EMAIL}" \
     SUBSCRIPTION_PUBLIC_HOST="${SUBSCRIPTION_PUBLIC_HOST}" \
     HY2_DOMAIN="${HY2_DOMAIN}" \
-    caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/tmp/proxy-panel-caddy-validate.log 2>&1; then
-    cat /tmp/proxy-panel-caddy-validate.log >&2 || true
+    caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/tmp/h2v2-caddy-validate.log 2>&1; then
+    cat /tmp/h2v2-caddy-validate.log >&2 || true
     fatal "Caddy configuration validation failed; check PANEL_PUBLIC_HOST, SUBSCRIPTION_PUBLIC_HOST, PANEL_PUBLIC_PORT, HY2_DOMAIN"
   fi
 
@@ -608,7 +608,7 @@ obfs:
     password: ${HY2_OBFS_PASSWORD}
 EOF
 
-  chown root:proxy-panel "${HY2_DIR}/server.yaml"
+  chown root:h2v2 "${HY2_DIR}/server.yaml"
   chmod 0660 "${HY2_DIR}/server.yaml"
 }
 
@@ -619,7 +619,7 @@ build_backend() {
   GOFLAGS="-mod=mod" go mod download
   GOFLAGS="-mod=mod" go build -ldflags "-s -w" -o "${BIN_DIR}/panel-api" ./cmd/panel-api
   popd >/dev/null
-  chown root:proxy-panel "${BIN_DIR}/panel-api"
+  chown root:h2v2 "${BIN_DIR}/panel-api"
   chmod 0750 "${BIN_DIR}/panel-api"
 }
 
@@ -632,7 +632,7 @@ build_frontend() {
   VITE_CSRF_HEADER_NAME="${CSRF_HEADER_NAME}" \
   npm run build
   popd >/dev/null
-  chown -R proxy-panel:proxy-panel "${SRC_DIR}/web"
+  chown -R h2v2:h2v2 "${SRC_DIR}/web"
 }
 
 wait_for_hysteria_certificate() {
@@ -643,23 +643,23 @@ wait_for_hysteria_certificate() {
 install_sudoers_policy() {
   action "Installing restricted sudoers policy"
 
-  cat > /etc/sudoers.d/proxy-panel-api <<'EOF'
-Cmnd_Alias PROXY_PANEL_SHOW = /usr/bin/systemctl show proxy-panel-api --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show proxy-panel-web --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show hysteria-server --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp
-Cmnd_Alias PROXY_PANEL_RESTART = /usr/bin/systemctl restart proxy-panel-api, /usr/bin/systemctl restart proxy-panel-web, /usr/bin/systemctl restart hysteria-server
-Cmnd_Alias PROXY_PANEL_RELOAD = /usr/bin/systemctl reload proxy-panel-api, /usr/bin/systemctl reload proxy-panel-web, /usr/bin/systemctl reload hysteria-server
-Cmnd_Alias PROXY_PANEL_LOGS = /usr/bin/journalctl -u proxy-panel-api -n * --no-pager --output=short-iso, /usr/bin/journalctl -u proxy-panel-web -n * --no-pager --output=short-iso, /usr/bin/journalctl -u hysteria-server -n * --no-pager --output=short-iso
-proxy-panel ALL=(root) NOPASSWD: PROXY_PANEL_SHOW, PROXY_PANEL_RESTART, PROXY_PANEL_RELOAD, PROXY_PANEL_LOGS
+  cat > /etc/sudoers.d/h2v2-api <<'EOF'
+Cmnd_Alias H2V2_SHOW = /usr/bin/systemctl show h2v2-api --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show h2v2-web --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show hysteria-server --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp
+Cmnd_Alias H2V2_RESTART = /usr/bin/systemctl restart h2v2-api, /usr/bin/systemctl restart h2v2-web, /usr/bin/systemctl restart hysteria-server
+Cmnd_Alias H2V2_RELOAD = /usr/bin/systemctl reload h2v2-api, /usr/bin/systemctl reload h2v2-web, /usr/bin/systemctl reload hysteria-server
+Cmnd_Alias H2V2_LOGS = /usr/bin/journalctl -u h2v2-api -n * --no-pager --output=short-iso, /usr/bin/journalctl -u h2v2-web -n * --no-pager --output=short-iso, /usr/bin/journalctl -u hysteria-server -n * --no-pager --output=short-iso
+h2v2 ALL=(root) NOPASSWD: H2V2_SHOW, H2V2_RESTART, H2V2_RELOAD, H2V2_LOGS
 EOF
 
-  chmod 0440 /etc/sudoers.d/proxy-panel-api
-  visudo -cf /etc/sudoers.d/proxy-panel-api >/dev/null
+  chmod 0440 /etc/sudoers.d/h2v2-api
+  visudo -cf /etc/sudoers.d/h2v2-api >/dev/null
 }
 
 install_systemd_units() {
   action "Installing systemd units"
 
-  install -m 0644 "${SRC_DIR}/systemd/proxy-panel-api.service" /etc/systemd/system/proxy-panel-api.service
-  install -m 0644 "${SRC_DIR}/systemd/proxy-panel-web.service" /etc/systemd/system/proxy-panel-web.service
+  install -m 0644 "${SRC_DIR}/systemd/h2v2-api.service" /etc/systemd/system/h2v2-api.service
+  install -m 0644 "${SRC_DIR}/systemd/h2v2-web.service" /etc/systemd/system/h2v2-web.service
   install -m 0644 "${SRC_DIR}/systemd/hysteria-server.service" /etc/systemd/system/hysteria-server.service
 
   systemctl daemon-reload
@@ -671,20 +671,20 @@ bootstrap_admin() {
   # shellcheck disable=SC1090
   source "${ENV_FILE}"
   set +a
-  runuser -u proxy-panel -- "${BIN_DIR}/panel-api" bootstrap-admin --email "${INITIAL_ADMIN_EMAIL}" --password "${INITIAL_ADMIN_PASSWORD}"
+  runuser -u h2v2 -- "${BIN_DIR}/panel-api" bootstrap-admin --email "${INITIAL_ADMIN_EMAIL}" --password "${INITIAL_ADMIN_PASSWORD}"
 }
 
 start_services() {
   action "Starting services"
-  local services=(proxy-panel-api proxy-panel-web caddy hysteria-server)
+  local services=(h2v2-api h2v2-web caddy hysteria-server)
 
   local service
   for service in "${services[@]}"; do
     systemctl enable "${service}.service"
   done
 
-  systemctl restart proxy-panel-api.service
-  systemctl restart proxy-panel-web.service
+  systemctl restart h2v2-api.service
+  systemctl restart h2v2-web.service
   systemctl restart caddy.service
 
   wait_for_hysteria_certificate
@@ -710,14 +710,14 @@ Storage root: ${PANEL_STORAGE_ROOT}
 Audit dir: ${PANEL_AUDIT_DIR}
 
 Systemd services:
-  - proxy-panel-api.service
-  - proxy-panel-web.service
+  - h2v2-api.service
+  - h2v2-web.service
   - hysteria-server.service
   - caddy.service
 
 Useful commands:
-  systemctl status proxy-panel-api proxy-panel-web hysteria-server caddy
-  journalctl -u proxy-panel-api -n 100 --no-pager
+  systemctl status h2v2-api h2v2-web hysteria-server caddy
+  journalctl -u h2v2-api -n 100 --no-pager
   bash ${SRC_DIR}/scripts/smoke-check.sh ${ENV_FILE}
   sudo bash ${REPO_ROOT}/deploy/install.sh --reconfigure
 EOF

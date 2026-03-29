@@ -6,10 +6,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 
-	"proxy-panel/internal/config"
-	"proxy-panel/internal/http/handlers"
-	"proxy-panel/internal/http/middleware"
-	"proxy-panel/internal/repository"
+	"h2v2/internal/config"
+	"h2v2/internal/http/handlers"
+	"h2v2/internal/http/middleware"
+	"h2v2/internal/repository"
 )
 
 func NewRouter(

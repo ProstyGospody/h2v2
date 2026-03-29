@@ -1,0 +1,23 @@
+[Unit]
+Description=H2V2 API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=h2v2
+Group=h2v2
+EnvironmentFile=/opt/h2v2/.env.generated
+RuntimeDirectory=h2v2
+RuntimeDirectoryMode=0750
+WorkingDirectory=/opt/h2v2/current
+ExecStart=/opt/h2v2/bin/panel-api serve
+Restart=always
+RestartSec=2
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/h2v2 /etc/h2v2 /var/lib/h2v2 /var/log/h2v2 /run/h2v2
+
+[Install]
+WantedBy=multi-user.target
