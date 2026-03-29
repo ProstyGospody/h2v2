@@ -217,19 +217,19 @@ export function PanelShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-surface-0 text-txt">
-      {/* Desktop sidebar — uses GPU-accelerated transform instead of width transition to avoid layout reflow */}
+      {/* Desktop sidebar */}
       <aside
-        className="fixed inset-y-0 left-0 z-30 hidden w-[280px] border-r border-border/30 sidebar-glass lg:block will-change-transform"
+        className="fixed inset-y-0 left-0 z-30 hidden overflow-x-hidden border-r border-border/30 sidebar-glass lg:block"
         style={{
-          transform: collapsed ? `translateX(-${SIDEBAR_WIDTH_EXPANDED - SIDEBAR_WIDTH_COLLAPSED}px)` : "translateX(0)",
-          transition: "transform 0.25s cubic-bezier(0.4,0,0.2,1)",
+          width: `${collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED}px`,
+          transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
         }}
       >
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
         <SidebarContent compact={collapsed} mobile={false} />
       </aside>
 
-      {/* Main content — padding snaps instantly, no transition */}
+      {/* Main content */}
       <div className={cn(collapsed ? "lg:pl-[96px]" : "lg:pl-[280px]")}>
         <header className="sticky top-0 z-20 border-b border-border/30 bg-surface-0/90 px-6 py-4 backdrop-blur-lg lg:hidden">
           <button
