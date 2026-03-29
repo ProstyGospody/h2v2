@@ -15,8 +15,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -42,8 +40,6 @@ type HistoryWindow = "1h" | "24h";
 
 type HistoryTrendPoint = {
   timestamp: Date;
-  cpu: number;
-  ram: number;
   download: number;
   upload: number;
 };
@@ -217,7 +213,7 @@ export default function DashboardPage() {
 
   const historyPoints = useMemo<HistoryTrendPoint[]>(() => {
     return historyItems
-      .map((s) => { const t = new Date(s.timestamp); return Number.isNaN(t.getTime()) ? null : { timestamp: t, cpu: clampPercent(s.cpu_usage_percent), ram: clampPercent(s.memory_used_percent), download: Math.max(0, s.network_rx_bps || 0), upload: Math.max(0, s.network_tx_bps || 0) }; })
+      .map((s) => { const t = new Date(s.timestamp); return Number.isNaN(t.getTime()) ? null : { timestamp: t, download: Math.max(0, s.network_rx_bps || 0), upload: Math.max(0, s.network_tx_bps || 0) }; })
       .filter((x): x is HistoryTrendPoint => Boolean(x))
       .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }, [historyItems]);
@@ -351,9 +347,9 @@ export default function DashboardPage() {
         </motion.div>
       </motion.div>
 
-      {/* ── Charts ── */}
+      {/* Traffic Consumption */}
       <div className="space-y-4">
-        <SectionHeader icon={<TrendingUp size={18} strokeWidth={1.6} />} title="Traffic Trends">
+        <SectionHeader icon={<TrendingUp size={18} strokeWidth={1.6} />} title="Traffic Consumption">
           <div className="inline-flex w-full rounded-xl bg-surface-3/50 p-1 text-[13px] sm:w-auto">
             {(["1h", "24h"] as HistoryWindow[]).map((w) => (
               <button key={w} type="button" onClick={() => setHistoryWindow(w)}
@@ -371,41 +367,18 @@ export default function DashboardPage() {
 
         <div className="rounded-2xl border border-border/30 bg-surface-2 p-4 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center gap-4 text-[13px]">
-            <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-full bg-accent" />Upload</span>
-            <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-full bg-accent-secondary" />Download</span>
-          </div>
-          <div className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={historyPoints}>
-                <defs>
-                  <linearGradient id="upG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--data-2)" stopOpacity={0.25} /><stop offset="100%" stopColor="var(--data-2)" stopOpacity={0} /></linearGradient>
-                  <linearGradient id="dnG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--data-1)" stopOpacity={0.2} /><stop offset="100%" stopColor="var(--data-1)" stopOpacity={0} /></linearGradient>
-                </defs>
-                <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
-                <XAxis dataKey="timestamp" tickFormatter={(v) => formatShortTime(new Date(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
-                <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={50} />
-                <Tooltip labelFormatter={(v) => formatDateTime(v instanceof Date ? v.toISOString() : String(v))} formatter={(v: number) => formatRate(Number(v))} contentStyle={tooltipStyle} cursor={{ stroke: "var(--accent-soft)", strokeWidth: 1 }} />
-                <Area type="monotone" dataKey="upload" stroke="var(--data-2)" fill="url(#upG)" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "var(--data-2)", stroke: "var(--surface-2)", strokeWidth: 2 }} name="Upload" />
-                <Area type="monotone" dataKey="download" stroke="var(--data-1)" fill="url(#dnG)" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "var(--data-1)", stroke: "var(--surface-2)", strokeWidth: 2 }} name="Download" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-border/30 bg-surface-2 p-4 sm:p-6">
-          <div className="mb-4 flex flex-wrap items-center gap-4 text-[13px]">
             <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-sm bg-accent" />Download</span>
             <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-sm bg-accent-secondary" />Upload</span>
           </div>
-          <div className="h-[220px]">
+          <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={trafficUsageBars} barGap={2}>
+              <BarChart data={trafficUsageBars} barGap={4} barCategoryGap="25%">
                 <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
                 <XAxis dataKey="timestamp" tickFormatter={(v) => formatShortTime(new Date(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
-                <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={50} />
+                <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={58} />
                 <Tooltip formatter={(v: number) => formatBytes(Number(v))} contentStyle={tooltipStyle} cursor={{ fill: "var(--accent-soft)" }} />
-                <Bar dataKey="download_bytes" fill="var(--data-2)" radius={[4, 4, 0, 0]} name="Download" />
-                <Bar dataKey="upload_bytes" fill="var(--data-4)" radius={[4, 4, 0, 0]} name="Upload" />
+                <Bar dataKey="download_bytes" fill="var(--data-2)" radius={[5, 5, 0, 0]} name="Download" animationDuration={420} />
+                <Bar dataKey="upload_bytes" fill="var(--data-4)" radius={[5, 5, 0, 0]} name="Upload" animationDuration={520} />
               </BarChart>
             </ResponsiveContainer>
           </div>

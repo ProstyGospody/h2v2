@@ -11,6 +11,7 @@ import {
   Sun,
   Zap,
 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { type ReactNode, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -90,8 +91,8 @@ export function PanelShell({ children }: { children: ReactNode }) {
           onNavigate?.();
         }}
         className={cn(
-          "group relative flex h-12 w-full items-center rounded-2xl transition-all duration-200",
-          compact ? "justify-center px-0" : "gap-3 px-4",
+          "group relative flex h-12 w-full items-center rounded-2xl transition-[transform,background-color,color,box-shadow] duration-200 will-change-transform",
+          compact ? "justify-center px-0 hover:scale-[1.03]" : "gap-3 px-4 hover:translate-x-0.5",
           selected
             ? "bg-surface-3/70 text-txt-primary shadow-[inset_0_1px_0_var(--shell-highlight),0_2px_8px_var(--shell-shadow)]"
             : "text-txt-secondary hover:bg-surface-3/45 hover:text-txt-primary",
@@ -112,40 +113,41 @@ export function PanelShell({ children }: { children: ReactNode }) {
   function SidebarContent({ compact, mobile }: { compact: boolean; mobile: boolean }) {
     return (
       <div className={cn("flex h-full flex-col", compact && "items-center")}>
-        <div className={cn("relative flex w-full items-center pb-4 pt-5", compact ? "justify-center px-2" : "justify-start px-5")}>
-          <div className="relative">
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent to-accent-secondary opacity-30 blur-lg" />
-            <div className={cn("relative grid place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-secondary shadow-lg shadow-accent/20", compact ? "h-11 w-11" : "h-12 w-12")}>
-              <Zap size={compact ? 22 : 24} strokeWidth={2} className="text-white" />
+        <div className={cn("relative flex w-full items-center pb-4 pt-5", compact ? "justify-center px-3" : "justify-between px-5")}>
+          <div className={cn("relative flex min-w-0 items-center", compact && "mx-auto")}>
+            <div className="relative">
+              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent to-accent-secondary opacity-30 blur-lg" />
+              <div className={cn("relative grid place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-secondary shadow-lg shadow-accent/20", compact ? "h-11 w-11" : "h-12 w-12")}>
+                <Zap size={compact ? 22 : 24} strokeWidth={2} className="text-white" />
+              </div>
             </div>
+
+            {!compact && (
+              <div className="min-w-0 flex-1 pl-3">
+                <p className="truncate text-[17px] font-bold text-txt-primary">Nexus</p>
+                <p className="text-[12px] text-txt-muted">Control Panel</p>
+              </div>
+            )}
           </div>
 
-          {!compact && (
-            <div className="min-w-0 flex-1 pl-3">
-              <p className="truncate text-[17px] font-bold text-txt-primary">Nexus</p>
-              <p className="text-[12px] text-txt-muted">Control Panel</p>
-            </div>
+          {!mobile && (
+            <button
+              type="button"
+              onClick={() => setCollapsed((prev) => !prev)}
+              className={cn(
+                "inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border/40 bg-surface-2/65 text-txt-muted shadow-[inset_0_1px_0_var(--shell-highlight)] transition-all duration-300 hover:-translate-y-0.5 hover:border-border-hover hover:bg-surface-3/55 hover:text-txt-primary",
+                compact && "absolute right-3 top-5",
+              )}
+              aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {compact ? <ChevronRight size={15} strokeWidth={1.7} /> : <ChevronLeft size={15} strokeWidth={1.7} />}
+            </button>
           )}
         </div>
 
         <div className={cn("w-full", compact ? "px-3" : "px-5")}>
           <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         </div>
-
-        {!mobile && (
-          <div className={cn("w-full pb-1 pt-2", compact ? "px-2" : "px-4")}>
-            <div className={cn("flex", compact ? "justify-center" : "justify-end")}>
-              <button
-                type="button"
-                onClick={() => setCollapsed((prev) => !prev)}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-txt-muted opacity-50 transition-all duration-200 hover:opacity-100 hover:bg-surface-3/40 hover:text-txt-secondary"
-                aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
-              >
-                {compact ? <ChevronRight size={15} strokeWidth={1.6} /> : <ChevronLeft size={15} strokeWidth={1.6} />}
-              </button>
-            </div>
-          </div>
-        )}
 
         <nav className={cn("w-full flex-1 overflow-y-auto pt-4", compact ? "px-2" : "px-3")}>
           <div>
@@ -222,7 +224,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
         className="fixed inset-y-0 left-0 z-30 hidden overflow-x-hidden border-r border-border/30 sidebar-glass lg:block"
         style={{
           width: `${collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED}px`,
-          transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
+          transition: "width 0.34s cubic-bezier(0.22,1,0.36,1)",
         }}
       >
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
@@ -230,7 +232,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <div className={cn(collapsed ? "lg:pl-[96px]" : "lg:pl-[280px]")}>
+      <div className={cn("transition-[padding-left] duration-300 ease-out", collapsed ? "lg:pl-[96px]" : "lg:pl-[280px]")}>
         <header className="sticky top-0 z-20 border-b border-border/30 bg-surface-0/90 px-4 py-4 backdrop-blur-lg sm:px-6 lg:hidden">
           <button
             type="button"
@@ -242,7 +244,19 @@ export function PanelShell({ children }: { children: ReactNode }) {
           </button>
         </header>
 
-        <main className="p-4 sm:p-5 md:p-8">{children}</main>
+        <main className="p-4 sm:p-5 md:p-8">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 10, filter: "blur(2px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: -8, filter: "blur(1px)" }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
+        </main>
       </div>
 
       {/* Mobile overlay */}

@@ -19,7 +19,7 @@ export function MetricCard({ label, value, caption, tone = "primary", trend }: {
 
   return (
     <div className={cn(
-      "group h-full rounded-2xl bg-surface-2 p-5 transition-colors",
+      "card-hover gradient-border group h-full rounded-2xl border border-border/30 bg-surface-2 p-5 transition-colors",
       tone === "primary" && "shadow-[inset_0_1px_0_var(--shell-highlight)]",
       tone === "secondary" && "shadow-[inset_0_1px_0_var(--shell-highlight)]",
       tone === "success" && "shadow-[inset_0_1px_0_var(--status-success-soft)]",
