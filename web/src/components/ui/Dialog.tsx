@@ -45,7 +45,7 @@ export function Dialog({
               <DialogPrimitive.Content asChild forceMount>
                 <motion.div
                   className={cn(
-                    "relative w-full max-w-md rounded-2xl border border-border/30 bg-surface-2 p-7 shadow-2xl shadow-black/30 outline-none",
+                    "relative w-full max-w-md rounded-2xl border border-border/30 bg-surface-2 p-5 shadow-2xl shadow-black/30 outline-none sm:p-7",
                     contentClassName,
                   )}
                   initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -71,7 +71,7 @@ export function Dialog({
 
                   <div>{children}</div>
 
-                  {footer ? <div className="mt-6 flex items-center justify-end gap-3 border-t border-border/50 pt-5">{footer}</div> : null}
+                  {footer ? <div className="mt-6 flex flex-wrap items-center justify-end gap-3 border-t border-border/50 pt-5">{footer}</div> : null}
                 </motion.div>
               </DialogPrimitive.Content>
             </div>

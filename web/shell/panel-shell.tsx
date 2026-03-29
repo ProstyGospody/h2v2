@@ -231,7 +231,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
 
       {/* Main content */}
       <div className={cn(collapsed ? "lg:pl-[96px]" : "lg:pl-[280px]")}>
-        <header className="sticky top-0 z-20 border-b border-border/30 bg-surface-0/90 px-6 py-4 backdrop-blur-lg lg:hidden">
+        <header className="sticky top-0 z-20 border-b border-border/30 bg-surface-0/90 px-4 py-4 backdrop-blur-lg sm:px-6 lg:hidden">
           <button
             type="button"
             className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-surface-1 text-txt-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-txt"
@@ -242,14 +242,14 @@ export function PanelShell({ children }: { children: ReactNode }) {
           </button>
         </header>
 
-        <main className="p-5 md:p-8">{children}</main>
+        <main className="p-4 sm:p-5 md:p-8">{children}</main>
       </div>
 
       {/* Mobile overlay */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-[280px] border-r border-border/30 sidebar-glass shadow-2xl shadow-black/30 animate-[slide-in-left_0.25s_ease]">
+          <aside className="absolute inset-y-0 left-0 w-[min(280px,100vw)] border-r border-border/30 sidebar-glass shadow-2xl shadow-black/30 animate-[slide-in-left_0.25s_ease]">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
             <SidebarContent compact={false} mobile />
           </aside>

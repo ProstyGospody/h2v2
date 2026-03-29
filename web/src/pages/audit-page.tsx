@@ -1,4 +1,4 @@
-import { FileText, RefreshCw, Shield } from "lucide-react";
+import { RefreshCw, Shield } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { PageHeader } from "@/components/ui/page-header";
@@ -39,7 +39,7 @@ export default function AuditPage() {
       <PageHeader
         title="Audit Log"
         actions={
-          <Button variant="primary" onClick={() => void load()}>
+          <Button variant="primary" onClick={() => void load()} className="w-full sm:w-auto">
             <RefreshCw size={18} strokeWidth={1.6} />
             Refresh
           </Button>
@@ -48,7 +48,7 @@ export default function AuditPage() {
 
       {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
 
-      <TableContainer>
+      <TableContainer className="overflow-x-auto">
         {loading ? (
           <div className="flex min-h-[280px] items-center justify-center">
             <div className="flex flex-col items-center gap-3">
@@ -71,17 +71,17 @@ export default function AuditPage() {
                 <TableHead>Actor</TableHead>
                 <TableHead>Action</TableHead>
                 <TableHead>Entity</TableHead>
-                <TableHead>Payload</TableHead>
+                <TableHead className="hidden lg:table-cell">Payload</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {items.map((item, i) => (
                 <TableRow key={item.id} style={{ animationDelay: `${i * 0.03}s` }} className="animate-[fadein_0.2s_ease_forwards] opacity-0">
-                  <TableCell className="whitespace-nowrap text-txt-secondary">{formatDateTime(item.created_at)}</TableCell>
+                  <TableCell className="whitespace-nowrap text-[12px] text-txt-secondary sm:text-[14px]">{formatDateTime(item.created_at)}</TableCell>
                   <TableCell><span className="font-medium">{item.admin_email || "system"}</span></TableCell>
                   <TableCell><Badge variant={actionVariant(item.action)}>{item.action}</Badge></TableCell>
                   <TableCell><span className="text-txt-secondary">{item.entity_type}{item.entity_id ? <span className="text-txt-muted">:{item.entity_id}</span> : ""}</span></TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     <pre className="m-0 max-w-[340px] truncate whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-surface-0/50 p-3 font-mono text-[13px] text-txt-secondary">
                       {item.payload_json || "{}"}
                     </pre>

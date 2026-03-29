@@ -98,10 +98,10 @@ export default function ConfigPage() {
         title="Settings"
         actions={
           <>
-            <Button onClick={() => void load()} disabled={busy || applying} className="h-12 rounded-2xl px-5"><RefreshCw size={18} strokeWidth={1.6} />Reload</Button>
-            <Button onClick={() => void validateDraft()} disabled={busy || applying} className="h-12 rounded-2xl px-5"><CheckCircle2 size={18} strokeWidth={1.6} />Validate</Button>
-            <Button variant="primary" onClick={() => void saveDraft()} disabled={busy || applying} className="h-12 rounded-2xl px-5"><Save size={18} strokeWidth={1.6} />Save</Button>
-            <Button variant="primary" onClick={() => setApplyDialog(true)} disabled={busy || applying} className="h-12 rounded-2xl px-5"><Play size={18} strokeWidth={1.6} />Apply</Button>
+            <Button onClick={() => void load()} disabled={busy || applying} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><RefreshCw size={18} strokeWidth={1.6} />Reload</Button>
+            <Button onClick={() => void validateDraft()} disabled={busy || applying} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><CheckCircle2 size={18} strokeWidth={1.6} />Validate</Button>
+            <Button variant="primary" onClick={() => void saveDraft()} disabled={busy || applying} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Save size={18} strokeWidth={1.6} />Save</Button>
+            <Button variant="primary" onClick={() => setApplyDialog(true)} disabled={busy || applying} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Play size={18} strokeWidth={1.6} />Apply</Button>
           </>
         }
       />

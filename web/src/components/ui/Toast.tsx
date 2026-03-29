@@ -32,7 +32,7 @@ export function Toast({ open, onOpenChange, message, variant = "info", duration 
           <ToastPrimitive.Root asChild forceMount open={open} onOpenChange={onOpenChange}>
             <motion.div
               className={cn(
-                "fixed bottom-5 right-5 z-50 flex max-w-[380px] items-start gap-3 rounded-xl border border-border/70 bg-surface-2/95 px-5 py-4 text-[14px] text-txt shadow-2xl shadow-black/20 backdrop-blur-lg",
+                "fixed bottom-4 left-4 right-4 z-50 flex items-start gap-3 rounded-xl border border-border/70 bg-surface-2/95 px-5 py-4 text-[14px] text-txt shadow-2xl shadow-black/20 backdrop-blur-lg sm:bottom-5 sm:left-auto sm:right-5 sm:max-w-[380px]",
                 variant === "success" && "border-status-success/20",
                 variant === "error" && "border-status-danger/20",
               )}
@@ -47,7 +47,7 @@ export function Toast({ open, onOpenChange, message, variant = "info", duration 
           </ToastPrimitive.Root>
         ) : null}
       </AnimatePresence>
-      <ToastPrimitive.Viewport className="fixed bottom-5 right-5 z-50" />
+      <ToastPrimitive.Viewport className="fixed bottom-4 left-4 right-4 z-50 sm:bottom-5 sm:left-auto sm:right-5" />
     </ToastPrimitive.Provider>
   );
 }

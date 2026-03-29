@@ -338,15 +338,20 @@ export default function UsersPage() {
         title="Users"
         actions={
           <>
-            <Button variant="primary" onClick={openCreate} className="h-12 rounded-2xl px-5">
+            <Button variant="primary" onClick={openCreate} className="h-12 w-full rounded-2xl px-5 sm:w-auto">
               <Plus size={18} strokeWidth={1.6} />
               Add user
             </Button>
-            <Button variant="danger" disabled={!selectedClientIDs.length} onClick={() => setBulkDeleteOpen(true)} className="h-12 rounded-2xl px-5">
+            <Button
+              variant="danger"
+              disabled={!selectedClientIDs.length}
+              onClick={() => setBulkDeleteOpen(true)}
+              className="h-12 w-full rounded-2xl px-5 sm:w-auto"
+            >
               <Trash2 size={18} strokeWidth={1.6} />
               Delete selected ({selectedClientIDs.length})
             </Button>
-            <div className="relative min-w-[240px]">
+            <div className="relative w-full sm:w-auto sm:min-w-[240px]">
               <Search size={16} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
               <Input
                 value={searchQuery}
@@ -355,14 +360,14 @@ export default function UsersPage() {
                 className="h-12 rounded-2xl border-border/80 bg-surface-2/70 pl-11 shadow-[inset_0_1px_0_var(--shell-highlight)]"
               />
             </div>
-            <div className="inline-flex h-12 items-center rounded-2xl border border-border/70 bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)]">
+            <div className="flex w-full flex-wrap items-center gap-1 rounded-2xl border border-border/70 bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)] sm:inline-flex sm:w-auto sm:flex-nowrap sm:gap-0">
               {(["all", "online", "enabled", "disabled"] as ClientFilter[]).map((item) => (
                 <button
                   key={item}
                   type="button"
                   onClick={(event) => handleFilterChange(event, item)}
                   className={cn(
-                    "rounded-xl px-4 py-2 text-[13px] font-semibold capitalize transition-all",
+                    "flex-1 rounded-xl px-3 py-2 text-center text-[13px] font-semibold capitalize transition-all sm:flex-none sm:px-4",
                     filter === item && "bg-surface-4 text-txt-primary shadow-sm",
                     filter !== item && "text-txt-secondary hover:text-txt-primary",
                   )}
@@ -377,7 +382,7 @@ export default function UsersPage() {
 
       {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
 
-      <TableContainer>
+      <TableContainer className="overflow-x-auto">
         {loading ? (
           <div className="flex min-h-[260px] items-center justify-center">
             <div className="flex flex-col items-center gap-3">
@@ -387,7 +392,7 @@ export default function UsersPage() {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
+            <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <p className="text-[13px] text-txt-secondary">{filteredClients.length} users</p>
               <div className="flex items-center gap-2 text-[13px] text-txt-secondary">
                 <span>Rows:</span>
@@ -415,12 +420,12 @@ export default function UsersPage() {
                       aria-label="select filtered users"
                     />
                   </TableHead>
-                  <TableHead>#</TableHead>
+                  <TableHead className="hidden md:table-cell">#</TableHead>
                   <TableHead>User</TableHead>
-                  <TableHead>Protocol</TableHead>
+                  <TableHead className="hidden lg:table-cell">Protocol</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Traffic</TableHead>
-                  <TableHead>Last Seen</TableHead>
+                  <TableHead className="hidden lg:table-cell">Traffic</TableHead>
+                  <TableHead className="hidden md:table-cell">Last Seen</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -445,9 +450,9 @@ export default function UsersPage() {
                             aria-label={`select ${client.username}`}
                           />
                         </TableCell>
-                        <TableCell>{page * rowsPerPage + index + 1}</TableCell>
+                        <TableCell className="hidden md:table-cell">{page * rowsPerPage + index + 1}</TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
                             <button
                               type="button"
                               onClick={() => void openArtifacts(client)}
@@ -455,19 +460,23 @@ export default function UsersPage() {
                             >
                               {initials(client.username)}
                             </button>
-                            <div>
-                              <button type="button" onClick={() => void openArtifacts(client)} className="text-[14px] font-medium text-txt hover:text-txt-primary">
+                            <div className="min-w-0">
+                              <button
+                                type="button"
+                                onClick={() => void openArtifacts(client)}
+                                className="max-w-full truncate text-[14px] font-medium text-txt hover:text-txt-primary"
+                              >
                                 {client.username}
                               </button>
-                              <p className="text-[12px] text-txt-muted">{client.note || "-"}</p>
+                              <p className="truncate text-[12px] text-txt-muted">{client.note || "-"}</p>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden lg:table-cell">
                           <Badge variant="protocol-hy2">HY2</Badge>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span
                               className={cn(
                                 "h-[6px] w-[6px] rounded-full",
@@ -482,7 +491,7 @@ export default function UsersPage() {
                             <Toggle checked={client.enabled} onCheckedChange={() => void toggleEnabled(client)} />
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden lg:table-cell">
                           <div className="space-y-1">
                             <div className="h-1 w-full rounded-full bg-surface-4">
                               <div
@@ -496,7 +505,7 @@ export default function UsersPage() {
                             <p className="text-[11px] text-txt-tertiary">{formatBytes(traffic)} used</p>
                           </div>
                         </TableCell>
-                        <TableCell>{formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}</TableCell>
+                        <TableCell className="hidden md:table-cell">{formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}</TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu.Root>
                             <DropdownMenu.Trigger asChild>
@@ -551,7 +560,7 @@ export default function UsersPage() {
               </TableBody>
             </Table>
 
-            <div className="flex items-center justify-between border-t border-border/50 px-5 py-3.5">
+            <div className="flex flex-col gap-3 border-t border-border/50 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <p className="text-[13px] text-txt-secondary">
                 Page {Math.min(page + 1, pageCount)} of {pageCount}
               </p>

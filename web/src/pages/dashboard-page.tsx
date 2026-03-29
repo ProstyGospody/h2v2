@@ -101,7 +101,7 @@ function statusColor(status: string): string {
 
 function SectionHeader({ icon, title, children }: { icon: React.ReactNode; title: string; children?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2.5">
         <div className="grid h-8 w-8 place-items-center rounded-lg bg-surface-3/50 text-txt-tertiary">
           {icon}
@@ -302,7 +302,7 @@ export default function DashboardPage() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Uptime</p>
-              <p className="mt-2 text-metric text-txt-primary">{uptime}</p>
+              <p className="mt-2 text-[28px] leading-none text-txt-primary sm:text-metric">{uptime}</p>
             </div>
             <div className="grid h-[52px] w-[52px] place-items-center rounded-full bg-status-warning/10 ring-1 ring-status-warning/15">
               <Clock size={22} strokeWidth={1.6} className="text-status-warning" />
@@ -319,7 +319,7 @@ export default function DashboardPage() {
           </div>
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Network</p>
-            <div className="mt-1.5 flex items-center gap-4 text-[15px] font-semibold text-txt-primary">
+            <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[15px] font-semibold text-txt-primary">
               <span className="inline-flex items-center gap-1.5"><ArrowDownToLine size={14} strokeWidth={1.8} className="text-status-success" />{formatRate(networkRx)}</span>
               <span className="inline-flex items-center gap-1.5"><ArrowUpFromLine size={14} strokeWidth={1.8} className="text-status-warning" />{formatRate(networkTx)}</span>
             </div>
@@ -354,10 +354,10 @@ export default function DashboardPage() {
       {/* ── Charts ── */}
       <div className="space-y-4">
         <SectionHeader icon={<TrendingUp size={18} strokeWidth={1.6} />} title="Traffic Trends">
-          <div className="inline-flex rounded-xl bg-surface-3/50 p-1 text-[13px]">
+          <div className="inline-flex w-full rounded-xl bg-surface-3/50 p-1 text-[13px] sm:w-auto">
             {(["1h", "24h"] as HistoryWindow[]).map((w) => (
               <button key={w} type="button" onClick={() => setHistoryWindow(w)}
-                className={cn("rounded-lg px-4 py-1.5 font-semibold transition-all", historyWindow === w ? "bg-surface-4 text-txt-primary shadow-sm" : "text-txt-secondary hover:text-txt")}>
+                className={cn("flex-1 rounded-lg px-4 py-1.5 font-semibold transition-all sm:flex-none", historyWindow === w ? "bg-surface-4 text-txt-primary shadow-sm" : "text-txt-secondary hover:text-txt")}>
                 {w}
               </button>
             ))}
@@ -369,8 +369,8 @@ export default function DashboardPage() {
         )}
         {historyError && <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">{historyError}</div>}
 
-        <div className="rounded-2xl border border-border/30 bg-surface-2 p-6">
-          <div className="mb-4 flex items-center gap-5 text-[13px]">
+        <div className="rounded-2xl border border-border/30 bg-surface-2 p-4 sm:p-6">
+          <div className="mb-4 flex flex-wrap items-center gap-4 text-[13px]">
             <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-full bg-accent" />Upload</span>
             <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-full bg-accent-secondary" />Download</span>
           </div>
@@ -383,7 +383,7 @@ export default function DashboardPage() {
                 </defs>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
                 <XAxis dataKey="timestamp" tickFormatter={(v) => formatShortTime(new Date(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
-                <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={60} />
+                <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={50} />
                 <Tooltip labelFormatter={(v) => formatDateTime(v instanceof Date ? v.toISOString() : String(v))} formatter={(v: number) => formatRate(Number(v))} contentStyle={tooltipStyle} cursor={{ stroke: "var(--accent-soft)", strokeWidth: 1 }} />
                 <Area type="monotone" dataKey="upload" stroke="var(--data-2)" fill="url(#upG)" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "var(--data-2)", stroke: "var(--surface-2)", strokeWidth: 2 }} name="Upload" />
                 <Area type="monotone" dataKey="download" stroke="var(--data-1)" fill="url(#dnG)" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: "var(--data-1)", stroke: "var(--surface-2)", strokeWidth: 2 }} name="Download" />
@@ -392,8 +392,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/30 bg-surface-2 p-6">
-          <div className="mb-4 flex items-center gap-5 text-[13px]">
+        <div className="rounded-2xl border border-border/30 bg-surface-2 p-4 sm:p-6">
+          <div className="mb-4 flex flex-wrap items-center gap-4 text-[13px]">
             <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-sm bg-accent" />Download</span>
             <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-sm bg-accent-secondary" />Upload</span>
           </div>
@@ -402,7 +402,7 @@ export default function DashboardPage() {
               <BarChart data={trafficUsageBars} barGap={2}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
                 <XAxis dataKey="timestamp" tickFormatter={(v) => formatShortTime(new Date(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
-                <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={60} />
+                <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={50} />
                 <Tooltip formatter={(v: number) => formatBytes(Number(v))} contentStyle={tooltipStyle} cursor={{ fill: "var(--accent-soft)" }} />
                 <Bar dataKey="download_bytes" fill="var(--data-2)" radius={[4, 4, 0, 0]} name="Download" />
                 <Bar dataKey="upload_bytes" fill="var(--data-4)" radius={[4, 4, 0, 0]} name="Upload" />
@@ -429,8 +429,8 @@ export default function DashboardPage() {
             {serviceItems.length ? serviceItems.map((item) => (
               <motion.div key={item.service_name} className="card-hover relative overflow-hidden rounded-2xl border border-border/30 bg-surface-2 p-4">
                 <div className="mb-2.5 flex items-center justify-between gap-3">
-                  <h4 className="text-[15px] font-bold text-txt-primary">{item.service_name}</h4>
-                  <span className="inline-flex items-center gap-2 rounded-lg bg-surface-3/40 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
+                  <h4 className="min-w-0 flex-1 truncate text-[15px] font-bold text-txt-primary">{item.service_name}</h4>
+                  <span className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-surface-3/40 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
                     <span className={cn("h-2 w-2 rounded-full", statusColor(item.status || "unknown"))} />{(item.status || "unknown").toLowerCase()}
                   </span>
                 </div>
@@ -438,10 +438,10 @@ export default function DashboardPage() {
                   <div><p className="text-[12px] font-medium text-txt-muted">Version</p><p className="mt-1 text-[14px] font-medium text-txt">{item.version || "-"}</p></div>
                   <div><p className="text-[12px] font-medium text-txt-muted">Last check</p><p className="mt-1 text-[14px] font-medium text-txt">{formatDateTime(item.last_check_at)}</p></div>
                 </div>
-                <div className="mt-2.5 flex items-center gap-2 border-t border-border/30 pt-2.5">
-                  <Button size="sm" className="h-8 px-3" onClick={() => void openServiceDetails(item.service_name)} disabled={servicesBusy}><Eye size={15} strokeWidth={1.6} />Details</Button>
-                  <Button size="sm" className="h-8 px-3" onClick={() => setServiceActionState({ name: item.service_name, action: "reload" })} disabled={servicesBusy}><RefreshCw size={15} strokeWidth={1.6} />Reload</Button>
-                  <Button size="sm" className="h-8 px-3" onClick={() => setServiceActionState({ name: item.service_name, action: "restart" })} disabled={servicesBusy}><RotateCcw size={15} strokeWidth={1.6} />Restart</Button>
+                <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-border/30 pt-2.5">
+                  <Button size="sm" className="h-8 min-w-[96px] flex-1 px-3 sm:flex-none" onClick={() => void openServiceDetails(item.service_name)} disabled={servicesBusy}><Eye size={15} strokeWidth={1.6} />Details</Button>
+                  <Button size="sm" className="h-8 min-w-[96px] flex-1 px-3 sm:flex-none" onClick={() => setServiceActionState({ name: item.service_name, action: "reload" })} disabled={servicesBusy}><RefreshCw size={15} strokeWidth={1.6} />Reload</Button>
+                  <Button size="sm" className="h-8 min-w-[96px] flex-1 px-3 sm:flex-none" onClick={() => setServiceActionState({ name: item.service_name, action: "restart" })} disabled={servicesBusy}><RotateCcw size={15} strokeWidth={1.6} />Restart</Button>
                 </div>
               </motion.div>
             )) : <div className="rounded-2xl bg-surface-2 p-6 text-[14px] text-txt-secondary">Service activity is not available yet.</div>}
@@ -454,7 +454,7 @@ export default function DashboardPage() {
         footer={<Button onClick={() => setServiceDetailsOpen(false)}>Close</Button>}>
         {serviceDetails && (
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl bg-surface-0/50 p-4"><p className="text-[12px] font-medium text-txt-muted">Status</p><p className="mt-1.5 text-[14px] font-medium text-txt">{serviceDetails.status_text}</p></div>
               <div className="rounded-xl bg-surface-0/50 p-4"><p className="text-[12px] font-medium text-txt-muted">Active</p><p className="mt-1.5 text-[14px] font-medium text-txt">{serviceDetails.active} / {serviceDetails.sub_state}</p></div>
               <div className="rounded-xl bg-surface-0/50 p-4"><p className="text-[12px] font-medium text-txt-muted">PID</p><p className="mt-1.5 text-[14px] font-medium text-txt">{serviceDetails.main_pid || 0}</p></div>
