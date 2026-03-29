@@ -103,7 +103,9 @@ function SectionHeader({ icon, title, children }: { icon: React.ReactNode; title
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2.5">
-        <span className="text-txt-tertiary">{icon}</span>
+        <div className="grid h-8 w-8 place-items-center rounded-lg bg-surface-3/50 text-txt-tertiary">
+          {icon}
+        </div>
         <h3 className="text-[16px] font-bold text-txt-primary">{title}</h3>
       </div>
       {children}
@@ -255,7 +257,7 @@ export default function DashboardPage() {
       <motion.div variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }} initial="hidden" animate="show" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
         {/* CPU */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl bg-surface-2 p-5">
+        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--data-2)" } as React.CSSProperties}>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">CPU</p>
@@ -269,7 +271,7 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* RAM */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl bg-surface-2 p-5">
+        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--data-4)" } as React.CSSProperties}>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">RAM</p>
@@ -283,26 +285,26 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* Online */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl bg-surface-2 p-5">
+        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--status-success)" } as React.CSSProperties}>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Online</p>
               <p className="mt-2 text-metric text-txt-primary"><AnimatedNumber value={onlineUsers} /></p>
             </div>
-            <div className="grid h-[52px] w-[52px] place-items-center rounded-full bg-status-success/10">
+            <div className="grid h-[52px] w-[52px] place-items-center rounded-full bg-status-success/10 ring-1 ring-status-success/15">
               <Users2 size={22} strokeWidth={1.6} className="text-status-success" />
             </div>
           </div>
         </motion.div>
 
         {/* Uptime */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="relative overflow-hidden rounded-2xl bg-surface-2 p-5">
+        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--status-warning)" } as React.CSSProperties}>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Uptime</p>
               <p className="mt-2 text-metric text-txt-primary">{uptime}</p>
             </div>
-            <div className="grid h-[52px] w-[52px] place-items-center rounded-full bg-status-warning/10">
+            <div className="grid h-[52px] w-[52px] place-items-center rounded-full bg-status-warning/10 ring-1 ring-status-warning/15">
               <Clock size={22} strokeWidth={1.6} className="text-status-warning" />
             </div>
           </div>
@@ -311,8 +313,8 @@ export default function DashboardPage() {
 
       {/* ── Secondary stats ── */}
       <motion.div variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }} initial="hidden" animate="show" className="grid gap-4 sm:grid-cols-3">
-        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="flex items-center gap-4 rounded-2xl bg-surface-2 p-5">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60">
+        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="card-hover flex items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
             <Network size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
           <div>
@@ -324,8 +326,8 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="flex items-center gap-4 rounded-2xl bg-surface-2 p-5">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent-secondary/10">
+        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="card-hover flex items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent-secondary/10 ring-1 ring-accent-secondary/15">
             <Globe size={22} strokeWidth={1.6} className="text-accent-secondary-light" />
           </div>
           <div>
@@ -334,9 +336,9 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="flex items-center gap-4 rounded-2xl bg-surface-2 p-5">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60">
-            <Zap size={22} strokeWidth={1.6} className="text-txt-secondary" />
+        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="card-hover flex items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent/10 ring-1 ring-accent/15">
+            <Zap size={22} strokeWidth={1.6} className="text-accent" />
           </div>
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Connections</p>
@@ -367,7 +369,7 @@ export default function DashboardPage() {
         )}
         {historyError && <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">{historyError}</div>}
 
-        <div className="rounded-2xl bg-surface-2 p-6">
+        <div className="rounded-2xl border border-border/30 bg-surface-2 p-6">
           <div className="mb-4 flex items-center gap-5 text-[13px]">
             <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-full bg-accent" />Upload</span>
             <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-full bg-accent-secondary" />Download</span>
@@ -390,7 +392,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl bg-surface-2 p-6">
+        <div className="rounded-2xl border border-border/30 bg-surface-2 p-6">
           <div className="mb-4 flex items-center gap-5 text-[13px]">
             <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-sm bg-accent" />Download</span>
             <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-sm bg-accent-secondary" />Upload</span>
@@ -425,10 +427,10 @@ export default function DashboardPage() {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {serviceItems.length ? serviceItems.map((item) => (
-              <motion.div key={item.service_name} className="relative overflow-hidden rounded-2xl bg-surface-2 p-4">
+              <motion.div key={item.service_name} className="card-hover relative overflow-hidden rounded-2xl border border-border/30 bg-surface-2 p-4">
                 <div className="mb-2.5 flex items-center justify-between gap-3">
                   <h4 className="text-[15px] font-bold text-txt-primary">{item.service_name}</h4>
-                  <span className="inline-flex items-center gap-2 text-[13px] text-txt-secondary">
+                  <span className="inline-flex items-center gap-2 rounded-lg bg-surface-3/40 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
                     <span className={cn("h-2 w-2 rounded-full", statusColor(item.status || "unknown"))} />{(item.status || "unknown").toLowerCase()}
                   </span>
                 </div>
@@ -436,7 +438,7 @@ export default function DashboardPage() {
                   <div><p className="text-[12px] font-medium text-txt-muted">Version</p><p className="mt-1 text-[14px] font-medium text-txt">{item.version || "-"}</p></div>
                   <div><p className="text-[12px] font-medium text-txt-muted">Last check</p><p className="mt-1 text-[14px] font-medium text-txt">{formatDateTime(item.last_check_at)}</p></div>
                 </div>
-                <div className="mt-2.5 flex items-center gap-2 border-t border-border/40 pt-2.5">
+                <div className="mt-2.5 flex items-center gap-2 border-t border-border/30 pt-2.5">
                   <Button size="sm" className="h-8 px-3" onClick={() => void openServiceDetails(item.service_name)} disabled={servicesBusy}><Eye size={15} strokeWidth={1.6} />Details</Button>
                   <Button size="sm" className="h-8 px-3" onClick={() => setServiceActionState({ name: item.service_name, action: "reload" })} disabled={servicesBusy}><RefreshCw size={15} strokeWidth={1.6} />Reload</Button>
                   <Button size="sm" className="h-8 px-3" onClick={() => setServiceActionState({ name: item.service_name, action: "restart" })} disabled={servicesBusy}><RotateCcw size={15} strokeWidth={1.6} />Restart</Button>
