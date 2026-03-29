@@ -118,7 +118,12 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
         {draft.quicEnabled && (
           <div className="grid gap-4 md:grid-cols-2">
             <Input label="QUIC Max Idle" value={draft.quic?.maxIdleTimeout || ""} onChange={(e) => onDraftChange({ ...draft, quic: { ...(draft.quic || {}), maxIdleTimeout: e.target.value } })} placeholder="30s" />
-            <LabeledToggle label="Disable Path MTU Discovery" checked={Boolean(draft.quic?.disablePathMTUDiscovery)} onCheckedChange={(v) => onDraftChange({ ...draft, quic: { ...(draft.quic || {}), disablePathMTUDiscovery: v } })} />
+            <div>
+              <label className="mb-2 block text-[13px] font-medium text-txt-secondary">Disable Path MTU Discovery</label>
+              <div className="flex h-10 items-center justify-end rounded-lg border border-[var(--control-border)] bg-[var(--control-bg)] px-3 transition-colors hover:border-[var(--control-border-strong)] hover:bg-[var(--control-bg-hover)]">
+                <Toggle checked={Boolean(draft.quic?.disablePathMTUDiscovery)} onCheckedChange={(v) => onDraftChange({ ...draft, quic: { ...(draft.quic || {}), disablePathMTUDiscovery: v } })} />
+              </div>
+            </div>
           </div>
         )}
       </section>

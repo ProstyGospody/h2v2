@@ -22,8 +22,7 @@ export function ClientArtifactsDialog({
   const subscriptionQRSrc = currentClient ? `${qrURL(currentClient.id, 360, "subscription")}&v=${encodeURIComponent(subscriptionURL)}` : "";
 
   return (
-    <Dialog open={open} onOpenChange={(n) => { if (!n) onClose(); }} title={currentClient?.username || "Client"} contentClassName="max-w-[780px]"
-      footer={<Button onClick={onClose} variant="ghost">Close</Button>}>
+    <Dialog open={open} onOpenChange={(n) => { if (!n) onClose(); }} title={currentClient?.username || "Client"} contentClassName="max-w-[780px]">
       {loading ? (
         <div className="flex min-h-[300px] items-center justify-center">
           <div className="flex flex-col items-center gap-3">
