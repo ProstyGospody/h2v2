@@ -215,24 +215,22 @@ export function PanelShell({ children }: { children: ReactNode }) {
     );
   }
 
-  const sidebarWidth = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED;
-
   return (
     <div className="min-h-screen bg-surface-0 text-txt">
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar — uses GPU-accelerated transform instead of width transition to avoid layout reflow */}
       <aside
-        className="fixed inset-y-0 left-0 z-30 hidden border-r border-border/30 sidebar-glass lg:block"
-        style={{ width: sidebarWidth, transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)" }}
+        className="fixed inset-y-0 left-0 z-30 hidden w-[280px] border-r border-border/30 sidebar-glass lg:block will-change-transform"
+        style={{
+          transform: collapsed ? `translateX(-${SIDEBAR_WIDTH_EXPANDED - SIDEBAR_WIDTH_COLLAPSED}px)` : "translateX(0)",
+          transition: "transform 0.25s cubic-bezier(0.4,0,0.2,1)",
+        }}
       >
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
         <SidebarContent compact={collapsed} mobile={false} />
       </aside>
 
-      {/* Main content area */}
-      <div
-        className="max-lg:!pl-0 transition-[padding] duration-[250ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
-        style={{ paddingLeft: sidebarWidth }}
-      >
+      {/* Main content — padding snaps instantly, no transition */}
+      <div className={cn(collapsed ? "lg:pl-[96px]" : "lg:pl-[280px]")}>
         <header className="sticky top-0 z-20 border-b border-border/30 bg-surface-0/90 px-6 py-4 backdrop-blur-lg lg:hidden">
           <button
             type="button"
