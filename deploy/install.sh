@@ -56,8 +56,49 @@ fatal() {
   exit 1
 }
 
+wait_for_apt_locks() {
+  local timeout="${1:-900}"
+  local start_ts now elapsed next_log
+  start_ts="$(date +%s)"
+  next_log=0
+
+  # fuser is usually present on Debian/Ubuntu; if absent, fall back to apt's own lock timeout handling.
+  if ! command -v fuser >/dev/null 2>&1; then
+    return 0
+  fi
+
+  while true; do
+    local held_lock=""
+    local lock
+    for lock in /var/lib/apt/lists/lock /var/cache/apt/archives/lock /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock; do
+      if fuser "${lock}" >/dev/null 2>&1; then
+        held_lock="${lock}"
+        break
+      fi
+    done
+
+    if [[ -z "${held_lock}" ]]; then
+      return 0
+    fi
+
+    now="$(date +%s)"
+    elapsed=$((now - start_ts))
+    if (( elapsed >= timeout )); then
+      fatal "Timed out waiting for apt/dpkg lock (${held_lock}) after ${timeout}s"
+    fi
+
+    if (( now >= next_log )); then
+      printf "[info] Waiting for apt/dpkg lock to be released: %s\n" "${held_lock}"
+      next_log=$((now + 15))
+    fi
+
+    sleep 3
+  done
+}
+
 apt_get() {
   local lock_timeout="${APT_LOCK_TIMEOUT:-900}"
+  wait_for_apt_locks "${lock_timeout}"
   apt-get -o DPkg::Lock::Timeout="${lock_timeout}" "$@"
 }
 
