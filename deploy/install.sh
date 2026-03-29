@@ -56,6 +56,11 @@ fatal() {
   exit 1
 }
 
+apt_get() {
+  local lock_timeout="${APT_LOCK_TIMEOUT:-900}"
+  apt-get -o DPkg::Lock::Timeout="${lock_timeout}" "$@"
+}
+
 is_ipv4() {
   local value="$1"
   [[ "$value" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]
@@ -154,8 +159,8 @@ version_gte() {
 install_system_packages() {
   action "Installing system packages"
   export DEBIAN_FRONTEND=noninteractive
-  apt-get update
-  apt-get install -y \
+  apt_get update
+  apt_get install -y \
     ca-certificates \
     curl \
     git \
@@ -219,7 +224,7 @@ install_node() {
 
   export DEBIAN_FRONTEND=noninteractive
   curl -fsSL "https://deb.nodesource.com/setup_${target_major}.x" | bash -
-  apt-get install -y nodejs
+  apt_get install -y nodejs
 
   command -v node >/dev/null 2>&1 || fatal "node installation failed"
   command -v npm >/dev/null 2>&1 || fatal "npm installation failed"
