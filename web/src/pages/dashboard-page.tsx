@@ -84,20 +84,22 @@ function ProgressRing({
   size = 52,
   strokeWidth = 4,
   color = "var(--accent)",
-  trackColor = "var(--txt-muted)",
+  trackColor = "var(--border-hover)",
+  trackOpacity = 1,
 }: {
   value: number;
   size?: number;
   strokeWidth?: number;
   color?: string;
   trackColor?: string;
+  trackOpacity?: number;
 }) {
   const r = (size - strokeWidth) / 2;
   const c = 2 * Math.PI * r;
   const offset = c - (clampPercent(value) / 100) * c;
   return (
     <svg width={size} height={size} className="-rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={trackColor} strokeWidth={strokeWidth} strokeOpacity={0.3} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={trackColor} strokeWidth={strokeWidth} strokeOpacity={trackOpacity} />
       <motion.circle
         cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"
         strokeDasharray={c} initial={{ strokeDashoffset: c }} animate={{ strokeDashoffset: offset }}
@@ -309,7 +311,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="grid h-14 w-14 shrink-0 place-items-center">
-              <ProgressRing value={cpuPercent} size={48} strokeWidth={4.2} color="var(--accent)" />
+              <ProgressRing value={cpuPercent} size={48} strokeWidth={4.8} color="var(--accent)" />
             </div>
           </div>
         </div>
@@ -325,7 +327,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="grid h-14 w-14 shrink-0 place-items-center">
-              <ProgressRing value={ramPercent} size={48} strokeWidth={4.2} color="var(--accent)" />
+              <ProgressRing value={ramPercent} size={48} strokeWidth={4.8} color="var(--accent)" />
             </div>
           </div>
         </div>
