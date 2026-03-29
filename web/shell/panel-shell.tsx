@@ -78,7 +78,6 @@ export function PanelShell({ children }: { children: ReactNode }) {
 
   const sectionMain = navItems.filter((item) => item.section === "MAIN");
   const sectionSystem = navItems.filter((item) => item.section === "SYSTEM");
-  const currentPageLabel = navItems.find((item) => isActive(pathname, item.href))?.label ?? "Dashboard";
   const pageContent = useMemo(() => children, [pathname]);
 
   function SidebarNavLink({ item, compact, onNavigate }: { item: NavItem; compact: boolean; onNavigate?: () => void }) {
@@ -239,10 +238,6 @@ export function PanelShell({ children }: { children: ReactNode }) {
             >
               <PanelLeft size={20} strokeWidth={1.8} />
             </button>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">Panel</p>
-              <p className="truncate text-[15px] font-semibold text-txt-primary">{currentPageLabel}</p>
-            </div>
           </div>
         </header>
 
