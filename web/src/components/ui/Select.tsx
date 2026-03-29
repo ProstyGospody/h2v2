@@ -37,7 +37,7 @@ const SelectContent = forwardRef<
       ref={ref}
       position={position}
       className={cn(
-        "z-50 overflow-hidden rounded-xl border border-[var(--control-border)] bg-surface-2/96 shadow-2xl shadow-black/20 backdrop-blur-xl",
+        "z-50 overflow-hidden rounded-xl border border-[var(--control-border)] bg-surface-2/96 shadow-[0_18px_42px_-26px_var(--dialog-shadow)] backdrop-blur-xl",
         position === "popper" && "translate-y-1",
         className,
       )}

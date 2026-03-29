@@ -520,7 +520,7 @@ export default function UsersPage() {
                               <DropdownMenu.Content
                                 sideOffset={6}
                                 align="end"
-                                className="z-50 min-w-[160px] rounded-[10px] border border-border/80 bg-surface-2/95 p-1 shadow-2xl shadow-black/20 backdrop-blur-xl"
+                                className="z-50 min-w-[160px] rounded-[10px] border border-border/80 bg-surface-2/95 p-1 shadow-[0_18px_42px_-24px_var(--dialog-shadow)] backdrop-blur-xl"
                               >
                                 <DropdownMenu.Item
                                   onSelect={() => void openArtifacts(client)}

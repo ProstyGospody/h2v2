@@ -265,8 +265,8 @@ export function PanelShell({ children }: { children: ReactNode }) {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-[min(280px,100vw)] border-r border-border/30 sidebar-glass shadow-2xl shadow-black/30 animate-[slide-in-left_0.25s_ease]">
+          <div className="absolute inset-0 bg-[var(--dialog-overlay)] backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <aside className="absolute inset-y-0 left-0 w-[min(280px,100vw)] border-r border-border/30 sidebar-glass shadow-[0_22px_52px_-28px_var(--dialog-shadow)] animate-[slide-in-left_0.25s_ease]">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
             <SidebarContent compact={false} mobile />
           </aside>

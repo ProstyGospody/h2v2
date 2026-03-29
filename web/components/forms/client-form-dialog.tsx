@@ -29,7 +29,9 @@ export function ClientFormDialog({
   return (
     <Dialog open={open} onOpenChange={(n) => { if (!n && !busy) onClose(); }} title={mode === "create" ? "Create User" : "Edit User"} contentClassName="max-w-[660px]" hideClose={busy}>
       <form className="space-y-5" onSubmit={submit}>
-        <p className="rounded-xl bg-surface-3/50 px-4 py-3 text-[13px] text-txt-secondary">Inherited: {defaultsSummary(defaults)}</p>
+        <p className="rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] px-4 py-3 text-[13px] text-txt">
+          Inherited: {defaultsSummary(defaults)}
+        </p>
 
         {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
 
@@ -38,23 +40,23 @@ export function ClientFormDialog({
         <div>
           <label className="mb-2 block text-[13px] font-medium text-txt-secondary">Note</label>
           <textarea value={values.note} onChange={(e) => setValues((p) => ({ ...p, note: e.target.value }))} rows={2}
-            className="w-full rounded-lg border border-border bg-surface-1 px-4 py-2.5 text-[14px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent-secondary/40 focus:shadow-[0_0_0_3px_var(--accent-soft)]" />
+            className="w-full rounded-lg border border-[var(--control-border)] bg-[var(--control-bg)] px-4 py-2.5 text-[14px] text-txt-primary outline-none transition-colors placeholder:text-txt-tertiary focus:border-accent-secondary/50 focus:bg-[var(--control-bg-hover)] focus:shadow-[0_0_0_3px_var(--accent-soft)]" />
         </div>
 
         <Input label="Auth Secret (optional)" value={values.authSecret} onChange={(e) => setValues((p) => ({ ...p, authSecret: e.target.value }))}
           placeholder={mode === "create" ? "Leave empty to auto-generate" : "Leave empty to keep current secret"} />
 
-        <div className="overflow-hidden rounded-xl border border-border/50 bg-surface-1/40">
-          <button type="button" className="flex w-full items-center justify-between px-4 py-3 text-left text-[14px] font-medium text-txt transition-colors hover:bg-surface-3/20"
+        <div className="overflow-hidden rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)]">
+          <button type="button" className="flex w-full items-center justify-between px-4 py-3 text-left text-[14px] font-semibold text-txt-primary transition-colors hover:bg-[var(--control-bg-hover)]"
             onClick={() => setPreviewOpen((p) => !p)}>
             <span>Advanced YAML</span>
             <ChevronDown size={16} strokeWidth={1.6} className={cn("text-txt-tertiary transition-transform duration-200", previewOpen && "rotate-180")} />
           </button>
           {previewOpen && (
-            <div className="border-t border-border/50 p-4">
+            <div className="border-t border-[var(--control-border)] p-4">
               <textarea readOnly value={previewConfig} rows={12}
-                className="w-full rounded-lg border border-border/50 bg-surface-0/80 px-4 py-3 font-mono text-[13px] leading-6 text-txt outline-none" />
-              <p className="mt-2 text-[12px] text-txt-muted">Read-only preview</p>
+                className="w-full rounded-lg border border-[var(--control-border)] bg-surface-0 px-4 py-3 font-mono text-[13px] leading-6 text-txt-primary outline-none" />
+              <p className="mt-2 text-[12px] text-txt-secondary">Read-only preview</p>
             </div>
           )}
         </div>
