@@ -79,13 +79,12 @@ function AnimatedNumber({ value, format = (n) => n.toFixed(0) }: { value: number
   return <motion.span>{display}</motion.span>;
 }
 
-function ProgressRing({ value, size = 52, strokeWidth = 4, color = "var(--data-2)" }: { value: number; size?: number; strokeWidth?: number; color?: string }) {
+function ProgressRing({ value, size = 52, strokeWidth = 4, color = "var(--accent)" }: { value: number; size?: number; strokeWidth?: number; color?: string }) {
   const r = (size - strokeWidth) / 2;
   const c = 2 * Math.PI * r;
   const offset = c - (clampPercent(value) / 100) * c;
   return (
     <svg width={size} height={size} className="-rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={strokeWidth} />
       <motion.circle
         cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"
         strokeDasharray={c} initial={{ strokeDashoffset: c }} animate={{ strokeDashoffset: offset }}
@@ -287,7 +286,7 @@ export default function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
         {/* CPU */}
-        <div className="metric-glow card-hover gradient-border min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--accent-secondary)" } as React.CSSProperties}>
+        <div className="card-hover min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5">
           <div className="flex h-full items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">CPU</p>
@@ -296,14 +295,14 @@ export default function DashboardPage() {
                 <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
               </p>
             </div>
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
-              <ProgressRing value={cpuPercent} size={40} strokeWidth={3.5} color="var(--accent-secondary)" />
+            <div className="grid h-14 w-14 shrink-0 place-items-center">
+              <ProgressRing value={cpuPercent} size={48} strokeWidth={4.2} color="var(--accent)" />
             </div>
           </div>
         </div>
 
         {/* RAM */}
-        <div className="metric-glow card-hover gradient-border min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--accent)" } as React.CSSProperties}>
+        <div className="card-hover min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5">
           <div className="flex h-full items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">RAM</p>
@@ -312,33 +311,33 @@ export default function DashboardPage() {
                 <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
               </p>
             </div>
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
-              <ProgressRing value={ramPercent} size={40} strokeWidth={3.5} color="var(--accent)" />
+            <div className="grid h-14 w-14 shrink-0 place-items-center">
+              <ProgressRing value={ramPercent} size={48} strokeWidth={4.2} color="var(--accent)" />
             </div>
           </div>
         </div>
 
         {/* Online */}
-        <div className="metric-glow card-hover gradient-border min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--accent-secondary)" } as React.CSSProperties}>
+        <div className="card-hover min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5">
           <div className="flex h-full items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Online</p>
               <p className="mt-1.5 text-metric text-txt-primary"><AnimatedNumber value={onlineUsers} /></p>
             </div>
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/35">
               <Users2 size={20} strokeWidth={1.7} className="text-txt-secondary" />
             </div>
           </div>
         </div>
 
         {/* Uptime */}
-        <div className="metric-glow card-hover gradient-border min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--accent)" } as React.CSSProperties}>
+        <div className="card-hover min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5">
           <div className="flex h-full items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Uptime</p>
               <p className="mt-1.5 text-[28px] leading-none text-txt-primary sm:text-metric">{uptime}</p>
             </div>
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/35">
               <Clock size={20} strokeWidth={1.7} className="text-txt-secondary" />
             </div>
           </div>
@@ -348,7 +347,7 @@ export default function DashboardPage() {
       {/* ── Secondary stats ── */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/35">
             <Network size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
           <div>
@@ -361,7 +360,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/35">
             <Globe size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
           <div>
@@ -371,7 +370,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/35">
             <Zap size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
           <div>
@@ -406,8 +405,14 @@ export default function DashboardPage() {
         <div className="rounded-2xl border border-border/30 bg-surface-2 p-4 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-[13px]">
             <div className="flex flex-wrap items-center gap-4">
-              <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-sm bg-accent" />Download</span>
-              <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-sm bg-accent-secondary" />Upload</span>
+              <span className="inline-flex items-center gap-2 text-txt-secondary">
+                <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "var(--data-1)" }} />
+                Download
+              </span>
+              <span className="inline-flex items-center gap-2 text-txt-secondary">
+                <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: "var(--data-2)" }} />
+                Upload
+              </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-lg border border-border/40 bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">Down total: {formatBytes(trafficTotals.download)}</span>
@@ -426,8 +431,8 @@ export default function DashboardPage() {
                   contentStyle={tooltipStyle}
                   cursor={{ fill: "var(--accent-soft)" }}
                 />
-                <Bar dataKey="download_bytes" fill="var(--data-2)" radius={[5, 5, 0, 0]} name="Download" isAnimationActive={false} />
-                <Bar dataKey="upload_bytes" fill="var(--accent-secondary)" radius={[5, 5, 0, 0]} name="Upload" isAnimationActive={false} />
+                <Bar dataKey="download_bytes" fill="var(--data-1)" radius={[5, 5, 0, 0]} name="Download" isAnimationActive={false} />
+                <Bar dataKey="upload_bytes" fill="var(--data-2)" radius={[5, 5, 0, 0]} name="Upload" isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
