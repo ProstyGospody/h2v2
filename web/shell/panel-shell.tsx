@@ -79,6 +79,8 @@ export function PanelShell({ children }: { children: ReactNode }) {
   const sectionMain = navItems.filter((item) => item.section === "MAIN");
   const sectionSystem = navItems.filter((item) => item.section === "SYSTEM");
   const pageContent = useMemo(() => children, [pathname]);
+  const sidebarToggleClass =
+    "h-10 w-10 items-center justify-center rounded-xl border border-border/45 bg-surface-2/65 text-txt-muted shadow-[inset_0_1px_0_var(--shell-highlight)] transition-all duration-200 hover:border-border-hover hover:bg-surface-3/55 hover:text-txt-primary";
 
   function SidebarNavLink({ item, compact, onNavigate }: { item: NavItem; compact: boolean; onNavigate?: () => void }) {
     const selected = isActive(pathname, item.href);
@@ -161,6 +163,20 @@ export function PanelShell({ children }: { children: ReactNode }) {
             <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
           </div>
 
+          {compact && (
+            <div className="flex justify-center pb-1">
+              <button
+                type="button"
+                onClick={() => setCollapsed((prev) => !prev)}
+                title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                className={cn("inline-flex", sidebarToggleClass)}
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                {collapsed ? <ChevronRight size={18} strokeWidth={1.8} /> : <ChevronLeft size={18} strokeWidth={1.8} />}
+              </button>
+            </div>
+          )}
+
           {!compact && (
             <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-surface-3/30 px-3 py-3 transition-colors duration-200 hover:bg-surface-3/50">
               <div className="relative grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent/20 to-accent-secondary/20 text-[14px] font-bold text-txt-primary">
@@ -224,7 +240,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              className="hidden h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-surface-1 text-txt-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-txt lg:inline-flex"
+              className={cn("hidden lg:inline-flex", sidebarToggleClass)}
               onClick={() => setCollapsed((prev) => !prev)}
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
