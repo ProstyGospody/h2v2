@@ -12,7 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { cn } from "@/src/components/ui";
@@ -78,6 +78,8 @@ export function PanelShell({ children }: { children: ReactNode }) {
 
   const sectionMain = navItems.filter((item) => item.section === "MAIN");
   const sectionSystem = navItems.filter((item) => item.section === "SYSTEM");
+  const currentPageLabel = navItems.find((item) => isActive(pathname, item.href))?.label ?? "Dashboard";
+  const pageContent = useMemo(() => children, [pathname]);
 
   function SidebarNavLink({ item, compact, onNavigate }: { item: NavItem; compact: boolean; onNavigate?: () => void }) {
     const selected = isActive(pathname, item.href);
@@ -110,10 +112,10 @@ export function PanelShell({ children }: { children: ReactNode }) {
     );
   }
 
-  function SidebarContent({ compact, mobile }: { compact: boolean; mobile: boolean }) {
+  function SidebarContent({ compact }: { compact: boolean }) {
     return (
       <div className={cn("flex h-full flex-col", compact && "items-center")}>
-        <div className={cn("relative flex w-full items-center pb-4 pt-5", compact ? "justify-center px-3" : "justify-between px-5")}>
+        <div className={cn("relative flex w-full items-center pb-4 pt-5", compact ? "justify-center px-2" : "justify-start px-5")}>
           <div className={cn("relative flex min-w-0 items-center", compact && "mx-auto")}>
             <div className="relative">
               <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent to-accent-secondary opacity-30 blur-lg" />
@@ -129,20 +131,6 @@ export function PanelShell({ children }: { children: ReactNode }) {
               </div>
             )}
           </div>
-
-          {!mobile && (
-            <button
-              type="button"
-              onClick={() => setCollapsed((prev) => !prev)}
-              className={cn(
-                "inline-flex h-8 w-8 items-center justify-center rounded-xl border border-border/40 bg-surface-2/65 text-txt-muted shadow-[inset_0_1px_0_var(--shell-highlight)] transition-all duration-300 hover:-translate-y-0.5 hover:border-border-hover hover:bg-surface-3/55 hover:text-txt-primary",
-                compact && "absolute right-3 top-5",
-              )}
-              aria-label={compact ? "Expand sidebar" : "Collapse sidebar"}
-            >
-              {compact ? <ChevronRight size={15} strokeWidth={1.7} /> : <ChevronLeft size={15} strokeWidth={1.7} />}
-            </button>
-          )}
         </div>
 
         <div className={cn("w-full", compact ? "px-3" : "px-5")}>
@@ -228,32 +216,46 @@ export function PanelShell({ children }: { children: ReactNode }) {
         }}
       >
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
-        <SidebarContent compact={collapsed} mobile={false} />
+        <SidebarContent compact={collapsed} />
       </aside>
 
       {/* Main content */}
       <div className={cn("transition-[padding-left] duration-300 ease-out", collapsed ? "lg:pl-[96px]" : "lg:pl-[280px]")}>
-        <header className="sticky top-0 z-20 border-b border-border/30 bg-surface-0/90 px-4 py-4 backdrop-blur-lg sm:px-6 lg:hidden">
-          <button
-            type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-surface-1 text-txt-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-txt"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-          >
-            <PanelLeft size={20} strokeWidth={1.8} />
-          </button>
+        <header className="sticky top-0 z-20 border-b border-border/30 bg-surface-0/90 px-4 py-3 backdrop-blur-lg sm:px-6">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="hidden h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-surface-1 text-txt-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-txt lg:inline-flex"
+              onClick={() => setCollapsed((prev) => !prev)}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {collapsed ? <ChevronRight size={18} strokeWidth={1.8} /> : <ChevronLeft size={18} strokeWidth={1.8} />}
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-surface-1 text-txt-secondary transition-colors duration-200 hover:bg-surface-2 hover:text-txt lg:hidden"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
+            >
+              <PanelLeft size={20} strokeWidth={1.8} />
+            </button>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">Panel</p>
+              <p className="truncate text-[15px] font-semibold text-txt-primary">{currentPageLabel}</p>
+            </div>
+          </div>
         </header>
 
         <main className="p-4 sm:p-5 md:p-8">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={pathname}
-              initial={{ opacity: 0, y: 10, filter: "blur(2px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              exit={{ opacity: 0, y: -8, filter: "blur(1px)" }}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             >
-              {children}
+              {pageContent}
             </motion.div>
           </AnimatePresence>
         </main>
@@ -265,7 +267,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
           <div className="absolute inset-0 bg-black/55 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
           <aside className="absolute inset-y-0 left-0 w-[min(280px,100vw)] border-r border-border/30 sidebar-glass shadow-2xl shadow-black/30 animate-[slide-in-left_0.25s_ease]">
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
-            <SidebarContent compact={false} mobile />
+            <SidebarContent compact={false} />
           </aside>
         </div>
       )}

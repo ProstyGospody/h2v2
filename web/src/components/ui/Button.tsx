@@ -15,11 +15,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       className={cn(
-        "inline-flex transform-gpu cursor-pointer items-center justify-center gap-2 rounded-xl border font-semibold transition-[transform,box-shadow,background-color,border-color,color,opacity] duration-200 hover:-translate-y-[1px] active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-secondary/50",
+        "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-secondary/50",
         size === "sm" && "px-3.5 py-2 text-[13px]",
         size === "md" && "px-5 py-2.5 text-[14px]",
         variant === "primary" &&
-          "border-transparent bg-gradient-to-br from-accent to-accent-secondary text-white shadow-lg shadow-accent/25 hover:brightness-110 hover:shadow-xl hover:shadow-accent/35 active:scale-[0.98]",
+          "border-transparent bg-gradient-to-br from-accent to-accent-secondary text-white shadow-[0_6px_18px_var(--accent-soft)] hover:brightness-105 active:brightness-95",
         variant === "ghost" &&
           "border-[var(--control-border)] bg-[var(--control-bg)] text-txt-primary shadow-[inset_0_1px_0_var(--shell-highlight)] hover:border-[var(--control-border-strong)] hover:bg-[var(--control-bg-hover)]",
         variant === "danger" &&

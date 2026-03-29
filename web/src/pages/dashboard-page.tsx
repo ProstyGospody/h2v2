@@ -33,7 +33,10 @@ import { formatBytes, formatDateTime, formatRate, formatUptime } from "@/utils/f
 
 const LIVE_POLL_MS = 5000;
 const HISTORY_POLL_MS = 15000;
-const HISTORY_LIMIT = 20000;
+const HISTORY_LIMIT_1H = 900;
+const HISTORY_LIMIT_24H = 3200;
+const MAX_CHART_BARS_1H = 90;
+const MAX_CHART_BARS_24H = 160;
 
 type ActionState = { name: string; action: "restart" | "reload" } | null;
 type HistoryWindow = "1h" | "24h";
@@ -64,7 +67,6 @@ function AnimatedNumber({ value, format = (n) => n.toFixed(0) }: { value: number
   const mv = useMotionValue(0);
   const display = useTransform(mv, (latest) => format(latest));
   useEffect(() => {
-    mv.set(0);
     const c = animate(mv, value, { duration: 0.8, ease: "easeOut" });
     return () => c.stop();
   }, [mv, value]);
@@ -169,8 +171,19 @@ export default function DashboardPage() {
     setHistoryError("");
     try {
       const step = historyWindow === "24h" ? 30 : 5;
-      const p = await apiFetch<SystemHistoryResponse>(`/api/system/history?window=${historyWindow}&step=${step}&limit=${HISTORY_LIMIT}`, { method: "GET" });
-      setHistoryItems(Array.isArray(p.items) ? p.items : []);
+      const limit = historyWindow === "24h" ? HISTORY_LIMIT_24H : HISTORY_LIMIT_1H;
+      const p = await apiFetch<SystemHistoryResponse>(`/api/system/history?window=${historyWindow}&step=${step}&limit=${limit}`, { method: "GET" });
+      const next = Array.isArray(p.items) ? p.items : [];
+      setHistoryItems((prev) => {
+        if (
+          prev.length === next.length &&
+          prev[0]?.timestamp === next[0]?.timestamp &&
+          prev.at(-1)?.timestamp === next.at(-1)?.timestamp
+        ) {
+          return prev;
+        }
+        return next;
+      });
     } catch (err) {
       setHistoryError(err instanceof APIError ? err.message : "Failed to load history");
     } finally {
@@ -232,17 +245,32 @@ export default function DashboardPage() {
       if (cur) { cur.download_bytes += Math.max(0, pt.download) * dt; cur.upload_bytes += Math.max(0, pt.upload) * dt; }
       else { bucketed.set(key, { timestamp: new Date(key), download_bytes: Math.max(0, pt.download) * dt, upload_bytes: Math.max(0, pt.upload) * dt }); }
     }
-    return [...bucketed.values()].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-  }, [historyPoints]);
+    const sorted = [...bucketed.values()].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    const maxBars = historyWindow === "24h" ? MAX_CHART_BARS_24H : MAX_CHART_BARS_1H;
+    if (sorted.length <= maxBars) return sorted;
+    const stride = Math.ceil(sorted.length / maxBars);
+    return sorted.filter((_, idx) => idx % stride === 0);
+  }, [historyPoints, historyWindow]);
+
+  const trafficTotals = useMemo(() => {
+    return trafficUsageBars.reduce(
+      (acc, item) => {
+        acc.download += item.download_bytes;
+        acc.upload += item.upload_bytes;
+        return acc;
+      },
+      { download: 0, upload: 0 },
+    );
+  }, [trafficUsageBars]);
 
   return (
     <div className="space-y-8">
       <PageHeader title="Dashboard" />
 
       {showInitialLoading && (
-        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="rounded-xl border border-status-info/20 bg-status-info/8 px-5 py-3.5 text-[14px] text-status-info">
+        <div className="rounded-xl border border-status-info/20 bg-status-info/8 px-5 py-3.5 text-[14px] text-status-info">
           Loading latest dashboard metrics...
-        </motion.div>
+        </div>
       )}
       {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
       {warningMessages.length > 0 && (
@@ -250,10 +278,10 @@ export default function DashboardPage() {
       )}
 
       {/* ── Primary metrics ── */}
-      <motion.div variants={{ hidden: {}, show: { transition: { staggerChildren: 0.07 } } }} initial="hidden" animate="show" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
         {/* CPU */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--data-2)" } as React.CSSProperties}>
+        <div className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--data-2)" } as React.CSSProperties}>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">CPU</p>
@@ -264,10 +292,10 @@ export default function DashboardPage() {
             </div>
             <ProgressRing value={cpuPercent} color="var(--data-2)" />
           </div>
-        </motion.div>
+        </div>
 
         {/* RAM */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--data-4)" } as React.CSSProperties}>
+        <div className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--data-4)" } as React.CSSProperties}>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">RAM</p>
@@ -278,10 +306,10 @@ export default function DashboardPage() {
             </div>
             <ProgressRing value={ramPercent} color="var(--data-4)" />
           </div>
-        </motion.div>
+        </div>
 
         {/* Online */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--status-success)" } as React.CSSProperties}>
+        <div className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--status-success)" } as React.CSSProperties}>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Online</p>
@@ -291,10 +319,10 @@ export default function DashboardPage() {
               <Users2 size={22} strokeWidth={1.6} className="text-status-success" />
             </div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Uptime */}
-        <motion.div variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }} className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--status-warning)" } as React.CSSProperties}>
+        <div className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--status-warning)" } as React.CSSProperties}>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Uptime</p>
@@ -304,12 +332,12 @@ export default function DashboardPage() {
               <Clock size={22} strokeWidth={1.6} className="text-status-warning" />
             </div>
           </div>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       {/* ── Secondary stats ── */}
-      <motion.div variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }} initial="hidden" animate="show" className="grid gap-4 sm:grid-cols-3">
-        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="card-hover flex items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="card-hover flex items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
             <Network size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
@@ -320,9 +348,9 @@ export default function DashboardPage() {
               <span className="inline-flex items-center gap-1.5"><ArrowUpFromLine size={14} strokeWidth={1.8} className="text-status-warning" />{formatRate(networkTx)}</span>
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="card-hover flex items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
+        <div className="card-hover flex items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent-secondary/10 ring-1 ring-accent-secondary/15">
             <Globe size={22} strokeWidth={1.6} className="text-accent-secondary-light" />
           </div>
@@ -330,9 +358,9 @@ export default function DashboardPage() {
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Total Traffic</p>
             <p className="mt-1.5 text-[15px] font-semibold text-txt-primary">{formatBytes(totalTraffic)}</p>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }} className="card-hover flex items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
+        <div className="card-hover flex items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent/10 ring-1 ring-accent/15">
             <Zap size={22} strokeWidth={1.6} className="text-accent" />
           </div>
@@ -344,8 +372,8 @@ export default function DashboardPage() {
               <span>UDP {udpConnections}</span>
             </div>
           </div>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       {/* Traffic Consumption */}
       <div className="space-y-4">
@@ -366,9 +394,15 @@ export default function DashboardPage() {
         {historyError && <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">{historyError}</div>}
 
         <div className="rounded-2xl border border-border/30 bg-surface-2 p-4 sm:p-6">
-          <div className="mb-4 flex flex-wrap items-center gap-4 text-[13px]">
-            <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-sm bg-accent" />Download</span>
-            <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-sm bg-accent-secondary" />Upload</span>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-[13px]">
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-sm bg-accent" />Download</span>
+              <span className="inline-flex items-center gap-2 text-txt-secondary"><span className="h-2.5 w-2.5 rounded-sm bg-accent-secondary" />Upload</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-lg border border-border/40 bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">Down total: {formatBytes(trafficTotals.download)}</span>
+              <span className="rounded-lg border border-border/40 bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">Up total: {formatBytes(trafficTotals.upload)}</span>
+            </div>
           </div>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -377,8 +411,8 @@ export default function DashboardPage() {
                 <XAxis dataKey="timestamp" tickFormatter={(v) => formatShortTime(new Date(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
                 <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={58} />
                 <Tooltip formatter={(v: number) => formatBytes(Number(v))} contentStyle={tooltipStyle} cursor={{ fill: "var(--accent-soft)" }} />
-                <Bar dataKey="download_bytes" fill="var(--data-2)" radius={[5, 5, 0, 0]} name="Download" animationDuration={420} />
-                <Bar dataKey="upload_bytes" fill="var(--data-4)" radius={[5, 5, 0, 0]} name="Upload" animationDuration={520} />
+                <Bar dataKey="download_bytes" fill="var(--data-2)" radius={[5, 5, 0, 0]} name="Download" isAnimationActive={false} />
+                <Bar dataKey="upload_bytes" fill="var(--data-4)" radius={[5, 5, 0, 0]} name="Upload" isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -400,7 +434,7 @@ export default function DashboardPage() {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {serviceItems.length ? serviceItems.map((item) => (
-              <motion.div key={item.service_name} className="card-hover relative overflow-hidden rounded-2xl border border-border/30 bg-surface-2 p-4">
+              <div key={item.service_name} className="card-hover relative overflow-hidden rounded-2xl border border-border/30 bg-surface-2 p-4">
                 <div className="mb-2.5 flex items-center justify-between gap-3">
                   <h4 className="min-w-0 flex-1 truncate text-[15px] font-bold text-txt-primary">{item.service_name}</h4>
                   <span className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-surface-3/40 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
@@ -416,7 +450,7 @@ export default function DashboardPage() {
                   <Button size="sm" className="h-8 min-w-[96px] flex-1 px-3 sm:flex-none" onClick={() => setServiceActionState({ name: item.service_name, action: "reload" })} disabled={servicesBusy}><RefreshCw size={15} strokeWidth={1.6} />Reload</Button>
                   <Button size="sm" className="h-8 min-w-[96px] flex-1 px-3 sm:flex-none" onClick={() => setServiceActionState({ name: item.service_name, action: "restart" })} disabled={servicesBusy}><RotateCcw size={15} strokeWidth={1.6} />Restart</Button>
                 </div>
-              </motion.div>
+              </div>
             )) : <div className="rounded-2xl bg-surface-2 p-6 text-[14px] text-txt-secondary">Service activity is not available yet.</div>}
           </div>
         )}
