@@ -79,12 +79,25 @@ function AnimatedNumber({ value, format = (n) => n.toFixed(0) }: { value: number
   return <motion.span>{display}</motion.span>;
 }
 
-function ProgressRing({ value, size = 52, strokeWidth = 4, color = "var(--accent)" }: { value: number; size?: number; strokeWidth?: number; color?: string }) {
+function ProgressRing({
+  value,
+  size = 52,
+  strokeWidth = 4,
+  color = "var(--accent)",
+  trackColor = "var(--txt-muted)",
+}: {
+  value: number;
+  size?: number;
+  strokeWidth?: number;
+  color?: string;
+  trackColor?: string;
+}) {
   const r = (size - strokeWidth) / 2;
   const c = 2 * Math.PI * r;
   const offset = c - (clampPercent(value) / 100) * c;
   return (
     <svg width={size} height={size} className="-rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={trackColor} strokeWidth={strokeWidth} strokeOpacity={0.3} />
       <motion.circle
         cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"
         strokeDasharray={c} initial={{ strokeDashoffset: c }} animate={{ strokeDashoffset: offset }}
