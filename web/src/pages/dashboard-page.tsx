@@ -63,6 +63,12 @@ function formatShortTime(value: Date): string {
   return value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function formatTooltipDate(value: unknown): string {
+  const date = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(date.getTime())) return "--";
+  return `${date.toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" })} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+}
+
 function AnimatedNumber({ value, format = (n) => n.toFixed(0) }: { value: number; format?: (v: number) => string }) {
   const mv = useMotionValue(0);
   const display = useTransform(mv, (latest) => format(latest));
@@ -281,55 +287,59 @@ export default function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
         {/* CPU */}
-        <div className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--data-2)" } as React.CSSProperties}>
-          <div className="flex items-start justify-between">
-            <div>
+        <div className="metric-glow card-hover gradient-border min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--accent-secondary)" } as React.CSSProperties}>
+          <div className="flex h-full items-center justify-between gap-4">
+            <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">CPU</p>
-              <p className="mt-2 text-metric text-txt-primary">
+              <p className="mt-1.5 text-metric text-txt-primary">
                 <AnimatedNumber value={cpuPercent} format={(v) => v.toFixed(1)} />
                 <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
               </p>
             </div>
-            <ProgressRing value={cpuPercent} color="var(--data-2)" />
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
+              <ProgressRing value={cpuPercent} size={40} strokeWidth={3.5} color="var(--accent-secondary)" />
+            </div>
           </div>
         </div>
 
         {/* RAM */}
-        <div className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--data-4)" } as React.CSSProperties}>
-          <div className="flex items-start justify-between">
-            <div>
+        <div className="metric-glow card-hover gradient-border min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--accent)" } as React.CSSProperties}>
+          <div className="flex h-full items-center justify-between gap-4">
+            <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">RAM</p>
-              <p className="mt-2 text-metric text-txt-primary">
+              <p className="mt-1.5 text-metric text-txt-primary">
                 <AnimatedNumber value={ramPercent} format={(v) => v.toFixed(1)} />
                 <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
               </p>
             </div>
-            <ProgressRing value={ramPercent} color="var(--data-4)" />
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
+              <ProgressRing value={ramPercent} size={40} strokeWidth={3.5} color="var(--accent)" />
+            </div>
           </div>
         </div>
 
         {/* Online */}
-        <div className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--status-success)" } as React.CSSProperties}>
-          <div className="flex items-start justify-between">
-            <div>
+        <div className="metric-glow card-hover gradient-border min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--accent-secondary)" } as React.CSSProperties}>
+          <div className="flex h-full items-center justify-between gap-4">
+            <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Online</p>
-              <p className="mt-2 text-metric text-txt-primary"><AnimatedNumber value={onlineUsers} /></p>
+              <p className="mt-1.5 text-metric text-txt-primary"><AnimatedNumber value={onlineUsers} /></p>
             </div>
-            <div className="grid h-[52px] w-[52px] place-items-center rounded-full bg-status-success/10 ring-1 ring-status-success/15">
-              <Users2 size={22} strokeWidth={1.6} className="text-status-success" />
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
+              <Users2 size={20} strokeWidth={1.7} className="text-txt-secondary" />
             </div>
           </div>
         </div>
 
         {/* Uptime */}
-        <div className="metric-glow card-hover gradient-border rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--status-warning)" } as React.CSSProperties}>
-          <div className="flex items-start justify-between">
-            <div>
+        <div className="metric-glow card-hover gradient-border min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5" style={{ "--metric-glow-color": "var(--accent)" } as React.CSSProperties}>
+          <div className="flex h-full items-center justify-between gap-4">
+            <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Uptime</p>
-              <p className="mt-2 text-[28px] leading-none text-txt-primary sm:text-metric">{uptime}</p>
+              <p className="mt-1.5 text-[28px] leading-none text-txt-primary sm:text-metric">{uptime}</p>
             </div>
-            <div className="grid h-[52px] w-[52px] place-items-center rounded-full bg-status-warning/10 ring-1 ring-status-warning/15">
-              <Clock size={22} strokeWidth={1.6} className="text-status-warning" />
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
+              <Clock size={20} strokeWidth={1.7} className="text-txt-secondary" />
             </div>
           </div>
         </div>
@@ -337,7 +347,7 @@ export default function DashboardPage() {
 
       {/* ── Secondary stats ── */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="card-hover flex items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
+        <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
             <Network size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
@@ -350,9 +360,9 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="card-hover flex items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent-secondary/10 ring-1 ring-accent-secondary/15">
-            <Globe size={22} strokeWidth={1.6} className="text-accent-secondary-light" />
+        <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
+            <Globe size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Total Traffic</p>
@@ -360,9 +370,9 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="card-hover flex items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-accent/10 ring-1 ring-accent/15">
-            <Zap size={22} strokeWidth={1.6} className="text-accent" />
+        <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/60 ring-1 ring-border/20">
+            <Zap size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Connections</p>
@@ -410,9 +420,14 @@ export default function DashboardPage() {
                 <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
                 <XAxis dataKey="timestamp" tickFormatter={(v) => formatShortTime(new Date(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
                 <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={58} />
-                <Tooltip formatter={(v: number) => formatBytes(Number(v))} contentStyle={tooltipStyle} cursor={{ fill: "var(--accent-soft)" }} />
+                <Tooltip
+                  formatter={(v: number) => formatBytes(Number(v))}
+                  labelFormatter={(label) => formatTooltipDate(label)}
+                  contentStyle={tooltipStyle}
+                  cursor={{ fill: "var(--accent-soft)" }}
+                />
                 <Bar dataKey="download_bytes" fill="var(--data-2)" radius={[5, 5, 0, 0]} name="Download" isAnimationActive={false} />
-                <Bar dataKey="upload_bytes" fill="var(--data-4)" radius={[5, 5, 0, 0]} name="Upload" isAnimationActive={false} />
+                <Bar dataKey="upload_bytes" fill="var(--accent-secondary)" radius={[5, 5, 0, 0]} name="Upload" isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
