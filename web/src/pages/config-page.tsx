@@ -1,4 +1,4 @@
-import { Download, Play, RefreshCw, Save, Upload } from "lucide-react";
+import { Download, Play, Save, Upload } from "lucide-react";
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
@@ -133,7 +133,6 @@ export default function ConfigPage() {
         title="Settings"
         actions={
           <>
-            <Button onClick={() => void load()} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><RefreshCw size={18} strokeWidth={1.6} />Reload</Button>
             <Button onClick={() => void backupSQLite()} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Download size={18} strokeWidth={1.6} />Backup</Button>
             <Button variant="danger" onClick={triggerRestorePicker} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Upload size={18} strokeWidth={1.6} />Restore</Button>
             <Button variant="primary" onClick={() => void saveDraft()} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Save size={18} strokeWidth={1.6} />Save</Button>
