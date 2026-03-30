@@ -54,7 +54,7 @@ import { useToast } from "@/src/components/ui/Toast";
 import { formatBytes, formatDateTime, formatRate } from "@/utils/format";
 
 type ClientFilter = "all" | "online" | "enabled" | "disabled";
-type SortField = "username" | "traffic" | "download_bps" | "upload_bps" | "last_seen";
+type SortField = "username" | "traffic" | "last_seen";
 type SortDir = "asc" | "desc";
 type SortState = { field: SortField; dir: SortDir };
 
@@ -297,10 +297,6 @@ export default function UsersPage() {
             return dir * a.username.localeCompare(b.username, undefined, { sensitivity: "base" });
           case "traffic":
             return dir * ((a.last_tx_bytes + a.last_rx_bytes) - (b.last_tx_bytes + b.last_rx_bytes));
-          case "download_bps":
-            return dir * ((a.download_bps || 0) - (b.download_bps || 0));
-          case "upload_bps":
-            return dir * ((a.upload_bps || 0) - (b.upload_bps || 0));
           case "last_seen": {
             const ta = new Date(a.last_seen_at || a.updated_at).getTime();
             const tb = new Date(b.last_seen_at || b.updated_at).getTime();
@@ -674,18 +670,18 @@ export default function UsersPage() {
       {/* ── Desktop table ── */}
       <TableContainer className="hidden overflow-x-auto sm:block">
         {loading ? (
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow className="border-t-0 hover:bg-transparent">
                 <TableHead className="w-10"><div className="h-4 w-4 animate-pulse rounded bg-surface-3/60" /></TableHead>
                 <TableHead className="hidden w-14 md:table-cell">#</TableHead>
-                <TableHead>User</TableHead>
-                <TableHead className="hidden w-[96px] lg:table-cell">Protocol</TableHead>
-                <TableHead className="w-[170px]">Status</TableHead>
-                <TableHead className="hidden w-[220px] lg:table-cell">Traffic</TableHead>
-                <TableHead className="hidden w-[170px] text-right lg:table-cell">Network</TableHead>
-                <TableHead className="hidden w-[186px] text-right md:table-cell">Last Seen</TableHead>
-                <TableHead className="w-[72px] text-right">Actions</TableHead>
+                <TableHead>USERS</TableHead>
+                <TableHead className="hidden lg:table-cell">PROTOCOL</TableHead>
+                <TableHead>STATUS</TableHead>
+                <TableHead className="hidden lg:table-cell">TRAFFIC</TableHead>
+                <TableHead className="hidden text-right lg:table-cell">NETWORK</TableHead>
+                <TableHead className="hidden text-right md:table-cell">LAST SEEN</TableHead>
+                <TableHead className="w-[84px] text-right">ACTIONS</TableHead>
               </TableRow>
             </TableHeader>
             <tbody>
@@ -694,7 +690,7 @@ export default function UsersPage() {
           </Table>
         ) : (
           <>
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow className="border-t-0 hover:bg-transparent">
                   <TableHead className="w-10">
@@ -707,27 +703,25 @@ export default function UsersPage() {
                   <TableHead className="hidden w-14 md:table-cell">#</TableHead>
                   <TableHead>
                     <button type="button" onClick={() => toggleSort("username")} className="inline-flex items-center gap-1.5 hover:text-txt-primary">
-                      User <SortIcon field="username" sort={sort} />
+                      USERS <SortIcon field="username" sort={sort} />
                     </button>
                   </TableHead>
-                  <TableHead className="hidden w-[96px] lg:table-cell">Protocol</TableHead>
-                  <TableHead className="w-[170px]">Status</TableHead>
-                  <TableHead className="hidden w-[220px] lg:table-cell">
+                  <TableHead className="hidden lg:table-cell">PROTOCOL</TableHead>
+                  <TableHead>STATUS</TableHead>
+                  <TableHead className="hidden lg:table-cell">
                     <button type="button" onClick={() => toggleSort("traffic")} className="inline-flex items-center gap-1.5 hover:text-txt-primary">
-                      Traffic <SortIcon field="traffic" sort={sort} />
+                      TRAFFIC <SortIcon field="traffic" sort={sort} />
                     </button>
                   </TableHead>
-                  <TableHead className="hidden w-[170px] text-right lg:table-cell">
-                    <button type="button" onClick={() => toggleSort("download_bps")} className="ml-auto inline-flex items-center gap-1.5 hover:text-txt-primary">
-                      Network <SortIcon field="download_bps" sort={sort} />
-                    </button>
+                  <TableHead className="hidden text-right lg:table-cell">
+                    NETWORK
                   </TableHead>
-                  <TableHead className="hidden w-[186px] text-right md:table-cell">
+                  <TableHead className="hidden text-right md:table-cell">
                     <button type="button" onClick={() => toggleSort("last_seen")} className="ml-auto inline-flex items-center gap-1.5 hover:text-txt-primary">
-                      Last Seen <SortIcon field="last_seen" sort={sort} />
+                      LAST SEEN <SortIcon field="last_seen" sort={sort} />
                     </button>
                   </TableHead>
-                  <TableHead className="w-[72px] text-right">Actions</TableHead>
+                  <TableHead className="w-[84px] text-right">ACTIONS</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -791,13 +785,13 @@ export default function UsersPage() {
                             <Toggle className="shrink-0" checked={client.enabled} onCheckedChange={() => void toggleEnabled(client)} />
                           </div>
                         </TableCell>
-                        <TableCell className="hidden w-[220px] lg:table-cell">
+                        <TableCell className="hidden lg:table-cell">
                           <div className="space-y-1.5">
                             <GradientProgress ratio={ratioWidth} isHigh={ratio > 90} />
                             <p className="text-[11px] font-medium text-txt-tertiary">{formatBytes(traffic)}</p>
                           </div>
                         </TableCell>
-                        <TableCell className="hidden w-[170px] text-right lg:table-cell">
+                        <TableCell className="hidden text-right lg:table-cell">
                           <div className="flex flex-col items-end gap-1 text-[11px] font-semibold tabular-nums text-txt-secondary">
                             <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                               <ArrowDownToLine size={12} strokeWidth={1.8} className="text-status-success" />
@@ -809,7 +803,7 @@ export default function UsersPage() {
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="hidden w-[186px] whitespace-nowrap text-right md:table-cell">
+                        <TableCell className="hidden whitespace-nowrap text-right md:table-cell">
                           {formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}
                         </TableCell>
                         <TableCell className="text-right">
