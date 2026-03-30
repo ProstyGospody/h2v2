@@ -1,5 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -541,6 +541,7 @@ export default function UsersPage() {
   }
 
   const pageCount = Math.max(1, Math.ceil(filteredClients.length / rowsPerPage));
+  const hasSelectedClients = selectedClientIDs.length > 0;
 
   return (
     <div className="space-y-6">
@@ -603,67 +604,63 @@ export default function UsersPage() {
       </div>
 
       {/* ── Floating bulk action toolbar ── */}
-      <AnimatePresence>
-        {selectedClientIDs.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2"
+      <motion.div
+        initial={false}
+        animate={{ opacity: hasSelectedClients ? 1 : 0, y: hasSelectedClients ? 0 : 14 }}
+        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+        className="fixed bottom-6 left-4 right-4 z-40 sm:left-1/2 sm:right-auto sm:-translate-x-1/2"
+        style={{ pointerEvents: hasSelectedClients ? "auto" : "none" }}
+      >
+        <div className="mx-auto flex w-max max-w-full items-center gap-2 overflow-x-auto rounded-2xl bg-surface-2/95 px-4 py-2.5 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl">
+          <span className="mr-1 inline-flex h-7 min-w-[28px] items-center justify-center rounded-lg bg-accent/15 px-2 text-[13px] font-bold tabular-nums text-accent">
+            {selectedClientIDs.length}
+          </span>
+          <span className="mr-2 text-[13px] font-medium text-txt-secondary">selected</span>
+
+          <div className="h-5 w-px bg-border/50" />
+
+          <button
+            type="button"
+            onClick={() => void bulkSetEnabled(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-success transition-colors hover:bg-status-success/10"
           >
-            <div className="flex items-center gap-2 rounded-2xl bg-surface-2/95 px-4 py-2.5 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl">
-              <span className="mr-1 inline-flex h-7 min-w-[28px] items-center justify-center rounded-lg bg-accent/15 px-2 text-[13px] font-bold tabular-nums text-accent">
-                {selectedClientIDs.length}
-              </span>
-              <span className="mr-2 text-[13px] font-medium text-txt-secondary">selected</span>
+            <Power size={14} strokeWidth={1.8} />
+            Enable
+          </button>
+          <button
+            type="button"
+            onClick={() => void bulkSetEnabled(false)}
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-warning transition-colors hover:bg-status-warning/10"
+          >
+            <PowerOff size={14} strokeWidth={1.8} />
+            Disable
+          </button>
+          <ConfirmPopover
+            title="Delete selected users"
+            description={`Delete ${selectedClientIDs.length} users?`}
+            confirmText="Delete"
+            onConfirm={() => void deleteSelectedClients()}
+          >
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10"
+            >
+              <Trash2 size={14} strokeWidth={1.8} />
+              Delete
+            </button>
+          </ConfirmPopover>
 
-              <div className="h-5 w-px bg-border/50" />
+          <div className="h-5 w-px bg-border/50" />
 
-              <button
-                type="button"
-                onClick={() => void bulkSetEnabled(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-success transition-colors hover:bg-status-success/10"
-              >
-                <Power size={14} strokeWidth={1.8} />
-                Enable
-              </button>
-              <button
-                type="button"
-                onClick={() => void bulkSetEnabled(false)}
-                className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-warning transition-colors hover:bg-status-warning/10"
-              >
-                <PowerOff size={14} strokeWidth={1.8} />
-                Disable
-              </button>
-              <ConfirmPopover
-                title="Delete selected users"
-                description={`Delete ${selectedClientIDs.length} users?`}
-                confirmText="Delete"
-                onConfirm={() => void deleteSelectedClients()}
-              >
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10"
-                >
-                  <Trash2 size={14} strokeWidth={1.8} />
-                  Delete
-                </button>
-              </ConfirmPopover>
-
-              <div className="h-5 w-px bg-border/50" />
-
-              <button
-                type="button"
-                onClick={() => setSelectedClientIDs([])}
-                className="inline-flex items-center justify-center rounded-lg p-1.5 text-txt-muted transition-colors hover:bg-surface-3 hover:text-txt"
-              >
-                <X size={14} strokeWidth={1.8} />
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          <button
+            type="button"
+            onClick={() => setSelectedClientIDs([])}
+            className="inline-flex items-center justify-center rounded-lg p-1.5 text-txt-muted transition-colors hover:bg-surface-3 hover:text-txt"
+          >
+            <X size={14} strokeWidth={1.8} />
+          </button>
+        </div>
+      </motion.div>
 
       {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
 
