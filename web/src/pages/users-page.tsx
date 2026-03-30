@@ -415,7 +415,7 @@ export default function UsersPage() {
               </div>
             </div>
 
-            <Table className="table-fixed">
+            <Table>
               <TableHeader>
                 <TableRow className="border-t-0 hover:bg-transparent">
                   <TableHead className="w-10">
@@ -428,10 +428,10 @@ export default function UsersPage() {
                   <TableHead className="hidden w-14 md:table-cell">#</TableHead>
                   <TableHead>User</TableHead>
                   <TableHead className="hidden w-[96px] lg:table-cell">Protocol</TableHead>
-                  <TableHead className="w-[160px]">Status</TableHead>
-                  <TableHead className="hidden w-[200px] lg:table-cell">Traffic</TableHead>
-                  <TableHead className="hidden w-[170px] lg:table-cell">Network</TableHead>
-                  <TableHead className="hidden w-[180px] md:table-cell">Last Seen</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden lg:table-cell">Traffic</TableHead>
+                  <TableHead className="hidden lg:table-cell">Network</TableHead>
+                  <TableHead className="hidden md:table-cell">Last Seen</TableHead>
                   <TableHead className="w-[88px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
