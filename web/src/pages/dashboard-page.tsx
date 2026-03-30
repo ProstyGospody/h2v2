@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bar,
-  BarChart,
+  Area,
+  AreaChart,
   CartesianGrid,
   Cell,
   PolarAngleAxis,
@@ -95,19 +95,28 @@ function AnimatedNumber({ value, format = (n) => n.toFixed(0) }: { value: number
   return <motion.span>{display}</motion.span>;
 }
 
+function gaugeColor(percent: number): string {
+  if (percent >= 85) return "var(--status-danger)";
+  if (percent >= 60) return "var(--status-warning)";
+  return "var(--status-success)";
+}
+
 function RadialGauge({
   value,
   size = 56,
+  autoColor = false,
   color = "var(--accent)",
   trackColor = "var(--border-hover)",
 }: {
   value: number;
   size?: number;
+  autoColor?: boolean;
   color?: string;
   trackColor?: string;
 }) {
   const clamped = clampPercent(value);
-  const data = [{ value: clamped, fill: color }];
+  const fill = autoColor ? gaugeColor(clamped) : color;
+  const data = [{ value: clamped, fill }];
   return (
     <div style={{ width: size, height: size }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -128,7 +137,7 @@ function RadialGauge({
             animationDuration={800}
             animationEasing="ease-out"
           >
-            <Cell fill={color} />
+            <Cell fill={fill} />
           </RadialBar>
         </RadialBarChart>
       </ResponsiveContainer>
@@ -390,8 +399,18 @@ export default function DashboardPage() {
       <PageHeader title="Dashboard" />
 
       {showInitialLoading && (
-        <div className="rounded-xl border border-status-info/20 bg-status-info/8 px-5 py-3.5 text-[14px] text-status-info">
-          Loading latest dashboard metrics...
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, i) => (
+            <div key={i} className="min-h-[108px] animate-pulse rounded-2xl border border-border/30 bg-surface-2 p-5">
+              <div className="flex h-full items-center justify-between gap-4">
+                <div className="space-y-3">
+                  <div className="h-3 w-12 rounded bg-surface-3/60" />
+                  <div className="h-7 w-16 rounded bg-surface-3/60" />
+                </div>
+                <div className="h-14 w-14 rounded-full bg-surface-3/60" />
+              </div>
+            </div>
+          ))}
         </div>
       )}
       {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
@@ -412,7 +431,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="shrink-0">
-              <RadialGauge value={cpuPercent} size={56} color="var(--accent)" />
+              <RadialGauge value={cpuPercent} size={56} autoColor />
             </div>
           </div>
         </div>
@@ -428,7 +447,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <div className="shrink-0">
-              <RadialGauge value={ramPercent} size={56} color="var(--primary)" />
+              <RadialGauge value={ramPercent} size={56} autoColor />
             </div>
           </div>
         </div>
@@ -537,7 +556,17 @@ export default function DashboardPage() {
           </div>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={trafficUsageBars} barGap={4} barCategoryGap="25%">
+              <AreaChart data={trafficUsageBars}>
+                <defs>
+                  <linearGradient id="gradDown" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--data-1)" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="var(--data-1)" stopOpacity={0.02} />
+                  </linearGradient>
+                  <linearGradient id="gradUp" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--data-2)" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="var(--data-2)" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
                 <XAxis dataKey="timestamp" tickFormatter={(v) => formatTrafficTick(new Date(v), historyWindow)} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
                 <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={58} />
@@ -545,25 +574,27 @@ export default function DashboardPage() {
                   formatter={(v: number) => formatBytes(Number(v))}
                   labelFormatter={(label) => formatTrafficTooltipLabel(label, historyWindow)}
                   contentStyle={tooltipStyle}
-                  cursor={{ fill: "var(--accent-soft)" }}
+                  cursor={{ stroke: "var(--border-hover)", strokeDasharray: "4 4" }}
                 />
-                <Bar
+                <Area
+                  type="monotone"
                   dataKey="download_bytes"
-                  fill="var(--data-1)"
-                  radius={[5, 5, 0, 0]}
+                  stroke="var(--data-1)"
+                  strokeWidth={2}
+                  fill="url(#gradDown)"
                   name="Download"
-                  minPointSize={historyWindow === "24h" ? 1 : 0}
                   isAnimationActive={false}
                 />
-                <Bar
+                <Area
+                  type="monotone"
                   dataKey="upload_bytes"
-                  fill="var(--data-2)"
-                  radius={[5, 5, 0, 0]}
+                  stroke="var(--data-2)"
+                  strokeWidth={2}
+                  fill="url(#gradUp)"
                   name="Upload"
-                  minPointSize={historyWindow === "24h" ? 1 : 0}
                   isAnimationActive={false}
                 />
-              </BarChart>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>

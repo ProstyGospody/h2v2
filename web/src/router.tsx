@@ -2,6 +2,7 @@ import { Outlet, Navigate, createBrowserRouter } from "react-router-dom";
 
 import { AuthGuard } from "@/shell/auth-guard";
 import { PanelShell } from "@/shell/panel-shell";
+import { ToastProvider } from "@/src/components/ui/Toast";
 
 import AuditPage from "./pages/audit-page";
 import ConfigPage from "./pages/config-page";
@@ -12,9 +13,11 @@ import UsersPage from "./pages/users-page";
 function PanelLayout() {
   return (
     <AuthGuard>
-      <PanelShell>
-        <Outlet />
-      </PanelShell>
+      <ToastProvider>
+        <PanelShell>
+          <Outlet />
+        </PanelShell>
+      </ToastProvider>
     </AuthGuard>
   );
 }

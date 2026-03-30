@@ -1,5 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -9,9 +9,12 @@ import {
   MoreVertical,
   Pencil,
   Plus,
+  Power,
+  PowerOff,
   QrCode,
   Search,
   Trash2,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -30,7 +33,6 @@ import {
   updateClient,
 } from "@/domain/clients/services";
 import { HysteriaClient, HysteriaClientDefaults, HysteriaUserPayload } from "@/domain/clients/types";
-import { useNotice } from "@/hooks/use-notice";
 import { APIError } from "@/services/api";
 import {
   Badge,
@@ -44,10 +46,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  Toast,
   Toggle,
   cn,
 } from "@/src/components/ui";
+import { useToast } from "@/src/components/ui/Toast";
 import { formatBytes, formatDateTime, formatRate } from "@/utils/format";
 
 type ClientFilter = "all" | "online" | "enabled" | "disabled";
@@ -127,7 +129,36 @@ function resolveStatus(client: HysteriaClient): "online" | "offline" | "disabled
   return "offline";
 }
 
-function ClientActions({
+function InlineActions({
+  client,
+  onArtifacts,
+  onEdit,
+  onDelete,
+}: {
+  client: HysteriaClient;
+  onArtifacts: (c: HysteriaClient) => void;
+  onEdit: (c: HysteriaClient) => void;
+  onDelete: (c: HysteriaClient) => void;
+}) {
+  return (
+    <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover/row:opacity-100">
+      <button type="button" onClick={() => void onArtifacts(client)} title="Show QR"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt">
+        <QrCode size={14} strokeWidth={1.4} />
+      </button>
+      <button type="button" onClick={() => onEdit(client)} title="Edit"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt">
+        <Pencil size={14} strokeWidth={1.4} />
+      </button>
+      <button type="button" onClick={() => onDelete(client)} title="Delete"
+        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-txt-tertiary transition-colors hover:bg-status-danger/10 hover:text-status-danger">
+        <Trash2 size={14} strokeWidth={1.4} />
+      </button>
+    </div>
+  );
+}
+
+function MobileActions({
   client,
   onArtifacts,
   onEdit,
@@ -210,7 +241,7 @@ export default function UsersPage() {
   const [artifactClient, setArtifactClient] = useState<HysteriaClient | null>(null);
   const [artifactPayload, setArtifactPayload] = useState<HysteriaUserPayload | null>(null);
 
-  const notice = useNotice();
+  const toast = useToast();
 
   const load = useCallback(async () => {
     setError("");
@@ -337,10 +368,10 @@ export default function UsersPage() {
     try {
       if (formMode === "create") {
         await createClient(toCreateRequest(values));
-        notice.notify("User created");
+        toast.notify("User created");
       } else if (editingClient) {
         await updateClient(editingClient.id, toUpdateRequest(values));
-        notice.notify("User updated");
+        toast.notify("User updated");
       }
       setFormOpen(false);
       await load();
@@ -359,7 +390,7 @@ export default function UsersPage() {
     try {
       await deleteClient(deleteTarget.id);
       setDeleteTarget(null);
-      notice.notify("User deleted");
+      toast.notify("User deleted");
       await load();
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Failed to delete user");
@@ -394,7 +425,7 @@ export default function UsersPage() {
       }
 
       if (deletedCount > 0) {
-        notice.notify(deletedCount === 1 ? "1 user deleted" : `${deletedCount} users deleted`);
+        toast.notify(deletedCount === 1 ? "1 user deleted" : `${deletedCount} users deleted`);
       }
 
       if (failedIDs.length > 0) {
@@ -411,11 +442,35 @@ export default function UsersPage() {
   }
 
   async function toggleEnabled(client: HysteriaClient) {
+    const prev = clients;
+    setClients((list) => list.map((c) => c.id === client.id ? { ...c, enabled: !c.enabled } : c));
     try {
       await setClientEnabled(client.id, !client.enabled);
-      await load();
     } catch (err) {
+      setClients(prev);
       setError(err instanceof APIError ? err.message : "Failed to change state");
+    }
+  }
+
+  async function bulkSetEnabled(enabled: boolean) {
+    if (!selectedClientIDs.length) return;
+    const targetIDs = [...selectedClientIDs];
+    const prev = clients;
+    setClients((list) => list.map((c) => targetIDs.includes(c.id) ? { ...c, enabled } : c));
+    let failCount = 0;
+    for (const id of targetIDs) {
+      try {
+        await setClientEnabled(id, enabled);
+      } catch {
+        failCount++;
+      }
+    }
+    if (failCount > 0) {
+      setClients(prev);
+      toast.notify(`Failed to update ${failCount} users`, "error");
+      await load();
+    } else {
+      toast.notify(`${targetIDs.length} users ${enabled ? "enabled" : "disabled"}`);
     }
   }
 
@@ -436,7 +491,7 @@ export default function UsersPage() {
   async function copy(value: string) {
     try {
       await navigator.clipboard.writeText(value);
-      notice.notify("Copied");
+      toast.notify("Copied");
     } catch {
       setError("Clipboard write failed");
     }
@@ -490,23 +545,6 @@ export default function UsersPage() {
               <Plus size={18} strokeWidth={1.6} />
               Add user
             </Button>
-            <Button
-              disabled={!selectedClientIDs.length}
-              onClick={() => setBulkDeleteOpen(true)}
-              className={cn(
-                "h-12 w-full rounded-2xl px-3 sm:w-auto sm:min-w-[190px]",
-                "justify-between border-status-danger/38 bg-status-danger/12 text-status-danger hover:bg-status-danger/18",
-                !selectedClientIDs.length && "border-[var(--control-border)] bg-[var(--control-bg)] text-txt-secondary hover:bg-[var(--control-bg-hover)]",
-              )}
-            >
-              <span className="inline-flex items-center gap-2">
-                <Trash2 size={16} strokeWidth={1.6} />
-                Delete selection
-              </span>
-              <span className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-md bg-status-danger/20 px-1.5 text-[12px] leading-none tabular-nums">
-                {selectedClientIDs.length}
-              </span>
-            </Button>
             <div className="relative w-full sm:w-[300px] lg:w-[340px]">
               <Search size={16} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
               <Input
@@ -537,8 +575,64 @@ export default function UsersPage() {
 
       <div className="flex items-center justify-between text-[13px] text-txt-secondary">
         <span>{filteredClients.length} users</span>
-        <span className="tabular-nums">{selectedClientIDs.length} selected</span>
       </div>
+
+      {/* ── Floating bulk action toolbar ── */}
+      <AnimatePresence>
+        {selectedClientIDs.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2"
+          >
+            <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-surface-2/95 px-4 py-2.5 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl">
+              <span className="mr-1 inline-flex h-7 min-w-[28px] items-center justify-center rounded-lg bg-accent/15 px-2 text-[13px] font-bold tabular-nums text-accent">
+                {selectedClientIDs.length}
+              </span>
+              <span className="mr-2 text-[13px] font-medium text-txt-secondary">selected</span>
+
+              <div className="h-5 w-px bg-border/50" />
+
+              <button
+                type="button"
+                onClick={() => void bulkSetEnabled(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-success transition-colors hover:bg-status-success/10"
+              >
+                <Power size={14} strokeWidth={1.8} />
+                Enable
+              </button>
+              <button
+                type="button"
+                onClick={() => void bulkSetEnabled(false)}
+                className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-warning transition-colors hover:bg-status-warning/10"
+              >
+                <PowerOff size={14} strokeWidth={1.8} />
+                Disable
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkDeleteOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10"
+              >
+                <Trash2 size={14} strokeWidth={1.8} />
+                Delete
+              </button>
+
+              <div className="h-5 w-px bg-border/50" />
+
+              <button
+                type="button"
+                onClick={() => setSelectedClientIDs([])}
+                className="inline-flex items-center justify-center rounded-lg p-1.5 text-txt-muted transition-colors hover:bg-surface-3 hover:text-txt"
+              >
+                <X size={14} strokeWidth={1.8} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
 
@@ -630,7 +724,7 @@ export default function UsersPage() {
                     const upBps = Math.max(0, client.upload_bps || 0);
 
                     return (
-                      <TableRow key={client.id}>
+                      <TableRow key={client.id} className="group/row">
                         <TableCell>
                           <Checkbox
                             checked={selectedSet.has(client.id)}
@@ -701,7 +795,7 @@ export default function UsersPage() {
                           {formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}
                         </TableCell>
                         <TableCell className="text-right">
-                          <ClientActions client={client} onArtifacts={openArtifacts} onEdit={openEdit} onDelete={setDeleteTarget} />
+                          <InlineActions client={client} onArtifacts={openArtifacts} onEdit={openEdit} onDelete={setDeleteTarget} />
                         </TableCell>
                       </TableRow>
                     );
@@ -803,7 +897,7 @@ export default function UsersPage() {
                       />
                       {status}
                     </span>
-                    <ClientActions client={client} onArtifacts={openArtifacts} onEdit={openEdit} onDelete={setDeleteTarget} />
+                    <MobileActions client={client} onArtifacts={openArtifacts} onEdit={openEdit} onDelete={setDeleteTarget} />
                   </div>
                 </div>
 
@@ -895,7 +989,6 @@ export default function UsersPage() {
         onCopy={(value) => void copy(value)}
       />
 
-      <Toast open={Boolean(notice.message)} onOpenChange={(open) => !open && notice.clear()} message={notice.message} variant="success" />
     </div>
   );
 }
