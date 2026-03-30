@@ -19,7 +19,7 @@ import (
 type Server struct {
 	cfg            config.Config
 	logger         *slog.Logger
-	repo           *repository.Repository
+	repo           repository.Repository
 	handler        *handlers.Handler
 	httpServer     *http.Server
 	jobs           *scheduler.Jobs
@@ -28,7 +28,7 @@ type Server struct {
 	cancelJobs     context.CancelFunc
 }
 
-func NewServer(cfg config.Config, logger *slog.Logger, repo *repository.Repository) *Server {
+func NewServer(cfg config.Config, logger *slog.Logger, repo repository.Repository) *Server {
 	rateLimiter := middleware.NewLoginRateLimiter(cfg.RateLimitWindow, cfg.RateLimitBurst)
 	hy2Client := services.NewHysteriaClient(cfg.Hy2StatsURL, cfg.Hy2StatsSecret)
 	serviceManager := services.NewServiceManager(cfg.SystemctlPath, cfg.SudoPath, cfg.JournalctlPath, cfg.ManagedServices)

@@ -14,9 +14,12 @@ The panel itself is split into:
 
 ## Persistence model
 
-The application is file-backed and does not use a database.
+The application supports two storage drivers:
 
-Primary storage roots:
+- `file` (default, safe rollout mode)
+- `sqlite` (`PANEL_STORAGE_DRIVER=sqlite`, `PANEL_SQLITE_PATH=/var/lib/h2v2/data/h2v2.db`)
+
+File driver roots:
 
 - `/var/lib/h2v2/state`
   - admins
@@ -32,6 +35,25 @@ Primary storage roots:
   - saved config backups
 - `/var/log/h2v2/audit`
   - audit trail entries
+
+SQLite driver:
+
+- single DB file (default `/var/lib/h2v2/data/h2v2.db`)
+- WAL mode enabled
+- foreign keys enabled
+- busy timeout enabled
+- indexed read paths:
+  - sessions by token/expiry
+  - users by normalized username
+  - snapshots by user/timestamp
+  - audit logs by timestamp
+
+Switching strategy:
+
+1. Keep `PANEL_STORAGE_DRIVER=file` by default.
+2. Run `panel-api migrate-to-sqlite` to fill SQLite idempotently.
+3. Switch to `PANEL_STORAGE_DRIVER=sqlite`.
+4. Roll back instantly by restoring `PANEL_STORAGE_DRIVER=file`.
 
 ## Hysteria configuration ownership
 

@@ -34,6 +34,8 @@ type HysteriaSnapshot = hysteriadomain.Snapshot
 
 type HysteriaOverview = hysteriadomain.Overview
 
+type ClientOverrides = hysteriadomain.ClientOverrides
+
 type SystemSnapshot struct {
 	ID                int64     `json:"id"`
 	SnapshotAt        time.Time `json:"snapshot_at"`

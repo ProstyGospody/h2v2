@@ -10,8 +10,14 @@ import (
 	"h2v2/internal/security"
 )
 
-func OpenRepository(cfg config.Config) (*repository.Repository, error) {
-	repo, err := repository.New(cfg.StorageRoot, cfg.AuditDir, cfg.RuntimeDir)
+func OpenRepository(cfg config.Config) (repository.Repository, error) {
+	repo, err := repository.Open(repository.OpenOptions{
+		Driver:      cfg.StorageDriver,
+		StorageRoot: cfg.StorageRoot,
+		AuditDir:    cfg.AuditDir,
+		RuntimeDir:  cfg.RuntimeDir,
+		SQLitePath:  cfg.SQLitePath,
+	})
 	if err != nil {
 		return nil, err
 	}

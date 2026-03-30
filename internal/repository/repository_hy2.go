@@ -14,7 +14,7 @@ import (
 	hysteriadomain "h2v2/internal/domain/hysteria"
 )
 
-func (r *Repository) CreateHysteriaUser(ctx context.Context, username string, password string, note *string, overrides *hysteriadomain.ClientOverrides) (HysteriaUser, error) {
+func (r *FileRepository) CreateHysteriaUser(ctx context.Context, username string, password string, note *string, overrides *hysteriadomain.ClientOverrides) (HysteriaUser, error) {
 	var out HysteriaUser
 	err := r.withLock(ctx, func() error {
 		normalizedUsername, err := hysteriadomain.NormalizeUsername(username)
@@ -55,7 +55,7 @@ func (r *Repository) CreateHysteriaUser(ctx context.Context, username string, pa
 	return out, err
 }
 
-func (r *Repository) ListHysteriaUsers(ctx context.Context, limit int, offset int) ([]HysteriaUserView, error) {
+func (r *FileRepository) ListHysteriaUsers(ctx context.Context, limit int, offset int) ([]HysteriaUserView, error) {
 	var out []HysteriaUserView
 	err := r.withLock(ctx, func() error {
 		users, err := r.loadHysteriaUsersNoLock()
@@ -73,7 +73,7 @@ func (r *Repository) ListHysteriaUsers(ctx context.Context, limit int, offset in
 	return out, err
 }
 
-func (r *Repository) ListEnabledHysteriaUsers(ctx context.Context) ([]HysteriaUser, error) {
+func (r *FileRepository) ListEnabledHysteriaUsers(ctx context.Context) ([]HysteriaUser, error) {
 	var out []HysteriaUser
 	err := r.withLock(ctx, func() error {
 		users, err := r.loadHysteriaUsersNoLock()
@@ -91,7 +91,7 @@ func (r *Repository) ListEnabledHysteriaUsers(ctx context.Context) ([]HysteriaUs
 	return out, err
 }
 
-func (r *Repository) GetHysteriaUser(ctx context.Context, id string) (HysteriaUserView, error) {
+func (r *FileRepository) GetHysteriaUser(ctx context.Context, id string) (HysteriaUserView, error) {
 	var out HysteriaUserView
 	err := r.withLock(ctx, func() error {
 		user, err := r.loadHysteriaUserNoLock(id)
@@ -104,7 +104,7 @@ func (r *Repository) GetHysteriaUser(ctx context.Context, id string) (HysteriaUs
 	return out, err
 }
 
-func (r *Repository) UpdateHysteriaUser(ctx context.Context, id string, username string, password string, note *string, overrides *hysteriadomain.ClientOverrides) (HysteriaUserView, error) {
+func (r *FileRepository) UpdateHysteriaUser(ctx context.Context, id string, username string, password string, note *string, overrides *hysteriadomain.ClientOverrides) (HysteriaUserView, error) {
 	var out HysteriaUserView
 	err := r.withLock(ctx, func() error {
 		current, err := r.loadHysteriaUserNoLock(id)
@@ -145,7 +145,7 @@ func (r *Repository) UpdateHysteriaUser(ctx context.Context, id string, username
 	})
 	return out, err
 }
-func (r *Repository) DeleteHysteriaUser(ctx context.Context, id string) error {
+func (r *FileRepository) DeleteHysteriaUser(ctx context.Context, id string) error {
 	return r.withLock(ctx, func() error {
 		if _, err := r.loadHysteriaUserNoLock(id); err != nil {
 			return err
@@ -160,7 +160,7 @@ func (r *Repository) DeleteHysteriaUser(ctx context.Context, id string) error {
 	})
 }
 
-func (r *Repository) SetHysteriaUserEnabled(ctx context.Context, id string, enabled bool) error {
+func (r *FileRepository) SetHysteriaUserEnabled(ctx context.Context, id string, enabled bool) error {
 	return r.withLock(ctx, func() error {
 		user, err := r.loadHysteriaUserNoLock(id)
 		if err != nil {
@@ -172,7 +172,7 @@ func (r *Repository) SetHysteriaUserEnabled(ctx context.Context, id string, enab
 	})
 }
 
-func (r *Repository) TouchHysteriaUserLastSeen(ctx context.Context, id string, seenAt time.Time) error {
+func (r *FileRepository) TouchHysteriaUserLastSeen(ctx context.Context, id string, seenAt time.Time) error {
 	return r.withLock(ctx, func() error {
 		user, err := r.loadHysteriaUserNoLock(id)
 		if err != nil {
@@ -187,7 +187,7 @@ func (r *Repository) TouchHysteriaUserLastSeen(ctx context.Context, id string, s
 	})
 }
 
-func (r *Repository) InsertHysteriaSnapshots(ctx context.Context, snapshots []HysteriaSnapshot) error {
+func (r *FileRepository) InsertHysteriaSnapshots(ctx context.Context, snapshots []HysteriaSnapshot) error {
 	if len(snapshots) == 0 {
 		return nil
 	}
@@ -217,7 +217,7 @@ func (r *Repository) InsertHysteriaSnapshots(ctx context.Context, snapshots []Hy
 	})
 }
 
-func (r *Repository) GetHysteriaStatsOverview(ctx context.Context) (HysteriaOverview, error) {
+func (r *FileRepository) GetHysteriaStatsOverview(ctx context.Context) (HysteriaOverview, error) {
 	var out HysteriaOverview
 	err := r.withLock(ctx, func() error {
 		users, err := r.loadHysteriaUsersNoLock()
@@ -243,7 +243,7 @@ func (r *Repository) GetHysteriaStatsOverview(ctx context.Context) (HysteriaOver
 	return out, err
 }
 
-func (r *Repository) ListHysteriaSnapshots(ctx context.Context, userID string, limit int, offset int) ([]HysteriaSnapshot, error) {
+func (r *FileRepository) ListHysteriaSnapshots(ctx context.Context, userID string, limit int, offset int) ([]HysteriaSnapshot, error) {
 	var out []HysteriaSnapshot
 	err := r.withLock(ctx, func() error {
 		items, err := r.loadHysteriaSnapshotsNoLock(strings.TrimSpace(userID))
@@ -257,19 +257,19 @@ func (r *Repository) ListHysteriaSnapshots(ctx context.Context, userID string, l
 	return out, err
 }
 
-func (r *Repository) loadHysteriaUsersNoLock() ([]HysteriaUser, error) {
+func (r *FileRepository) loadHysteriaUsersNoLock() ([]HysteriaUser, error) {
 	return loadEntities[HysteriaUser](r.hysteriaUsersDir)
 }
 
-func (r *Repository) loadHysteriaUserNoLock(id string) (HysteriaUser, error) {
+func (r *FileRepository) loadHysteriaUserNoLock(id string) (HysteriaUser, error) {
 	return loadEntity[HysteriaUser](hysteriaUserPath(r.hysteriaUsersDir, id))
 }
 
-func (r *Repository) writeHysteriaUserNoLock(user HysteriaUser) error {
+func (r *FileRepository) writeHysteriaUserNoLock(user HysteriaUser) error {
 	return writeJSONFile(hysteriaUserPath(r.hysteriaUsersDir, user.ID), 0o600, user)
 }
 
-func (r *Repository) latestHysteriaSnapshotNoLock(userID string) (HysteriaSnapshot, bool, error) {
+func (r *FileRepository) latestHysteriaSnapshotNoLock(userID string) (HysteriaSnapshot, bool, error) {
 	items, err := r.loadHysteriaSnapshotsNoLock(userID)
 	if err != nil {
 		return HysteriaSnapshot{}, false, err
@@ -281,7 +281,7 @@ func (r *Repository) latestHysteriaSnapshotNoLock(userID string) (HysteriaSnapsh
 	return items[0], true, nil
 }
 
-func (r *Repository) loadHysteriaSnapshotsNoLock(userID string) ([]HysteriaSnapshot, error) {
+func (r *FileRepository) loadHysteriaSnapshotsNoLock(userID string) ([]HysteriaSnapshot, error) {
 	if userID != "" {
 		return loadEntities[HysteriaSnapshot](filepath.Join(r.hysteriaSnapshotsDir, userID))
 	}
@@ -306,7 +306,7 @@ func (r *Repository) loadHysteriaSnapshotsNoLock(userID string) ([]HysteriaSnaps
 	return out, nil
 }
 
-func (r *Repository) writeHysteriaSnapshotNoLock(snapshot HysteriaSnapshot) error {
+func (r *FileRepository) writeHysteriaSnapshotNoLock(snapshot HysteriaSnapshot) error {
 	dir := filepath.Join(r.hysteriaSnapshotsDir, snapshot.UserID)
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return err
@@ -314,7 +314,7 @@ func (r *Repository) writeHysteriaSnapshotNoLock(snapshot HysteriaSnapshot) erro
 	return writeJSONFile(filepath.Join(dir, numericJSONFile(snapshot.ID)), 0o600, snapshot)
 }
 
-func (r *Repository) hysteriaUserViewNoLock(user HysteriaUser) HysteriaUserView {
+func (r *FileRepository) hysteriaUserViewNoLock(user HysteriaUser) HysteriaUserView {
 	item := HysteriaUserView{User: user}
 	if latest, ok, err := r.latestHysteriaSnapshotNoLock(user.ID); err == nil && ok {
 		item.LastTxBytes = latest.TxBytes

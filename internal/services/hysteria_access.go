@@ -52,14 +52,14 @@ type HysteriaSyncResult struct {
 }
 
 type HysteriaAccessManager struct {
-	repo          *repository.Repository
+	repo          repository.Repository
 	cfg           config.Config
 	configManager *HysteriaConfigManager
 }
 
 var ErrInvalidSubscriptionToken = errors.New("invalid subscription token")
 
-func NewHysteriaAccessManager(repo *repository.Repository, cfg config.Config, configManager *HysteriaConfigManager) *HysteriaAccessManager {
+func NewHysteriaAccessManager(repo repository.Repository, cfg config.Config, configManager *HysteriaConfigManager) *HysteriaAccessManager {
 	return &HysteriaAccessManager{repo: repo, cfg: cfg, configManager: configManager}
 }
 

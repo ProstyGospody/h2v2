@@ -53,6 +53,32 @@ sudo -E bash ./deploy/install.sh --non-interactive
 sudo bash ./deploy/install.sh --reconfigure
 ```
 
+## Upgrade binaries/templates
+
+```bash
+sudo bash ./deploy/install.sh --upgrade
+```
+
+## SQLite migration mode
+
+```bash
+sudo bash ./deploy/install.sh --migrate-to-sqlite
+```
+
+This mode keeps the same installer flow but additionally runs:
+
+```bash
+runuser -u h2v2 -- /opt/h2v2/bin/panel-api migrate-to-sqlite --db /var/lib/h2v2/data/h2v2.db --storage-root /var/lib/h2v2 --audit-dir /var/log/h2v2/audit --runtime-dir /run/h2v2
+```
+
+## Dry-run
+
+```bash
+sudo bash ./deploy/install.sh --dry-run
+```
+
+The installer prints planned actions and backup location without applying changes.
+
 ## What gets generated
 
 - `/opt/h2v2/.env.generated`
@@ -60,6 +86,7 @@ sudo bash ./deploy/install.sh --reconfigure
 - `/etc/h2v2/hysteria/server.yaml`
 - `/etc/h2v2/hysteria/tls.crt`
 - `/etc/h2v2/hysteria/tls.key`
+- `/var/lib/h2v2/backups/install-YYYYmmdd-HHMMSS` (pre-change rollback point)
 
 ## Post-install verification
 

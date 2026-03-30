@@ -15,7 +15,7 @@ import (
 func NewRouter(
 	cfg config.Config,
 	logger *slog.Logger,
-	repo *repository.Repository,
+	repo repository.Repository,
 	h *handlers.Handler,
 ) *chi.Mux {
 	r := chi.NewRouter()

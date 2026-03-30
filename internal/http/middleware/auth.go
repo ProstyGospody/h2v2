@@ -12,7 +12,7 @@ import (
 	"h2v2/internal/security"
 )
 
-func RequireAuth(cfg config.Config, repo *repository.Repository, logger *slog.Logger) func(http.Handler) http.Handler {
+func RequireAuth(cfg config.Config, repo repository.Repository, logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cookie, err := r.Cookie(cfg.SessionCookieName)
@@ -62,7 +62,7 @@ func clearAuthCookies(w http.ResponseWriter, cfg config.Config) {
 	})
 }
 
-func touchSessionAsync(ctx context.Context, repo *repository.Repository, logger *slog.Logger, sessionID string) {
+func touchSessionAsync(ctx context.Context, repo repository.Repository, logger *slog.Logger, sessionID string) {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	if err := repo.TouchSession(ctx, sessionID); err != nil {

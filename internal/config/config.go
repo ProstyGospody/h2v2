@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -15,7 +16,9 @@ type Config struct {
 	SubscriptionPublicURL string
 	PanelPublicHost     string
 	PanelPublicPort     int
+	StorageDriver       string
 	StorageRoot         string
+	SQLitePath          string
 	AuditDir            string
 	RuntimeDir          string
 	SessionCookieName   string
@@ -49,7 +52,9 @@ func Load() (Config, error) {
 		SubscriptionPublicURL: strings.TrimRight(getEnv("SUBSCRIPTION_PUBLIC_URL", ""), "/"),
 		PanelPublicHost:     getEnv("PANEL_PUBLIC_HOST", "127.0.0.1"),
 		PanelPublicPort:     getEnvInt("PANEL_PUBLIC_PORT", 8443),
+		StorageDriver:       normalizeStorageDriver(getEnv("PANEL_STORAGE_DRIVER", "file")),
 		StorageRoot:         getEnv("PANEL_STORAGE_ROOT", "/var/lib/h2v2"),
+		SQLitePath:          getEnv("PANEL_SQLITE_PATH", ""),
 		AuditDir:            getEnv("PANEL_AUDIT_DIR", "/var/log/h2v2/audit"),
 		RuntimeDir:          getEnv("PANEL_RUNTIME_DIR", "/run/h2v2"),
 		SessionCookieName:   getEnv("SESSION_COOKIE_NAME", "pp_session"),
@@ -77,6 +82,12 @@ func Load() (Config, error) {
 
 	if strings.TrimSpace(cfg.StorageRoot) == "" {
 		return Config{}, fmt.Errorf("PANEL_STORAGE_ROOT is required")
+	}
+	if strings.TrimSpace(cfg.SQLitePath) == "" {
+		cfg.SQLitePath = filepath.Join(cfg.StorageRoot, "data", "h2v2.db")
+	}
+	if cfg.StorageDriver == "sqlite" && strings.TrimSpace(cfg.SQLitePath) == "" {
+		return Config{}, fmt.Errorf("PANEL_SQLITE_PATH is required when PANEL_STORAGE_DRIVER=sqlite")
 	}
 	if strings.TrimSpace(cfg.AuditDir) == "" {
 		return Config{}, fmt.Errorf("PANEL_AUDIT_DIR is required")
@@ -156,4 +167,13 @@ func getEnvDuration(key string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return parsed
+}
+
+func normalizeStorageDriver(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "sqlite":
+		return "sqlite"
+	default:
+		return "file"
+	}
 }

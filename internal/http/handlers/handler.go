@@ -19,7 +19,7 @@ import (
 type Handler struct {
 	cfg              config.Config
 	logger           *slog.Logger
-	repo             *repository.Repository
+	repo             repository.Repository
 	rateLimiter      *middleware.LoginRateLimiter
 	hy2Client        *services.HysteriaClient
 	serviceManager   *services.ServiceManager
@@ -55,7 +55,7 @@ type systemTrendSample struct {
 func New(
 	cfg config.Config,
 	logger *slog.Logger,
-	repo *repository.Repository,
+	repo repository.Repository,
 	rateLimiter *middleware.LoginRateLimiter,
 	hy2Client *services.HysteriaClient,
 	serviceManager *services.ServiceManager,

@@ -15,7 +15,7 @@ const (
 	systemSnapshotPruneEvery = 120
 )
 
-func (r *Repository) InsertSystemSnapshot(ctx context.Context, snapshot SystemSnapshot) (SystemSnapshot, error) {
+func (r *FileRepository) InsertSystemSnapshot(ctx context.Context, snapshot SystemSnapshot) (SystemSnapshot, error) {
 	var out SystemSnapshot
 	err := r.withLock(ctx, func() error {
 		meta, err := r.loadMetaNoLock()
@@ -63,7 +63,7 @@ func (r *Repository) InsertSystemSnapshot(ctx context.Context, snapshot SystemSn
 	return out, err
 }
 
-func (r *Repository) ListSystemSnapshots(ctx context.Context, from time.Time, to time.Time, limit int) ([]SystemSnapshot, error) {
+func (r *FileRepository) ListSystemSnapshots(ctx context.Context, from time.Time, to time.Time, limit int) ([]SystemSnapshot, error) {
 	if limit <= 0 {
 		limit = 1000
 	}
@@ -130,7 +130,7 @@ func (r *Repository) ListSystemSnapshots(ctx context.Context, from time.Time, to
 	return out, nil
 }
 
-func (r *Repository) pruneSystemSnapshotsNoLock() error {
+func (r *FileRepository) pruneSystemSnapshotsNoLock() error {
 	entries, err := os.ReadDir(r.systemSnapshotsDir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {

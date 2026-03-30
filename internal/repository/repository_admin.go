@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (r *Repository) GetAdminByEmail(ctx context.Context, email string) (Admin, error) {
+func (r *FileRepository) GetAdminByEmail(ctx context.Context, email string) (Admin, error) {
 	var out Admin
 	err := r.withLock(ctx, func() error {
 		admins, err := r.loadAdminsNoLock()
@@ -29,7 +29,7 @@ func (r *Repository) GetAdminByEmail(ctx context.Context, email string) (Admin, 
 	return out, err
 }
 
-func (r *Repository) UpsertAdmin(ctx context.Context, email string, passwordHash string, isActive bool) (Admin, error) {
+func (r *FileRepository) UpsertAdmin(ctx context.Context, email string, passwordHash string, isActive bool) (Admin, error) {
 	var out Admin
 	err := r.withLock(ctx, func() error {
 		normalizedEmail := strings.ToLower(strings.TrimSpace(email))
@@ -63,7 +63,7 @@ func (r *Repository) UpsertAdmin(ctx context.Context, email string, passwordHash
 	return out, err
 }
 
-func (r *Repository) CreateSession(ctx context.Context, adminID string, tokenHash string, expiresAt time.Time, ip string, userAgent string) (Session, error) {
+func (r *FileRepository) CreateSession(ctx context.Context, adminID string, tokenHash string, expiresAt time.Time, ip string, userAgent string) (Session, error) {
 	var out Session
 	err := r.withLock(ctx, func() error {
 		if _, err := r.loadAdminNoLock(adminID); err != nil {
@@ -101,7 +101,7 @@ func (r *Repository) CreateSession(ctx context.Context, adminID string, tokenHas
 	return out, err
 }
 
-func (r *Repository) GetSessionWithAdminByTokenHash(ctx context.Context, tokenHash string) (Session, Admin, error) {
+func (r *FileRepository) GetSessionWithAdminByTokenHash(ctx context.Context, tokenHash string) (Session, Admin, error) {
 	var sessionOut Session
 	var adminOut Admin
 	err := r.withLock(ctx, func() error {
@@ -133,7 +133,7 @@ func (r *Repository) GetSessionWithAdminByTokenHash(ctx context.Context, tokenHa
 	return sessionOut, adminOut, err
 }
 
-func (r *Repository) TouchSession(ctx context.Context, sessionID string) error {
+func (r *FileRepository) TouchSession(ctx context.Context, sessionID string) error {
 	return r.withLock(ctx, func() error {
 		session, err := r.loadSessionNoLock(sessionID)
 		if err != nil {
@@ -147,7 +147,7 @@ func (r *Repository) TouchSession(ctx context.Context, sessionID string) error {
 	})
 }
 
-func (r *Repository) DeleteSessionByHash(ctx context.Context, tokenHash string) error {
+func (r *FileRepository) DeleteSessionByHash(ctx context.Context, tokenHash string) error {
 	return r.withLock(ctx, func() error {
 		sessions, err := r.loadSessionsNoLock()
 		if err != nil {
@@ -165,14 +165,14 @@ func (r *Repository) DeleteSessionByHash(ctx context.Context, tokenHash string) 
 	})
 }
 
-func (r *Repository) loadAdminsNoLock() ([]Admin, error) { return loadEntities[Admin](r.adminsDir) }
-func (r *Repository) loadAdminNoLock(id string) (Admin, error) { return loadEntity[Admin](adminPath(r.adminsDir, id)) }
-func (r *Repository) writeAdminNoLock(admin Admin) error { return writeJSONFile(adminPath(r.adminsDir, admin.ID), 0o600, admin) }
-func (r *Repository) loadSessionsNoLock() ([]Session, error) { return loadEntities[Session](r.sessionsDir) }
-func (r *Repository) loadSessionNoLock(id string) (Session, error) { return loadEntity[Session](sessionPath(r.sessionsDir, id)) }
-func (r *Repository) writeSessionNoLock(session Session) error { return writeJSONFile(sessionPath(r.sessionsDir, session.ID), 0o600, session) }
+func (r *FileRepository) loadAdminsNoLock() ([]Admin, error) { return loadEntities[Admin](r.adminsDir) }
+func (r *FileRepository) loadAdminNoLock(id string) (Admin, error) { return loadEntity[Admin](adminPath(r.adminsDir, id)) }
+func (r *FileRepository) writeAdminNoLock(admin Admin) error { return writeJSONFile(adminPath(r.adminsDir, admin.ID), 0o600, admin) }
+func (r *FileRepository) loadSessionsNoLock() ([]Session, error) { return loadEntities[Session](r.sessionsDir) }
+func (r *FileRepository) loadSessionNoLock(id string) (Session, error) { return loadEntity[Session](sessionPath(r.sessionsDir, id)) }
+func (r *FileRepository) writeSessionNoLock(session Session) error { return writeJSONFile(sessionPath(r.sessionsDir, session.ID), 0o600, session) }
 
-func (r *Repository) purgeExpiredSessionsNoLock(now time.Time) error {
+func (r *FileRepository) purgeExpiredSessionsNoLock(now time.Time) error {
 	sessions, err := r.loadSessionsNoLock()
 	if err != nil {
 		return err

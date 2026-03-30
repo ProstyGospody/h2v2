@@ -13,7 +13,7 @@ import (
 type Jobs struct {
 	logger         *slog.Logger
 	cfg            config.Config
-	repo           *repository.Repository
+	repo           repository.Repository
 	hy2Client      *services.HysteriaClient
 	serviceManager *services.ServiceManager
 }
@@ -21,7 +21,7 @@ type Jobs struct {
 func NewJobs(
 	logger *slog.Logger,
 	cfg config.Config,
-	repo *repository.Repository,
+	repo repository.Repository,
 	hy2Client *services.HysteriaClient,
 	serviceManager *services.ServiceManager,
 ) *Jobs {

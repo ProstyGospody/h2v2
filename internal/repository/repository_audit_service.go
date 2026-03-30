@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func (r *Repository) InsertAuditLog(ctx context.Context, adminID *string, action string, entityType string, entityID *string, payload any) error {
+func (r *FileRepository) InsertAuditLog(ctx context.Context, adminID *string, action string, entityType string, entityID *string, payload any) error {
 	return r.withLock(ctx, func() error {
 		meta, err := r.loadMetaNoLock()
 		if err != nil {
@@ -33,7 +33,7 @@ func (r *Repository) InsertAuditLog(ctx context.Context, adminID *string, action
 	})
 }
 
-func (r *Repository) ListAuditLogs(ctx context.Context, limit int, offset int) ([]AuditLog, error) {
+func (r *FileRepository) ListAuditLogs(ctx context.Context, limit int, offset int) ([]AuditLog, error) {
 	var out []AuditLog
 	err := r.withLock(ctx, func() error {
 		items, err := r.loadAuditLogsNoLock()
@@ -62,7 +62,7 @@ func (r *Repository) ListAuditLogs(ctx context.Context, limit int, offset int) (
 	return out, err
 }
 
-func (r *Repository) UpsertServiceState(ctx context.Context, serviceName string, status string, version *string, rawJSON string) error {
+func (r *FileRepository) UpsertServiceState(ctx context.Context, serviceName string, status string, version *string, rawJSON string) error {
 	return r.withLock(ctx, func() error {
 		serviceName = strings.TrimSpace(serviceName)
 		existing, err := r.loadServiceStateNoLock(serviceName)
@@ -90,7 +90,7 @@ func (r *Repository) UpsertServiceState(ctx context.Context, serviceName string,
 	})
 }
 
-func (r *Repository) GetServiceState(ctx context.Context, serviceName string) (ServiceState, error) {
+func (r *FileRepository) GetServiceState(ctx context.Context, serviceName string) (ServiceState, error) {
 	var out ServiceState
 	err := r.withLock(ctx, func() error {
 		state, err := r.loadServiceStateNoLock(serviceName)
@@ -103,8 +103,8 @@ func (r *Repository) GetServiceState(ctx context.Context, serviceName string) (S
 	return out, err
 }
 
-func (r *Repository) loadAuditLogsNoLock() ([]AuditLog, error) { return loadEntities[AuditLog](r.auditDir) }
-func (r *Repository) writeAuditLogNoLock(entry AuditLog) error { return writeJSONFile(filepath.Join(r.auditDir, numericJSONFile(entry.ID)), 0o640, entry) }
-func (r *Repository) loadServiceStatesNoLock() ([]ServiceState, error) { return loadEntities[ServiceState](r.serviceStatesDir) }
-func (r *Repository) loadServiceStateNoLock(serviceName string) (ServiceState, error) { return loadEntity[ServiceState](serviceStatePath(r.serviceStatesDir, serviceName)) }
-func (r *Repository) writeServiceStateNoLock(state ServiceState) error { return writeJSONFile(serviceStatePath(r.serviceStatesDir, state.ServiceName), 0o600, state) }
+func (r *FileRepository) loadAuditLogsNoLock() ([]AuditLog, error) { return loadEntities[AuditLog](r.auditDir) }
+func (r *FileRepository) writeAuditLogNoLock(entry AuditLog) error { return writeJSONFile(filepath.Join(r.auditDir, numericJSONFile(entry.ID)), 0o640, entry) }
+func (r *FileRepository) loadServiceStatesNoLock() ([]ServiceState, error) { return loadEntities[ServiceState](r.serviceStatesDir) }
+func (r *FileRepository) loadServiceStateNoLock(serviceName string) (ServiceState, error) { return loadEntity[ServiceState](serviceStatePath(r.serviceStatesDir, serviceName)) }
+func (r *FileRepository) writeServiceStateNoLock(state ServiceState) error { return writeJSONFile(serviceStatePath(r.serviceStatesDir, state.ServiceName), 0o600, state) }

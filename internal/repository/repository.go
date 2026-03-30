@@ -20,37 +20,41 @@ var (
 	ErrUniqueViolation = errors.New("repository: unique violation")
 )
 
-const currentSchemaVersion = 3
+const currentFileSchemaVersion = 3
 
-type Repository struct {
+type FileRepository struct {
 	mu sync.Mutex
 
-	rootDir              string
-	stateDir             string
-	adminsDir            string
-	sessionsDir          string
-	hysteriaUsersDir     string
-	serviceStatesDir     string
-	hysteriaSnapshotsDir string
-	systemSnapshotsDir   string
-	backupsDir           string
-	auditDir             string
-	runDir               string
-	lockPath             string
-	metaPath             string
+	rootDir               string
+	stateDir              string
+	adminsDir             string
+	sessionsDir           string
+	hysteriaUsersDir      string
+	serviceStatesDir      string
+	hysteriaSnapshotsDir  string
+	systemSnapshotsDir    string
+	backupsDir            string
+	auditDir              string
+	runDir                string
+	lockPath              string
+	metaPath              string
 }
 
 type metaState struct {
-	SchemaVersion     int       `json:"schema_version"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
-	NextAuditID       int64     `json:"next_audit_id"`
-	NextHy2SnapshotID int64     `json:"next_hy2_snapshot_id"`
-	NextServiceStateID int64    `json:"next_service_state_id"`
-	NextSystemSnapshotID int64  `json:"next_system_snapshot_id"`
+	SchemaVersion        int       `json:"schema_version"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+	NextAuditID          int64     `json:"next_audit_id"`
+	NextHy2SnapshotID    int64     `json:"next_hy2_snapshot_id"`
+	NextServiceStateID   int64     `json:"next_service_state_id"`
+	NextSystemSnapshotID int64     `json:"next_system_snapshot_id"`
 }
 
-func New(storageRoot string, auditDir string, runDir string) (*Repository, error) {
+func New(storageRoot string, auditDir string, runDir string) (Repository, error) {
+	return NewFileRepository(storageRoot, auditDir, runDir)
+}
+
+func NewFileRepository(storageRoot string, auditDir string, runDir string) (*FileRepository, error) {
 	storageRoot = strings.TrimSpace(storageRoot)
 	auditDir = strings.TrimSpace(auditDir)
 	runDir = strings.TrimSpace(runDir)
@@ -64,7 +68,7 @@ func New(storageRoot string, auditDir string, runDir string) (*Repository, error
 		return nil, fmt.Errorf("runtime dir is required")
 	}
 
-	r := &Repository{
+	r := &FileRepository{
 		rootDir:              storageRoot,
 		stateDir:             filepath.Join(storageRoot, "state"),
 		adminsDir:            filepath.Join(storageRoot, "state", "admins"),
@@ -85,18 +89,18 @@ func New(storageRoot string, auditDir string, runDir string) (*Repository, error
 	return r, nil
 }
 
-func (r *Repository) Close() error {
+func (r *FileRepository) Close() error {
 	return nil
 }
 
-func (r *Repository) Ping(ctx context.Context) error {
+func (r *FileRepository) Ping(ctx context.Context) error {
 	return r.withLock(ctx, func() error {
 		_, err := r.loadMetaNoLock()
 		return err
 	})
 }
 
-func (r *Repository) withLock(ctx context.Context, fn func() error) error {
+func (r *FileRepository) withLock(ctx context.Context, fn func() error) error {
 	if ctx != nil {
 		select {
 		case <-ctx.Done():
@@ -124,7 +128,7 @@ func (r *Repository) withLock(ctx context.Context, fn func() error) error {
 	return fn()
 }
 
-func (r *Repository) ensureLayout() error {
+func (r *FileRepository) ensureLayout() error {
 	for _, dir := range []string{
 		r.rootDir,
 		r.stateDir,
@@ -147,7 +151,7 @@ func (r *Repository) ensureLayout() error {
 	return err
 }
 
-func (r *Repository) loadMetaNoLock() (metaState, error) {
+func (r *FileRepository) loadMetaNoLock() (metaState, error) {
 	var meta metaState
 	if err := readJSONFile(r.metaPath, &meta); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -155,7 +159,7 @@ func (r *Repository) loadMetaNoLock() (metaState, error) {
 		}
 		now := time.Now().UTC()
 		meta = metaState{
-			SchemaVersion: currentSchemaVersion,
+			SchemaVersion: currentFileSchemaVersion,
 			CreatedAt:     now,
 			UpdatedAt:     now,
 		}
@@ -165,16 +169,16 @@ func (r *Repository) loadMetaNoLock() (metaState, error) {
 		return meta, nil
 	}
 	if meta.SchemaVersion == 0 {
-		meta.SchemaVersion = currentSchemaVersion
+		meta.SchemaVersion = currentFileSchemaVersion
 	}
-	if meta.SchemaVersion > currentSchemaVersion {
+	if meta.SchemaVersion > currentFileSchemaVersion {
 		return meta, fmt.Errorf("unsupported schema version %d", meta.SchemaVersion)
 	}
 	return meta, nil
 }
 
-func (r *Repository) saveMetaNoLock(meta metaState) error {
-	meta.SchemaVersion = currentSchemaVersion
+func (r *FileRepository) saveMetaNoLock(meta metaState) error {
+	meta.SchemaVersion = currentFileSchemaVersion
 	if meta.CreatedAt.IsZero() {
 		meta.CreatedAt = time.Now().UTC()
 	}
@@ -263,9 +267,11 @@ func cleanOptional(value *string) *string {
 	return &trimmed
 }
 
-func adminPath(dir string, id string) string { return filepath.Join(dir, strings.TrimSpace(id)+".json") }
+func adminPath(dir string, id string) string   { return filepath.Join(dir, strings.TrimSpace(id)+".json") }
 func sessionPath(dir string, id string) string { return filepath.Join(dir, strings.TrimSpace(id)+".json") }
-func hysteriaUserPath(dir string, id string) string { return filepath.Join(dir, strings.TrimSpace(id)+".json") }
+func hysteriaUserPath(dir string, id string) string {
+	return filepath.Join(dir, strings.TrimSpace(id)+".json")
+}
 
 func serviceStatePath(dir string, serviceName string) string {
 	safe := strings.NewReplacer("/", "_", "\\", "_", " ", "_").Replace(strings.TrimSpace(serviceName))
@@ -276,5 +282,5 @@ func numericJSONFile(id int64) string {
 	return fmt.Sprintf("%020d.json", id)
 }
 
-func IsNotFound(err error) bool { return errors.Is(err, ErrNotFound) }
+func IsNotFound(err error) bool        { return errors.Is(err, ErrNotFound) }
 func IsUniqueViolation(err error) bool { return errors.Is(err, ErrUniqueViolation) }
