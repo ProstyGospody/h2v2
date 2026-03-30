@@ -1,7 +1,11 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { motion } from "framer-motion";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
+  ArrowUpDown,
+  ChevronDown,
+  ChevronUp,
   MoreVertical,
   Pencil,
   Plus,
@@ -47,8 +51,66 @@ import {
 import { formatBytes, formatDateTime, formatRate } from "@/utils/format";
 
 type ClientFilter = "all" | "online" | "enabled" | "disabled";
+type SortField = "username" | "traffic" | "download_bps" | "upload_bps" | "last_seen";
+type SortDir = "asc" | "desc";
+type SortState = { field: SortField; dir: SortDir };
 
 const rowsPerPageOptions = [10, 25, 50, 100];
+const SKELETON_ROWS = 8;
+
+function SkeletonRow() {
+  return (
+    <tr className="border-t border-border/30">
+      <td className="px-5 py-3.5"><div className="h-4 w-4 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="hidden px-5 py-3.5 md:table-cell"><div className="h-4 w-6 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="px-5 py-3.5">
+        <div className="flex items-center gap-2">
+          <div className="h-9 w-9 animate-pulse rounded-xl bg-surface-3/60" />
+          <div className="space-y-1.5">
+            <div className="h-3.5 w-24 animate-pulse rounded bg-surface-3/60" />
+            <div className="h-3 w-16 animate-pulse rounded bg-surface-3/50" />
+          </div>
+        </div>
+      </td>
+      <td className="hidden px-5 py-3.5 lg:table-cell"><div className="h-5 w-10 animate-pulse rounded-badge bg-surface-3/60" /></td>
+      <td className="px-5 py-3.5"><div className="h-5 w-20 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="hidden px-5 py-3.5 lg:table-cell">
+        <div className="space-y-1.5">
+          <div className="h-1.5 w-full animate-pulse rounded-full bg-surface-3/60" />
+          <div className="h-3 w-12 animate-pulse rounded bg-surface-3/50" />
+        </div>
+      </td>
+      <td className="hidden px-5 py-3.5 lg:table-cell"><div className="h-4 w-28 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="hidden px-5 py-3.5 md:table-cell"><div className="h-4 w-24 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="px-5 py-3.5 text-right"><div className="ml-auto h-8 w-8 animate-pulse rounded-btn bg-surface-3/60" /></td>
+    </tr>
+  );
+}
+
+function SortIcon({ field, sort }: { field: SortField; sort: SortState | null }) {
+  if (!sort || sort.field !== field) return <ArrowUpDown size={12} strokeWidth={1.4} className="text-txt-muted/50" />;
+  return sort.dir === "asc"
+    ? <ChevronUp size={12} strokeWidth={2} className="text-accent" />
+    : <ChevronDown size={12} strokeWidth={2} className="text-accent" />;
+}
+
+function GradientProgress({ ratio, isHigh }: { ratio: number; isHigh: boolean }) {
+  return (
+    <div className="h-1.5 w-full overflow-hidden rounded-full border border-border/70 bg-border/70">
+      <motion.div
+        className={cn(
+          "h-full rounded-full",
+          isHigh
+            ? "bg-gradient-to-r from-status-warning to-status-danger"
+            : "bg-gradient-to-r from-accent to-accent-light",
+        )}
+        initial={{ width: 0 }}
+        animate={{ width: `${ratio}%` }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+      />
+    </div>
+  );
+}
 
 function initials(value: string): string {
   const clean = value.trim();
@@ -65,6 +127,60 @@ function resolveStatus(client: HysteriaClient): "online" | "offline" | "disabled
   return "offline";
 }
 
+function ClientActions({
+  client,
+  onArtifacts,
+  onEdit,
+  onDelete,
+}: {
+  client: HysteriaClient;
+  onArtifacts: (c: HysteriaClient) => void;
+  onEdit: (c: HysteriaClient) => void;
+  onDelete: (c: HysteriaClient) => void;
+}) {
+  return (
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-btn text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
+        >
+          <MoreVertical size={16} strokeWidth={1.4} />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          sideOffset={6}
+          align="end"
+          className="z-50 min-w-[160px] rounded-[10px] border border-border/80 bg-surface-2/95 p-1 shadow-[0_18px_42px_-24px_var(--dialog-shadow)] backdrop-blur-xl"
+        >
+          <DropdownMenu.Item
+            onSelect={() => void onArtifacts(client)}
+            className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60"
+          >
+            <QrCode size={15} strokeWidth={1.4} />
+            Show QR
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            onSelect={() => onEdit(client)}
+            className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60"
+          >
+            <Pencil size={15} strokeWidth={1.4} />
+            Edit
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            onSelect={() => onDelete(client)}
+            className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-status-danger outline-none transition-colors hover:bg-status-danger/8"
+          >
+            <Trash2 size={15} strokeWidth={1.4} />
+            Delete
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
+
 export default function UsersPage() {
   const [clients, setClients] = useState<HysteriaClient[]>([]);
   const [defaults, setDefaults] = useState<HysteriaClientDefaults | null>(null);
@@ -76,6 +192,7 @@ export default function UsersPage() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [selectedClientIDs, setSelectedClientIDs] = useState<string[]>([]);
+  const [sort, setSort] = useState<SortState | null>(null);
 
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
@@ -128,25 +245,51 @@ export default function UsersPage() {
 
   const filteredClients = useMemo(() => {
     const needle = searchQuery.trim().toLowerCase();
-    return [...clients]
-      .sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: "base" }))
-      .filter((client) => {
-        if (filter === "online" && client.online_count <= 0) {
-          return false;
+    const filtered = clients.filter((client) => {
+      if (filter === "online" && client.online_count <= 0) return false;
+      if (filter === "enabled" && !client.enabled) return false;
+      if (filter === "disabled" && client.enabled) return false;
+      if (!needle) return true;
+      const haystack = [client.username, client.username_normalized, client.note || "", client.id].join(" ").toLowerCase();
+      return haystack.includes(needle);
+    });
+
+    const sorted = [...filtered];
+    if (sort) {
+      const dir = sort.dir === "asc" ? 1 : -1;
+      sorted.sort((a, b) => {
+        switch (sort.field) {
+          case "username":
+            return dir * a.username.localeCompare(b.username, undefined, { sensitivity: "base" });
+          case "traffic":
+            return dir * ((a.last_tx_bytes + a.last_rx_bytes) - (b.last_tx_bytes + b.last_rx_bytes));
+          case "download_bps":
+            return dir * ((a.download_bps || 0) - (b.download_bps || 0));
+          case "upload_bps":
+            return dir * ((a.upload_bps || 0) - (b.upload_bps || 0));
+          case "last_seen": {
+            const ta = new Date(a.last_seen_at || a.updated_at).getTime();
+            const tb = new Date(b.last_seen_at || b.updated_at).getTime();
+            return dir * (ta - tb);
+          }
+          default:
+            return 0;
         }
-        if (filter === "enabled" && !client.enabled) {
-          return false;
-        }
-        if (filter === "disabled" && client.enabled) {
-          return false;
-        }
-        if (!needle) {
-          return true;
-        }
-        const haystack = [client.username, client.username_normalized, client.note || "", client.id].join(" ").toLowerCase();
-        return haystack.includes(needle);
       });
-  }, [clients, filter, searchQuery]);
+    } else {
+      sorted.sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: "base" }));
+    }
+    return sorted;
+  }, [clients, filter, searchQuery, sort]);
+
+  function toggleSort(field: SortField) {
+    setSort((prev) => {
+      if (prev?.field === field) {
+        return prev.dir === "asc" ? { field, dir: "desc" } : null;
+      }
+      return { field, dir: "asc" };
+    });
+  }
 
   const selectedSet = useMemo(() => new Set(selectedClientIDs), [selectedClientIDs]);
   const filteredIDs = useMemo(() => filteredClients.map((client) => client.id), [filteredClients]);
@@ -399,14 +542,27 @@ export default function UsersPage() {
 
       {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
 
-      <TableContainer className="overflow-x-auto">
+      {/* ── Desktop table ── */}
+      <TableContainer className="hidden overflow-x-auto sm:block">
         {loading ? (
-          <div className="flex min-h-[260px] items-center justify-center">
-            <div className="flex flex-col items-center gap-3">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent/20 border-t-accent-light" />
-              <p className="text-[14px] text-txt-secondary">Loading users...</p>
-            </div>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="border-t-0 hover:bg-transparent">
+                <TableHead className="w-10"><div className="h-4 w-4 animate-pulse rounded bg-surface-3/60" /></TableHead>
+                <TableHead className="hidden w-14 md:table-cell">#</TableHead>
+                <TableHead>User</TableHead>
+                <TableHead className="hidden w-[96px] lg:table-cell">Protocol</TableHead>
+                <TableHead className="w-[170px]">Status</TableHead>
+                <TableHead className="hidden w-[220px] lg:table-cell">Traffic</TableHead>
+                <TableHead className="hidden w-[190px] lg:table-cell">Network</TableHead>
+                <TableHead className="hidden w-[170px] md:table-cell">Last Seen</TableHead>
+                <TableHead className="w-[88px] text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <tbody>
+              {Array.from({ length: SKELETON_ROWS }, (_, i) => <SkeletonRow key={i} />)}
+            </tbody>
+          </Table>
         ) : (
           <>
             <div className="flex items-center justify-end border-b border-border/50 px-4 py-3.5 sm:px-5">
@@ -437,12 +593,28 @@ export default function UsersPage() {
                     />
                   </TableHead>
                   <TableHead className="hidden w-14 md:table-cell">#</TableHead>
-                  <TableHead>User</TableHead>
+                  <TableHead>
+                    <button type="button" onClick={() => toggleSort("username")} className="inline-flex items-center gap-1.5 hover:text-txt-primary">
+                      User <SortIcon field="username" sort={sort} />
+                    </button>
+                  </TableHead>
                   <TableHead className="hidden w-[96px] lg:table-cell">Protocol</TableHead>
                   <TableHead className="w-[170px]">Status</TableHead>
-                  <TableHead className="hidden w-[220px] lg:table-cell">Traffic</TableHead>
-                  <TableHead className="hidden w-[190px] lg:table-cell">Network</TableHead>
-                  <TableHead className="hidden w-[170px] md:table-cell">Last Seen</TableHead>
+                  <TableHead className="hidden w-[220px] lg:table-cell">
+                    <button type="button" onClick={() => toggleSort("traffic")} className="inline-flex items-center gap-1.5 hover:text-txt-primary">
+                      Traffic <SortIcon field="traffic" sort={sort} />
+                    </button>
+                  </TableHead>
+                  <TableHead className="hidden w-[190px] lg:table-cell">
+                    <button type="button" onClick={() => toggleSort("download_bps")} className="inline-flex items-center gap-1.5 hover:text-txt-primary">
+                      Network <SortIcon field="download_bps" sort={sort} />
+                    </button>
+                  </TableHead>
+                  <TableHead className="hidden w-[170px] md:table-cell">
+                    <button type="button" onClick={() => toggleSort("last_seen")} className="inline-flex items-center gap-1.5 hover:text-txt-primary">
+                      Last Seen <SortIcon field="last_seen" sort={sort} />
+                    </button>
+                  </TableHead>
                   <TableHead className="w-[88px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -509,15 +681,7 @@ export default function UsersPage() {
                         </TableCell>
                         <TableCell className="hidden w-[220px] lg:table-cell">
                           <div className="space-y-1.5">
-                            <div className="h-1.5 w-full overflow-hidden rounded-full border border-border/70 bg-border/70">
-                              <div
-                                className={cn(
-                                  "h-full rounded-full bg-gradient-to-r from-accent to-accent-light",
-                                  ratio > 90 && "from-status-warning to-status-danger",
-                                )}
-                                style={{ width: `${ratioWidth}%` }}
-                              />
-                            </div>
+                            <GradientProgress ratio={ratioWidth} isHigh={ratio > 90} />
                             <p className="text-[11px] font-medium text-txt-tertiary">{formatBytes(traffic)}</p>
                           </div>
                         </TableCell>
@@ -537,45 +701,7 @@ export default function UsersPage() {
                           {formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}
                         </TableCell>
                         <TableCell className="text-right">
-                          <DropdownMenu.Root>
-                            <DropdownMenu.Trigger asChild>
-                              <button
-                                type="button"
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-btn text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
-                              >
-                                <MoreVertical size={16} strokeWidth={1.4} />
-                              </button>
-                            </DropdownMenu.Trigger>
-                            <DropdownMenu.Portal>
-                              <DropdownMenu.Content
-                                sideOffset={6}
-                                align="end"
-                                className="z-50 min-w-[160px] rounded-[10px] border border-border/80 bg-surface-2/95 p-1 shadow-[0_18px_42px_-24px_var(--dialog-shadow)] backdrop-blur-xl"
-                              >
-                                <DropdownMenu.Item
-                                  onSelect={() => void openArtifacts(client)}
-                                  className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60"
-                                >
-                                  <QrCode size={15} strokeWidth={1.4} />
-                                  Show QR
-                                </DropdownMenu.Item>
-                                <DropdownMenu.Item
-                                  onSelect={() => openEdit(client)}
-                                  className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60"
-                                >
-                                  <Pencil size={15} strokeWidth={1.4} />
-                                  Edit
-                                </DropdownMenu.Item>
-                                <DropdownMenu.Item
-                                  onSelect={() => setDeleteTarget(client)}
-                                  className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-status-danger outline-none transition-colors hover:bg-status-danger/8"
-                                >
-                                  <Trash2 size={15} strokeWidth={1.4} />
-                                  Delete
-                                </DropdownMenu.Item>
-                              </DropdownMenu.Content>
-                            </DropdownMenu.Portal>
-                          </DropdownMenu.Root>
+                          <ClientActions client={client} onArtifacts={openArtifacts} onEdit={openEdit} onDelete={setDeleteTarget} />
                         </TableCell>
                       </TableRow>
                     );
@@ -608,6 +734,126 @@ export default function UsersPage() {
           </>
         )}
       </TableContainer>
+
+      {/* ── Mobile card layout ── */}
+      <div className="space-y-3 sm:hidden">
+        {loading ? (
+          Array.from({ length: 4 }, (_, i) => (
+            <div key={i} className="animate-pulse rounded-2xl border border-border/30 bg-surface-2 p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-surface-3/60" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-4 w-28 rounded bg-surface-3/60" />
+                  <div className="h-3 w-16 rounded bg-surface-3/50" />
+                </div>
+                <div className="h-6 w-14 rounded-badge bg-surface-3/60" />
+              </div>
+              <div className="h-1.5 rounded-full bg-surface-3/60" />
+              <div className="flex justify-between">
+                <div className="h-3 w-20 rounded bg-surface-3/50" />
+                <div className="h-3 w-20 rounded bg-surface-3/50" />
+              </div>
+            </div>
+          ))
+        ) : pagedClients.length ? (
+          pagedClients.map((client) => {
+            const traffic = client.last_tx_bytes + client.last_rx_bytes;
+            const ratio = maxTraffic > 0 ? Math.min(100, (traffic / maxTraffic) * 100) : 0;
+            const ratioWidth = traffic > 0 ? Math.max(ratio, 4) : 0;
+            const status = resolveStatus(client);
+            const statusOnline = status === "online";
+            const downBps = Math.max(0, client.download_bps || 0);
+            const upBps = Math.max(0, client.upload_bps || 0);
+
+            return (
+              <div key={client.id} className="card-hover rounded-2xl border border-border/30 bg-surface-2 p-4">
+                {/* Header */}
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    checked={selectedSet.has(client.id)}
+                    onCheckedChange={(value) => toggleClientSelection(client.id, value === true)}
+                    aria-label={`select ${client.username}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void openArtifacts(client)}
+                    className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent/15 to-accent-secondary/10 text-[14px] font-bold text-txt-primary"
+                  >
+                    {initials(client.username)}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => void openArtifacts(client)}
+                      className="block max-w-full truncate text-[14px] font-medium text-txt hover:text-txt-primary"
+                    >
+                      {client.username}
+                    </button>
+                    <p className="truncate text-[12px] text-txt-muted">{client.note || "-"}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface-3/40 px-2 py-1 text-[11px] font-medium text-txt-secondary">
+                      <span
+                        className={cn(
+                          "h-[6px] w-[6px] rounded-full",
+                          statusOnline && "bg-status-success shadow-[0_0_8px_var(--status-success-soft)]",
+                          !statusOnline && status !== "disabled" && "bg-status-warning",
+                          status === "disabled" && "bg-txt-muted",
+                        )}
+                      />
+                      {status}
+                    </span>
+                    <ClientActions client={client} onArtifacts={openArtifacts} onEdit={openEdit} onDelete={setDeleteTarget} />
+                  </div>
+                </div>
+
+                {/* Traffic bar */}
+                <div className="mt-3 space-y-1.5">
+                  <GradientProgress ratio={ratioWidth} isHigh={ratio > 90} />
+                  <div className="flex items-center justify-between text-[11px] font-medium text-txt-tertiary">
+                    <span>{formatBytes(traffic)}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex items-center gap-1">
+                        <ArrowDownToLine size={10} strokeWidth={1.8} className="text-status-success" />
+                        {formatRate(downBps)}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <ArrowUpFromLine size={10} strokeWidth={1.8} className="text-status-warning" />
+                        {formatRate(upBps)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="mt-2.5 flex items-center justify-between border-t border-border/20 pt-2.5">
+                  <Toggle className="shrink-0" checked={client.enabled} onCheckedChange={() => void toggleEnabled(client)} />
+                  <span className="text-[11px] text-txt-muted">
+                    {formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}
+                  </span>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="rounded-2xl border border-border/30 bg-surface-2 p-6 text-center text-[14px] text-txt-secondary">
+            {clients.length ? "No users match the current filters." : "No users yet."}
+          </div>
+        )}
+
+        {/* Mobile pagination */}
+        {!loading && pagedClients.length > 0 && (
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-[13px] text-txt-secondary">
+              {Math.min(page + 1, pageCount)}/{pageCount}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button size="sm" disabled={page <= 0} onClick={() => setPage((v) => Math.max(0, v - 1))}>Prev</Button>
+              <Button size="sm" disabled={page + 1 >= pageCount} onClick={() => setPage((v) => Math.min(pageCount - 1, v + 1))}>Next</Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <ClientFormDialog
         open={formOpen}

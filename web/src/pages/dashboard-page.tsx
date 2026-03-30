@@ -18,6 +18,9 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
+  RadialBar,
+  RadialBarChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -91,33 +94,42 @@ function AnimatedNumber({ value, format = (n) => n.toFixed(0) }: { value: number
   return <motion.span>{display}</motion.span>;
 }
 
-function ProgressRing({
+function RadialGauge({
   value,
-  size = 52,
-  strokeWidth = 4,
+  size = 56,
   color = "var(--accent)",
   trackColor = "var(--border-hover)",
-  trackOpacity = 1,
 }: {
   value: number;
   size?: number;
-  strokeWidth?: number;
   color?: string;
   trackColor?: string;
-  trackOpacity?: number;
 }) {
-  const r = (size - strokeWidth) / 2;
-  const c = 2 * Math.PI * r;
-  const offset = c - (clampPercent(value) / 100) * c;
+  const clamped = clampPercent(value);
+  const data = [{ value: clamped, fill: color }];
   return (
-    <svg width={size} height={size} className="-rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={trackColor} strokeWidth={strokeWidth} strokeOpacity={trackOpacity} />
-      <motion.circle
-        cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round"
-        strokeDasharray={c} initial={{ strokeDashoffset: c }} animate={{ strokeDashoffset: offset }}
-        transition={{ duration: 1, ease: "easeOut" }}
-      />
-    </svg>
+    <div style={{ width: size, height: size }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <RadialBarChart
+          cx="50%" cy="50%"
+          innerRadius="70%" outerRadius="100%"
+          startAngle={90} endAngle={-270}
+          barSize={5}
+          data={data}
+        >
+          <RadialBar
+            dataKey="value"
+            background={{ fill: trackColor }}
+            cornerRadius={10}
+            isAnimationActive
+            animationDuration={800}
+            animationEasing="ease-out"
+          >
+            <Cell fill={color} />
+          </RadialBar>
+        </RadialBarChart>
+      </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -140,6 +152,62 @@ function SectionHeader({ icon, title, children }: { icon: React.ReactNode; title
       </div>
       {children}
     </div>
+  );
+}
+
+function MetricsCarousel({ children }: { children: React.ReactNode }) {
+  const items = Array.isArray(children) ? children : [children];
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const constraintsRef = useRef<HTMLDivElement>(null);
+
+  return (
+    <>
+      {/* Desktop: grid */}
+      <div className="hidden gap-4 sm:grid sm:grid-cols-2 xl:grid-cols-4">
+        {items}
+      </div>
+      {/* Mobile: swipeable carousel */}
+      <div className="sm:hidden">
+        <div ref={constraintsRef} className="overflow-hidden">
+          <motion.div
+            className="flex gap-3"
+            drag="x"
+            dragConstraints={constraintsRef}
+            dragElastic={0.2}
+            onDragEnd={(_e, info) => {
+              const threshold = 60;
+              if (info.offset.x < -threshold && currentIndex < items.length - 1) {
+                setCurrentIndex((i) => i + 1);
+              } else if (info.offset.x > threshold && currentIndex > 0) {
+                setCurrentIndex((i) => i - 1);
+              }
+            }}
+            animate={{ x: `-${currentIndex * 100}%` }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            {items.map((item, i) => (
+              <div key={i} className="w-full shrink-0">
+                {item}
+              </div>
+            ))}
+          </motion.div>
+        </div>
+        {/* Dots */}
+        <div className="mt-3 flex items-center justify-center gap-1.5">
+          {items.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setCurrentIndex(i)}
+              className={cn(
+                "h-1.5 rounded-full transition-all duration-200",
+                i === currentIndex ? "w-6 bg-accent" : "w-1.5 bg-border-hover",
+              )}
+            />
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -329,8 +397,7 @@ export default function DashboardPage() {
       )}
 
       {/* ── Primary metrics ── */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
+      <MetricsCarousel>
         {/* CPU */}
         <div className="card-hover min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5">
           <div className="flex h-full items-center justify-between gap-4">
@@ -341,8 +408,8 @@ export default function DashboardPage() {
                 <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
               </p>
             </div>
-            <div className="grid h-14 w-14 shrink-0 place-items-center">
-              <ProgressRing value={cpuPercent} size={48} strokeWidth={4.8} color="var(--accent)" />
+            <div className="shrink-0">
+              <RadialGauge value={cpuPercent} size={56} color="var(--accent)" />
             </div>
           </div>
         </div>
@@ -357,8 +424,8 @@ export default function DashboardPage() {
                 <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
               </p>
             </div>
-            <div className="grid h-14 w-14 shrink-0 place-items-center">
-              <ProgressRing value={ramPercent} size={48} strokeWidth={4.8} color="var(--accent)" />
+            <div className="shrink-0">
+              <RadialGauge value={ramPercent} size={56} color="var(--primary)" />
             </div>
           </div>
         </div>
@@ -388,7 +455,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-      </div>
+      </MetricsCarousel>
 
       {/* ── Secondary stats ── */}
       <div className="grid gap-4 sm:grid-cols-3">
@@ -399,8 +466,8 @@ export default function DashboardPage() {
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Network</p>
             <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[15px] font-semibold text-txt-primary">
-              <span className="inline-flex items-center gap-1.5"><ArrowDownToLine size={14} strokeWidth={1.8} className="text-status-success" />{formatRate(networkRx)}</span>
-              <span className="inline-flex items-center gap-1.5"><ArrowUpFromLine size={14} strokeWidth={1.8} className="text-status-warning" />{formatRate(networkTx)}</span>
+              <span className="inline-flex items-center gap-1.5"><ArrowDownToLine size={14} strokeWidth={1.8} className="text-status-success" /><AnimatedNumber value={networkRx} format={formatRate} /></span>
+              <span className="inline-flex items-center gap-1.5"><ArrowUpFromLine size={14} strokeWidth={1.8} className="text-status-warning" /><AnimatedNumber value={networkTx} format={formatRate} /></span>
             </div>
           </div>
         </div>
@@ -411,7 +478,7 @@ export default function DashboardPage() {
           </div>
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Total Traffic</p>
-            <p className="mt-1.5 text-[15px] font-semibold text-txt-primary">{formatBytes(totalTraffic)}</p>
+            <p className="mt-1.5 text-[15px] font-semibold text-txt-primary"><AnimatedNumber value={totalTraffic} format={formatBytes} /></p>
           </div>
         </div>
 
@@ -422,9 +489,9 @@ export default function DashboardPage() {
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Connections</p>
             <div className="mt-1.5 flex items-center gap-3 text-[15px] font-semibold text-txt-primary">
-              <span>TCP {tcpConnections}</span>
+              <span>TCP <AnimatedNumber value={tcpConnections} /></span>
               <span className="text-txt-muted">/</span>
-              <span>UDP {udpConnections}</span>
+              <span>UDP <AnimatedNumber value={udpConnections} /></span>
             </div>
           </div>
         </div>
