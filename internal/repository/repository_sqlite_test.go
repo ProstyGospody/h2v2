@@ -108,3 +108,85 @@ func TestSQLiteRepositoryCRUD(t *testing.T) {
 		t.Fatalf("expected 1 system snapshot, got %d", len(systemSnapshots))
 	}
 }
+
+func TestSQLiteRepositoryRestoreFromBackup(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	sourcePath := filepath.Join(tmpDir, "source", "h2v2.db")
+	targetPath := filepath.Join(tmpDir, "target", "h2v2.db")
+
+	sourceRepo, err := NewSQLiteRepository(sourcePath)
+	if err != nil {
+		t.Fatalf("open source sqlite repository: %v", err)
+	}
+	t.Cleanup(func() { _ = sourceRepo.Close() })
+
+	targetRepo, err := NewSQLiteRepository(targetPath)
+	if err != nil {
+		t.Fatalf("open target sqlite repository: %v", err)
+	}
+	t.Cleanup(func() { _ = targetRepo.Close() })
+
+	sourceAdmin, err := sourceRepo.UpsertAdmin(ctx, "source-admin@example.com", "hash-source", true)
+	if err != nil {
+		t.Fatalf("upsert source admin: %v", err)
+	}
+	if _, err := sourceRepo.CreateSession(ctx, sourceAdmin.ID, "source-token", time.Now().UTC().Add(2*time.Hour), "127.0.0.1", "source-agent"); err != nil {
+		t.Fatalf("create source session: %v", err)
+	}
+	sourceUser, err := sourceRepo.CreateHysteriaUser(ctx, "source-user", "source-password-123", nil, nil)
+	if err != nil {
+		t.Fatalf("create source user: %v", err)
+	}
+	if err := sourceRepo.InsertHysteriaSnapshots(ctx, []HysteriaSnapshot{{UserID: sourceUser.ID, TxBytes: 128, RxBytes: 256, Online: 1, SnapshotAt: time.Now().UTC()}}); err != nil {
+		t.Fatalf("insert source hysteria snapshot: %v", err)
+	}
+	if _, err := sourceRepo.InsertSystemSnapshot(ctx, SystemSnapshot{SnapshotAt: time.Now().UTC(), CPUUsagePercent: 11, MemoryUsedPercent: 33, NetworkRxBps: 444, NetworkTxBps: 222}); err != nil {
+		t.Fatalf("insert source system snapshot: %v", err)
+	}
+	if err := sourceRepo.InsertAuditLog(ctx, &sourceAdmin.ID, "source.action", "source_entity", &sourceUser.ID, map[string]any{"source": true}); err != nil {
+		t.Fatalf("insert source audit log: %v", err)
+	}
+	if err := sourceRepo.UpsertServiceState(ctx, "h2v2-api", "active", nil, `{"state":"active"}`); err != nil {
+		t.Fatalf("insert source service state: %v", err)
+	}
+
+	if _, err := targetRepo.UpsertAdmin(ctx, "target-admin@example.com", "hash-target", true); err != nil {
+		t.Fatalf("upsert target admin: %v", err)
+	}
+	targetUser, err := targetRepo.CreateHysteriaUser(ctx, "target-user", "target-password-123", nil, nil)
+	if err != nil {
+		t.Fatalf("create target user: %v", err)
+	}
+	if err := targetRepo.InsertHysteriaSnapshots(ctx, []HysteriaSnapshot{{UserID: targetUser.ID, TxBytes: 1, RxBytes: 2, Online: 0, SnapshotAt: time.Now().UTC()}}); err != nil {
+		t.Fatalf("insert target hysteria snapshot: %v", err)
+	}
+
+	counts, err := targetRepo.RestoreFromBackup(ctx, sourcePath)
+	if err != nil {
+		t.Fatalf("restore from backup: %v", err)
+	}
+	if counts.Admins != 1 || counts.HysteriaUsers != 1 || counts.HysteriaSnapshots != 1 || counts.SystemSnapshots != 1 || counts.AuditLogs != 1 || counts.ServiceStates != 1 || counts.Sessions != 1 {
+		t.Fatalf("unexpected restored counts: %+v", counts)
+	}
+
+	if _, err := targetRepo.GetAdminByEmail(ctx, "target-admin@example.com"); !IsNotFound(err) {
+		t.Fatalf("expected target admin to be replaced, got err=%v", err)
+	}
+
+	restoredAdmin, err := targetRepo.GetAdminByEmail(ctx, "source-admin@example.com")
+	if err != nil {
+		t.Fatalf("get restored admin: %v", err)
+	}
+	if restoredAdmin.PasswordHash != "hash-source" {
+		t.Fatalf("unexpected restored admin hash: %s", restoredAdmin.PasswordHash)
+	}
+
+	overview, err := targetRepo.GetHysteriaStatsOverview(ctx)
+	if err != nil {
+		t.Fatalf("get restored overview: %v", err)
+	}
+	if overview.EnabledUsers != 1 || overview.TotalTxBytes != 128 || overview.TotalRxBytes != 256 {
+		t.Fatalf("unexpected restored overview: %+v", overview)
+	}
+}

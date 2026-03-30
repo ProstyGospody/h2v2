@@ -18,13 +18,20 @@ func TestRouterExposesHysteriaRoutesAndDropsLegacyRoutes(t *testing.T) {
 	}
 	router := NewRouter(cfg, slog.Default(), nil, &handlers.Handler{})
 
-	for _, path := range []string{"/api/hysteria/users", "/api/hysteria/settings", "/api/services"} {
+	for _, path := range []string{"/api/hysteria/users", "/api/hysteria/settings", "/api/storage/sqlite/backup", "/api/services"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		resp := httptest.NewRecorder()
 		router.ServeHTTP(resp, req)
 		if resp.Code != http.StatusUnauthorized {
 			t.Fatalf("expected %s to require auth and return 401, got %d", path, resp.Code)
 		}
+	}
+
+	restoreReq := httptest.NewRequest(http.MethodPost, "/api/storage/sqlite/restore", nil)
+	restoreResp := httptest.NewRecorder()
+	router.ServeHTTP(restoreResp, restoreReq)
+	if restoreResp.Code != http.StatusUnauthorized {
+		t.Fatalf("expected /api/storage/sqlite/restore to require auth and return 401, got %d", restoreResp.Code)
 	}
 
 	subReq := httptest.NewRequest(http.MethodGet, "/api/hysteria/subscription/demo-token", nil)

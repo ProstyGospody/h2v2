@@ -1,5 +1,5 @@
-import { CheckCircle2, Play, RefreshCw, Save } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { CheckCircle2, Download, Play, RefreshCw, Save, Upload } from "lucide-react";
+import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { ServerSettingsForm } from "@/components/forms/server-settings-form";
@@ -7,7 +7,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { normalizeSettingsDraft, toSettingsDraft } from "@/domain/settings/adapters";
 import {
   applyHysteriaSettings,
+  downloadSQLiteBackup,
   getHysteriaSettings,
+  restoreSQLiteBackup,
   saveHysteriaSettings,
   validateHysteriaSettings,
 } from "@/domain/settings/services";
@@ -32,11 +34,15 @@ export default function ConfigPage() {
   const [busy, setBusy] = useState(false);
   const [applying, setApplying] = useState(false);
   const [applyDialog, setApplyDialog] = useState(false);
+  const [restoreDialog, setRestoreDialog] = useState(false);
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [snack, setSnack] = useState("");
   const [rawYaml, setRawYaml] = useState("");
+  const [storageBusy, setStorageBusy] = useState(false);
   const [draft, setDraft] = useState<Hy2Settings>(toSettingsDraft({ listen: ":443", tlsEnabled: true, tlsMode: "acme", quicEnabled: false } as Hy2Settings));
   const [validation, setValidation] = useState<Hy2ConfigValidation | null>(null);
+  const restoreInputRef = useRef<HTMLInputElement | null>(null);
 
   const load = useCallback(async () => {
     setError("");
@@ -81,6 +87,46 @@ export default function ConfigPage() {
     finally { setApplying(false); }
   }
 
+  async function backupSQLite() {
+    setStorageBusy(true); setError("");
+    try {
+      const fileName = await downloadSQLiteBackup();
+      setSnack(`Backup downloaded: ${fileName}`);
+    } catch (err) {
+      setError(extractValidationError(err, "Backup failed"));
+    } finally {
+      setStorageBusy(false);
+    }
+  }
+
+  function triggerRestorePicker() {
+    if (busy || applying || storageBusy) return;
+    restoreInputRef.current?.click();
+  }
+
+  function onRestoreFileSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setRestoreFile(file);
+    setRestoreDialog(true);
+  }
+
+  async function restoreSQLite() {
+    if (!restoreFile) return;
+    setStorageBusy(true); setError("");
+    try {
+      await restoreSQLiteBackup(restoreFile);
+      setRestoreDialog(false);
+      setRestoreFile(null);
+      setSnack("Database restored");
+    } catch (err) {
+      setError(extractValidationError(err, "Restore failed"));
+    } finally {
+      setStorageBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[360px] items-center justify-center">
@@ -98,13 +144,16 @@ export default function ConfigPage() {
         title="Settings"
         actions={
           <>
-            <Button onClick={() => void load()} disabled={busy || applying} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><RefreshCw size={18} strokeWidth={1.6} />Reload</Button>
-            <Button onClick={() => void validateDraft()} disabled={busy || applying} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><CheckCircle2 size={18} strokeWidth={1.6} />Validate</Button>
-            <Button variant="primary" onClick={() => void saveDraft()} disabled={busy || applying} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Save size={18} strokeWidth={1.6} />Save</Button>
-            <Button variant="primary" onClick={() => setApplyDialog(true)} disabled={busy || applying} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Play size={18} strokeWidth={1.6} />Apply</Button>
+            <Button onClick={() => void load()} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><RefreshCw size={18} strokeWidth={1.6} />Reload</Button>
+            <Button onClick={() => void backupSQLite()} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Download size={18} strokeWidth={1.6} />Backup</Button>
+            <Button variant="danger" onClick={triggerRestorePicker} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Upload size={18} strokeWidth={1.6} />Restore</Button>
+            <Button onClick={() => void validateDraft()} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><CheckCircle2 size={18} strokeWidth={1.6} />Validate</Button>
+            <Button variant="primary" onClick={() => void saveDraft()} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Save size={18} strokeWidth={1.6} />Save</Button>
+            <Button variant="primary" onClick={() => setApplyDialog(true)} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Play size={18} strokeWidth={1.6} />Apply</Button>
           </>
         }
       />
+      <input ref={restoreInputRef} type="file" accept=".db,application/octet-stream" className="hidden" onChange={onRestoreFileSelected} />
 
       {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
       {validation?.errors?.length ? <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{validation.errors.join(" | ")}</div> : null}
@@ -113,6 +162,7 @@ export default function ConfigPage() {
       <ServerSettingsForm draft={draft} rawYaml={rawYaml} onDraftChange={setDraft} />
 
       <ConfirmDialog open={applyDialog} title="Apply configuration" description="Restart hysteria-server with the current saved settings?" busy={applying} confirmColor="secondary" confirmText="Apply & Restart" onClose={() => setApplyDialog(false)} onConfirm={() => void applyConfig()} />
+      <ConfirmDialog open={restoreDialog} title="Restore database" description={restoreFile ? `Restore from ${restoreFile.name}?` : "Restore selected backup?"} busy={storageBusy} confirmText="Restore" onClose={() => { if (!storageBusy) { setRestoreDialog(false); setRestoreFile(null); } }} onConfirm={() => void restoreSQLite()} />
       <Toast open={Boolean(snack)} onOpenChange={(open) => !open && setSnack("")} message={snack} variant="success" />
     </div>
   );

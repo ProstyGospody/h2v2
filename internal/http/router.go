@@ -66,6 +66,8 @@ func NewRouter(
 			secured.Post("/hysteria/settings/validate", h.ValidateHysteriaSettings)
 			secured.Put("/hysteria/settings", h.SaveHysteriaSettings)
 			secured.Post("/hysteria/settings/apply", h.ApplyHysteriaSettings)
+			secured.Get("/storage/sqlite/backup", h.DownloadSQLiteBackup)
+			secured.Post("/storage/sqlite/restore", h.RestoreSQLiteBackup)
 
 			secured.Get("/services", h.ListServices)
 			secured.Get("/services/{name}", h.GetService)

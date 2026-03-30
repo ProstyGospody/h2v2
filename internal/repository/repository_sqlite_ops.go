@@ -259,6 +259,104 @@ func SQLiteRestore(dbPath string, fromPath string) (string, error) {
 	return rollbackPath, nil
 }
 
+func (r *SQLiteRepository) RestoreFromBackup(ctx context.Context, fromPath string) (EntityCounts, error) {
+	fromPath = strings.TrimSpace(fromPath)
+	if fromPath == "" {
+		return EntityCounts{}, fmt.Errorf("backup database path is required")
+	}
+
+	absFrom, err := filepath.Abs(fromPath)
+	if err != nil {
+		return EntityCounts{}, err
+	}
+	absTarget, err := filepath.Abs(r.path)
+	if err != nil {
+		return EntityCounts{}, err
+	}
+	if absFrom == absTarget {
+		return EntityCounts{}, fmt.Errorf("source and destination databases must differ")
+	}
+	if _, err := os.Stat(absFrom); err != nil {
+		return EntityCounts{}, fmt.Errorf("backup database is not accessible: %w", err)
+	}
+
+	source, err := NewSQLiteRepository(absFrom)
+	if err != nil {
+		return EntityCounts{}, err
+	}
+	defer source.Close()
+
+	payload, err := source.ExportPayload(ctx)
+	if err != nil {
+		return EntityCounts{}, err
+	}
+	if payload.Counts.Admins == 0 {
+		return EntityCounts{}, fmt.Errorf("backup validation failed: admins must be greater than zero")
+	}
+
+	tx, err := r.db.BeginTx(resolveCtx(ctx), nil)
+	if err != nil {
+		return EntityCounts{}, fmt.Errorf("restore begin transaction: %w", err)
+	}
+	if err := r.restoreDataTx(ctx, tx, payload); err != nil {
+		_ = tx.Rollback()
+		return EntityCounts{}, err
+	}
+	counts, err := countEntitiesTx(ctx, tx)
+	if err != nil {
+		_ = tx.Rollback()
+		return EntityCounts{}, err
+	}
+	if counts != payload.Counts {
+		_ = tx.Rollback()
+		return EntityCounts{}, fmt.Errorf("restore validation failed: source=%+v target=%+v", payload.Counts, counts)
+	}
+	if err := tx.Commit(); err != nil {
+		return EntityCounts{}, fmt.Errorf("restore commit transaction: %w", err)
+	}
+	return counts, nil
+}
+
+func (r *SQLiteRepository) restoreDataTx(ctx context.Context, tx *sql.Tx, payload ExportPayload) error {
+	clearStatements := []string{
+		`DELETE FROM sessions`,
+		`DELETE FROM hysteria_snapshots`,
+		`DELETE FROM system_snapshots`,
+		`DELETE FROM audit_logs`,
+		`DELETE FROM service_states`,
+		`DELETE FROM hysteria_users`,
+		`DELETE FROM admins`,
+	}
+	for _, stmt := range clearStatements {
+		if _, err := tx.ExecContext(resolveCtx(ctx), stmt); err != nil {
+			return err
+		}
+	}
+
+	if err := r.importAdminsTx(ctx, tx, payload.Admins); err != nil {
+		return err
+	}
+	if err := r.importHysteriaUsersTx(ctx, tx, payload.HysteriaUsers); err != nil {
+		return err
+	}
+	if err := r.importSessionsTx(ctx, tx, payload.Sessions); err != nil {
+		return err
+	}
+	if err := r.importHysteriaSnapshotsTx(ctx, tx, payload.HysteriaSnapshots); err != nil {
+		return err
+	}
+	if err := r.importSystemSnapshotsTx(ctx, tx, payload.SystemSnapshots); err != nil {
+		return err
+	}
+	if err := r.importAuditLogsTx(ctx, tx, payload.AuditLogs); err != nil {
+		return err
+	}
+	if err := r.importServiceStatesTx(ctx, tx, payload.ServiceStates); err != nil {
+		return err
+	}
+	return nil
+}
+
 func copyFile(src string, dst string, mode os.FileMode) error {
 	data, err := os.ReadFile(src)
 	if err != nil {
@@ -339,6 +437,54 @@ func (r *SQLiteRepository) importSessionsTx(ctx context.Context, tx *sql.Tx, ite
 		}
 	}
 	return nil
+}
+
+func countEntitiesTx(ctx context.Context, tx *sql.Tx) (EntityCounts, error) {
+	getCount := func(table string) (int, error) {
+		var count int
+		query := fmt.Sprintf(`SELECT COUNT(*) FROM %s`, table)
+		if err := tx.QueryRowContext(resolveCtx(ctx), query).Scan(&count); err != nil {
+			return 0, err
+		}
+		return count, nil
+	}
+	admins, err := getCount("admins")
+	if err != nil {
+		return EntityCounts{}, err
+	}
+	sessions, err := getCount("sessions")
+	if err != nil {
+		return EntityCounts{}, err
+	}
+	hUsers, err := getCount("hysteria_users")
+	if err != nil {
+		return EntityCounts{}, err
+	}
+	hSnapshots, err := getCount("hysteria_snapshots")
+	if err != nil {
+		return EntityCounts{}, err
+	}
+	systemSnapshots, err := getCount("system_snapshots")
+	if err != nil {
+		return EntityCounts{}, err
+	}
+	auditLogs, err := getCount("audit_logs")
+	if err != nil {
+		return EntityCounts{}, err
+	}
+	serviceStates, err := getCount("service_states")
+	if err != nil {
+		return EntityCounts{}, err
+	}
+	return EntityCounts{
+		Admins:            admins,
+		Sessions:          sessions,
+		HysteriaUsers:     hUsers,
+		HysteriaSnapshots: hSnapshots,
+		SystemSnapshots:   systemSnapshots,
+		AuditLogs:         auditLogs,
+		ServiceStates:     serviceStates,
+	}, nil
 }
 
 func (r *SQLiteRepository) countEntities(ctx context.Context) (EntityCounts, error) {
