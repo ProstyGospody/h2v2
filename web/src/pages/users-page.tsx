@@ -348,10 +348,13 @@ export default function UsersPage() {
               variant="danger"
               disabled={!selectedClientIDs.length}
               onClick={() => setBulkDeleteOpen(true)}
-              className="h-12 w-full rounded-2xl px-5 sm:w-auto"
+              className="h-12 w-full rounded-2xl px-5 sm:min-w-[214px] sm:w-auto"
             >
               <Trash2 size={18} strokeWidth={1.6} />
-              Delete selected ({selectedClientIDs.length})
+              Delete selected
+              <span className="inline-flex min-w-[2ch] items-center justify-center rounded-md bg-status-danger/20 px-1.5 py-0.5 text-[12px] leading-none tabular-nums">
+                {selectedClientIDs.length}
+              </span>
             </Button>
             <div className="relative w-full sm:w-auto sm:min-w-[240px]">
               <Search size={16} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
@@ -412,7 +415,7 @@ export default function UsersPage() {
               </div>
             </div>
 
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow className="border-t-0 hover:bg-transparent">
                   <TableHead className="w-10">
@@ -422,14 +425,14 @@ export default function UsersPage() {
                       aria-label="select filtered users"
                     />
                   </TableHead>
-                  <TableHead className="hidden md:table-cell">#</TableHead>
+                  <TableHead className="hidden w-14 md:table-cell">#</TableHead>
                   <TableHead>User</TableHead>
-                  <TableHead className="hidden lg:table-cell">Protocol</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="hidden lg:table-cell">Traffic</TableHead>
-                  <TableHead className="hidden lg:table-cell">Network</TableHead>
-                  <TableHead className="hidden md:table-cell">Last Seen</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="hidden w-[96px] lg:table-cell">Protocol</TableHead>
+                  <TableHead className="w-[160px]">Status</TableHead>
+                  <TableHead className="hidden w-[200px] lg:table-cell">Traffic</TableHead>
+                  <TableHead className="hidden w-[170px] lg:table-cell">Network</TableHead>
+                  <TableHead className="hidden w-[180px] md:table-cell">Last Seen</TableHead>
+                  <TableHead className="w-[88px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -513,12 +516,12 @@ export default function UsersPage() {
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
                           <div className="space-y-1.5">
-                            <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold text-txt-secondary">
-                              <span className="inline-flex items-center gap-1.5">
+                            <div className="flex items-center gap-3 text-[11px] font-semibold text-txt-secondary">
+                              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                                 <ArrowDownToLine size={12} strokeWidth={1.8} className="text-status-success" />
                                 {formatRate(downBps)}
                               </span>
-                              <span className="inline-flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                                 <ArrowUpFromLine size={12} strokeWidth={1.8} className="text-status-warning" />
                                 {formatRate(upBps)}
                               </span>
