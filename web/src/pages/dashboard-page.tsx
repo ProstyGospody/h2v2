@@ -35,8 +35,6 @@ const LIVE_POLL_MS = 5000;
 const HISTORY_POLL_MS = 15000;
 const HISTORY_LIMIT_1H = 900;
 const HISTORY_LIMIT_24H = 3200;
-const MAX_CHART_BARS_1H = 90;
-const MAX_CHART_BARS_24H = 160;
 const TRAFFIC_BUCKET_MS_1H = 5 * 60 * 1000;
 const TRAFFIC_BUCKET_MS_24H = 60 * 60 * 1000;
 
@@ -266,24 +264,43 @@ export default function DashboardPage() {
   }, [historyItems]);
 
   const trafficUsageBars = useMemo<TrafficUsageBarPoint[]>(() => {
-    if (!historyPoints.length) return [];
     const bucketMs = historyWindow === "24h" ? TRAFFIC_BUCKET_MS_24H : TRAFFIC_BUCKET_MS_1H;
-    const bucketed = new Map<number, TrafficUsageBarPoint>();
+    const bucketCount = historyWindow === "24h" ? 24 : 12;
+    const nowMs = Date.now();
+    const endBucketMs = Math.floor(nowMs / bucketMs) * bucketMs;
+    const startBucketMs = endBucketMs - (bucketCount - 1) * bucketMs;
+
+    const buckets: TrafficUsageBarPoint[] = Array.from({ length: bucketCount }, (_unused, idx) => ({
+      timestamp: new Date(startBucketMs + idx * bucketMs),
+      download_bytes: 0,
+      upload_bytes: 0,
+    }));
+    const bucketIndex = new Map<number, number>();
+    for (let idx = 0; idx < buckets.length; idx++) {
+      bucketIndex.set(buckets[idx].timestamp.getTime(), idx);
+    }
+
+    if (!historyPoints.length) {
+      return buckets;
+    }
+
     for (let i = 0; i < historyPoints.length; i++) {
       const pt = historyPoints[i];
       const ms = pt.timestamp.getTime();
       const prevMs = i > 0 ? historyPoints[i - 1].timestamp.getTime() : ms - 5_000;
       const dt = Math.max(1, (ms - prevMs) / 1000);
       const key = Math.floor(ms / bucketMs) * bucketMs;
-      const cur = bucketed.get(key);
-      if (cur) { cur.download_bytes += Math.max(0, pt.download) * dt; cur.upload_bytes += Math.max(0, pt.upload) * dt; }
-      else { bucketed.set(key, { timestamp: new Date(key), download_bytes: Math.max(0, pt.download) * dt, upload_bytes: Math.max(0, pt.upload) * dt }); }
+      if (key < startBucketMs || key > endBucketMs) {
+        continue;
+      }
+      const idx = bucketIndex.get(key);
+      if (idx === undefined) {
+        continue;
+      }
+      buckets[idx].download_bytes += Math.max(0, pt.download) * dt;
+      buckets[idx].upload_bytes += Math.max(0, pt.upload) * dt;
     }
-    const sorted = [...bucketed.values()].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-    const maxBars = historyWindow === "24h" ? MAX_CHART_BARS_24H : MAX_CHART_BARS_1H;
-    if (sorted.length <= maxBars) return sorted;
-    const stride = Math.ceil(sorted.length / maxBars);
-    return sorted.filter((_, idx) => idx % stride === 0);
+    return buckets;
   }, [historyPoints, historyWindow]);
 
   const trafficTotals = useMemo(() => {
@@ -460,8 +477,22 @@ export default function DashboardPage() {
                   contentStyle={tooltipStyle}
                   cursor={{ fill: "var(--accent-soft)" }}
                 />
-                <Bar dataKey="download_bytes" fill="var(--data-1)" radius={[5, 5, 0, 0]} name="Download" isAnimationActive={false} />
-                <Bar dataKey="upload_bytes" fill="var(--data-2)" radius={[5, 5, 0, 0]} name="Upload" isAnimationActive={false} />
+                <Bar
+                  dataKey="download_bytes"
+                  fill="var(--data-1)"
+                  radius={[5, 5, 0, 0]}
+                  name="Download"
+                  minPointSize={historyWindow === "24h" ? 1 : 0}
+                  isAnimationActive={false}
+                />
+                <Bar
+                  dataKey="upload_bytes"
+                  fill="var(--data-2)"
+                  radius={[5, 5, 0, 0]}
+                  name="Upload"
+                  minPointSize={historyWindow === "24h" ? 1 : 0}
+                  isAnimationActive={false}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
