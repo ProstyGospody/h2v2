@@ -407,7 +407,7 @@ export default function DashboardPage() {
             <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">CPU</p>
               <p className="mt-1.5 text-metric text-txt-primary">
-                <AnimatedNumber value={cpuPercent} format={(v) => v.toFixed(1)} />
+                <AnimatedNumber value={cpuPercent} />
                 <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
               </p>
             </div>
@@ -423,7 +423,7 @@ export default function DashboardPage() {
             <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">RAM</p>
               <p className="mt-1.5 text-metric text-txt-primary">
-                <AnimatedNumber value={ramPercent} format={(v) => v.toFixed(1)} />
+                <AnimatedNumber value={ramPercent} />
                 <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
               </p>
             </div>
