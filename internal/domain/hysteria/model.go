@@ -35,9 +35,11 @@ type ClientOverrides struct {
 
 type UserView struct {
 	User
-	LastTxBytes int64 `json:"last_tx_bytes"`
-	LastRxBytes int64 `json:"last_rx_bytes"`
-	OnlineCount int   `json:"online_count"`
+	LastTxBytes  int64   `json:"last_tx_bytes"`
+	LastRxBytes  int64   `json:"last_rx_bytes"`
+	OnlineCount  int     `json:"online_count"`
+	DownloadBps  float64 `json:"download_bps"`
+	UploadBps    float64 `json:"upload_bps"`
 }
 
 type Snapshot struct {

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"math"
 	"path/filepath"
 	"testing"
 	"time"
@@ -188,5 +189,57 @@ func TestSQLiteRepositoryRestoreFromBackup(t *testing.T) {
 	}
 	if overview.EnabledUsers != 1 || overview.TotalTxBytes != 128 || overview.TotalRxBytes != 256 {
 		t.Fatalf("unexpected restored overview: %+v", overview)
+	}
+}
+
+func TestSQLiteRepositoryHysteriaUserRealtimeRates(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "data", "h2v2.db")
+
+	repo, err := NewSQLiteRepository(dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite repository: %v", err)
+	}
+	t.Cleanup(func() { _ = repo.Close() })
+
+	user, err := repo.CreateHysteriaUser(ctx, "rate-user", "supersecret88", nil, nil)
+	if err != nil {
+		t.Fatalf("create hysteria user: %v", err)
+	}
+
+	baseTime := time.Now().UTC().Truncate(time.Second)
+	err = repo.InsertHysteriaSnapshots(ctx, []HysteriaSnapshot{
+		{UserID: user.ID, TxBytes: 1_000, RxBytes: 2_000, Online: 1, SnapshotAt: baseTime},
+		{UserID: user.ID, TxBytes: 1_500, RxBytes: 2_800, Online: 1, SnapshotAt: baseTime.Add(10 * time.Second)},
+	})
+	if err != nil {
+		t.Fatalf("insert hysteria snapshots: %v", err)
+	}
+
+	item, err := repo.GetHysteriaUser(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("get hysteria user: %v", err)
+	}
+
+	if math.Abs(item.DownloadBps-80) > 0.0001 {
+		t.Fatalf("unexpected download bps: got=%v want=80", item.DownloadBps)
+	}
+	if math.Abs(item.UploadBps-50) > 0.0001 {
+		t.Fatalf("unexpected upload bps: got=%v want=50", item.UploadBps)
+	}
+
+	list, err := repo.ListHysteriaUsers(ctx, 100, 0)
+	if err != nil {
+		t.Fatalf("list hysteria users: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected one user, got %d", len(list))
+	}
+	if math.Abs(list[0].DownloadBps-80) > 0.0001 {
+		t.Fatalf("unexpected list download bps: got=%v want=80", list[0].DownloadBps)
+	}
+	if math.Abs(list[0].UploadBps-50) > 0.0001 {
+		t.Fatalf("unexpected list upload bps: got=%v want=50", list[0].UploadBps)
 	}
 }

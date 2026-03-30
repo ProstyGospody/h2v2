@@ -76,7 +76,11 @@ func (r *SQLiteRepository) ListHysteriaUsers(ctx context.Context, limit int, off
 			u.last_seen_at_ns,
 			COALESCE(ls.tx_bytes, 0),
 			COALESCE(ls.rx_bytes, 0),
-			COALESCE(ls.online_count, 0)
+			COALESCE(ls.online_count, 0),
+			COALESCE(ls.snapshot_at_ns, 0),
+			COALESCE(ps.tx_bytes, 0),
+			COALESCE(ps.rx_bytes, 0),
+			COALESCE(ps.snapshot_at_ns, 0)
 		FROM hysteria_users u
 		LEFT JOIN hysteria_snapshots ls
 			ON ls.id = (
@@ -85,6 +89,14 @@ func (r *SQLiteRepository) ListHysteriaUsers(ctx context.Context, limit int, off
 				WHERE hs.user_id = u.id
 				ORDER BY hs.snapshot_at_ns DESC, hs.id DESC
 				LIMIT 1
+			)
+		LEFT JOIN hysteria_snapshots ps
+			ON ps.id = (
+				SELECT hs.id
+				FROM hysteria_snapshots hs
+				WHERE hs.user_id = u.id
+				ORDER BY hs.snapshot_at_ns DESC, hs.id DESC
+				LIMIT 1 OFFSET 1
 			)
 		ORDER BY u.created_at_ns DESC`
 	args := []any{}
@@ -111,6 +123,10 @@ func (r *SQLiteRepository) ListHysteriaUsers(ctx context.Context, limit int, off
 			lastTxBytes     int64
 			lastRxBytes     int64
 			onlineCount     int
+			lastSnapshotAt  int64
+			prevTxBytes     int64
+			prevRxBytes     int64
+			prevSnapshotAt  int64
 			item            HysteriaUserView
 		)
 		if err := rows.Scan(
@@ -127,6 +143,10 @@ func (r *SQLiteRepository) ListHysteriaUsers(ctx context.Context, limit int, off
 			&lastTxBytes,
 			&lastRxBytes,
 			&onlineCount,
+			&lastSnapshotAt,
+			&prevTxBytes,
+			&prevRxBytes,
+			&prevSnapshotAt,
 		); err != nil {
 			return nil, err
 		}
@@ -143,6 +163,7 @@ func (r *SQLiteRepository) ListHysteriaUsers(ctx context.Context, limit int, off
 		item.LastTxBytes = lastTxBytes
 		item.LastRxBytes = lastRxBytes
 		item.OnlineCount = onlineCount
+		item.DownloadBps, item.UploadBps = computeSnapshotRates(lastTxBytes, lastRxBytes, lastSnapshotAt, prevTxBytes, prevRxBytes, prevSnapshotAt)
 		out = append(out, item)
 	}
 	if err := rows.Err(); err != nil {
@@ -195,7 +216,11 @@ func (r *SQLiteRepository) GetHysteriaUser(ctx context.Context, id string) (Hyst
 			u.last_seen_at_ns,
 			COALESCE(ls.tx_bytes, 0),
 			COALESCE(ls.rx_bytes, 0),
-			COALESCE(ls.online_count, 0)
+			COALESCE(ls.online_count, 0),
+			COALESCE(ls.snapshot_at_ns, 0),
+			COALESCE(ps.tx_bytes, 0),
+			COALESCE(ps.rx_bytes, 0),
+			COALESCE(ps.snapshot_at_ns, 0)
 		 FROM hysteria_users u
 		 LEFT JOIN hysteria_snapshots ls
 			ON ls.id = (
@@ -204,6 +229,14 @@ func (r *SQLiteRepository) GetHysteriaUser(ctx context.Context, id string) (Hyst
 				WHERE hs.user_id = u.id
 				ORDER BY hs.snapshot_at_ns DESC, hs.id DESC
 				LIMIT 1
+			)
+		 LEFT JOIN hysteria_snapshots ps
+			ON ps.id = (
+				SELECT hs.id
+				FROM hysteria_snapshots hs
+				WHERE hs.user_id = u.id
+				ORDER BY hs.snapshot_at_ns DESC, hs.id DESC
+				LIMIT 1 OFFSET 1
 			)
 		 WHERE u.id = ?
 		 LIMIT 1`,
@@ -216,6 +249,13 @@ func (r *SQLiteRepository) GetHysteriaUser(ctx context.Context, id string) (Hyst
 		lastSeenAt    sql.NullInt64
 		note          sql.NullString
 		overridesJSON sql.NullString
+		lastTxBytes   int64
+		lastRxBytes   int64
+		onlineCount   int
+		lastSnapshot  int64
+		prevTxBytes   int64
+		prevRxBytes   int64
+		prevSnapshot  int64
 		item          HysteriaUserView
 	)
 	if err := row.Scan(
@@ -229,9 +269,13 @@ func (r *SQLiteRepository) GetHysteriaUser(ctx context.Context, id string) (Hyst
 		&createdAt,
 		&updatedAt,
 		&lastSeenAt,
-		&item.LastTxBytes,
-		&item.LastRxBytes,
-		&item.OnlineCount,
+		&lastTxBytes,
+		&lastRxBytes,
+		&onlineCount,
+		&lastSnapshot,
+		&prevTxBytes,
+		&prevRxBytes,
+		&prevSnapshot,
 	); err != nil {
 		return HysteriaUserView{}, translateSQLiteErr(err)
 	}
@@ -245,7 +289,37 @@ func (r *SQLiteRepository) GetHysteriaUser(ctx context.Context, id string) (Hyst
 	item.CreatedAt = fromUnixNano(createdAt)
 	item.UpdatedAt = fromUnixNano(updatedAt)
 	item.LastSeenAt = optionalInt64(lastSeenAt)
+	item.LastTxBytes = lastTxBytes
+	item.LastRxBytes = lastRxBytes
+	item.OnlineCount = onlineCount
+	item.DownloadBps, item.UploadBps = computeSnapshotRates(lastTxBytes, lastRxBytes, lastSnapshot, prevTxBytes, prevRxBytes, prevSnapshot)
 	return item, nil
+}
+
+func computeSnapshotRates(lastTxBytes int64, lastRxBytes int64, lastSnapshotAt int64, prevTxBytes int64, prevRxBytes int64, prevSnapshotAt int64) (float64, float64) {
+	if lastSnapshotAt <= 0 || prevSnapshotAt <= 0 || lastSnapshotAt <= prevSnapshotAt {
+		return 0, 0
+	}
+
+	intervalSeconds := float64(lastSnapshotAt-prevSnapshotAt) / float64(time.Second)
+	if intervalSeconds < 1 {
+		intervalSeconds = 1
+	}
+
+	rxDelta := lastRxBytes - prevRxBytes
+	txDelta := lastTxBytes - prevTxBytes
+
+	var downloadBps float64
+	if rxDelta > 0 {
+		downloadBps = float64(rxDelta) / intervalSeconds
+	}
+
+	var uploadBps float64
+	if txDelta > 0 {
+		uploadBps = float64(txDelta) / intervalSeconds
+	}
+
+	return downloadBps, uploadBps
 }
 
 func (r *SQLiteRepository) UpdateHysteriaUser(ctx context.Context, id string, username string, password string, note *string, overrides *hysteriadomain.ClientOverrides) (HysteriaUserView, error) {

@@ -1,6 +1,8 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { motion } from "framer-motion";
 import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
   MoreVertical,
   Pencil,
   Plus,
@@ -44,7 +46,7 @@ import {
   Toggle,
   cn,
 } from "@/src/components/ui";
-import { formatBytes, formatDateTime } from "@/utils/format";
+import { formatBytes, formatDateTime, formatRate } from "@/utils/format";
 
 type ClientFilter = "all" | "online" | "enabled" | "disabled";
 
@@ -102,7 +104,7 @@ export default function UsersPage() {
   }, [load]);
 
   useEffect(() => {
-    const timer = setInterval(() => void load(), 15000);
+    const timer = setInterval(() => void load(), 5000);
     return () => clearInterval(timer);
   }, [load]);
 
@@ -434,7 +436,10 @@ export default function UsersPage() {
                   pagedClients.map((client, index) => {
                     const traffic = client.last_tx_bytes + client.last_rx_bytes;
                     const ratio = maxTraffic > 0 ? Math.min(100, (traffic / maxTraffic) * 100) : 0;
+                    const ratioWidth = traffic > 0 ? Math.max(ratio, 4) : 0;
                     const statusOnline = client.online_count > 0;
+                    const downBps = Math.max(0, client.download_bps || 0);
+                    const upBps = Math.max(0, client.upload_bps || 0);
                     return (
                       <motion.tr
                         key={client.id}
@@ -492,17 +497,27 @@ export default function UsersPage() {
                           </div>
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
-                          <div className="space-y-1">
-                            <div className="h-1 w-full rounded-full bg-surface-4">
+                          <div className="space-y-1.5">
+                            <div className="h-1.5 w-full overflow-hidden rounded-full border border-border/70 bg-border/70">
                               <div
                                 className={cn(
-                                  "h-1 rounded-full bg-gradient-to-r from-accent to-accent-light",
+                                  "h-full rounded-full bg-gradient-to-r from-accent to-accent-light shadow-[0_0_8px_var(--accent-soft)]",
                                   ratio > 90 && "from-status-warning to-status-danger",
                                 )}
-                                style={{ width: `${ratio}%` }}
+                                style={{ width: `${ratioWidth}%` }}
                               />
                             </div>
-                            <p className="text-[11px] text-txt-tertiary">{formatBytes(traffic)} used</p>
+                            <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold text-txt-secondary">
+                              <span className="inline-flex items-center gap-1.5">
+                                <ArrowDownToLine size={12} strokeWidth={1.8} className="text-status-success" />
+                                {formatRate(downBps)}
+                              </span>
+                              <span className="inline-flex items-center gap-1.5">
+                                <ArrowUpFromLine size={12} strokeWidth={1.8} className="text-status-warning" />
+                                {formatRate(upBps)}
+                              </span>
+                            </div>
+                            <p className="text-[11px] font-medium text-txt-tertiary">{formatBytes(traffic)}</p>
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">{formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}</TableCell>

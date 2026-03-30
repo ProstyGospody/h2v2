@@ -19,6 +19,8 @@ export type HysteriaClient = {
   last_tx_bytes: number;
   last_rx_bytes: number;
   online_count: number;
+  download_bps: number;
+  upload_bps: number;
   client_overrides?: ClientOverrides | null;
 };
 
