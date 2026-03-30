@@ -64,8 +64,8 @@ const SKELETON_ROWS = 8;
 function SkeletonRow() {
   return (
     <tr className="border-t border-border/30">
-      <td className="px-5 py-3.5"><div className="h-4 w-4 animate-pulse rounded bg-surface-3/60" /></td>
-      <td className="hidden px-5 py-3.5 md:table-cell"><div className="h-4 w-6 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="w-10 px-5 py-3.5"><div className="h-4 w-4 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="hidden w-14 px-5 py-3.5 md:table-cell"><div className="h-4 w-6 animate-pulse rounded bg-surface-3/60" /></td>
       <td className="px-5 py-3.5">
         <div className="flex items-center gap-2">
           <div className="h-9 w-9 animate-pulse rounded-xl bg-surface-3/60" />
@@ -75,17 +75,19 @@ function SkeletonRow() {
           </div>
         </div>
       </td>
-      <td className="hidden px-5 py-3.5 lg:table-cell"><div className="h-5 w-10 animate-pulse rounded-badge bg-surface-3/60" /></td>
-      <td className="px-5 py-3.5"><div className="h-5 w-20 animate-pulse rounded bg-surface-3/60" /></td>
-      <td className="hidden px-5 py-3.5 lg:table-cell">
+      <td className="hidden w-[96px] px-5 py-3.5 lg:table-cell"><div className="h-5 w-10 animate-pulse rounded-badge bg-surface-3/60" /></td>
+      <td className="w-[170px] px-5 py-3.5"><div className="h-5 w-20 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="hidden w-[220px] px-5 py-3.5 lg:table-cell">
         <div className="space-y-1.5">
           <div className="h-1.5 w-full animate-pulse rounded-full bg-surface-3/60" />
           <div className="h-3 w-12 animate-pulse rounded bg-surface-3/50" />
         </div>
       </td>
-      <td className="hidden px-5 py-3.5 lg:table-cell"><div className="h-4 w-28 animate-pulse rounded bg-surface-3/60" /></td>
-      <td className="hidden px-5 py-3.5 md:table-cell"><div className="h-4 w-24 animate-pulse rounded bg-surface-3/60" /></td>
-      <td className="px-5 py-3.5 text-right"><div className="ml-auto h-8 w-8 animate-pulse rounded-btn bg-surface-3/60" /></td>
+      <td className="hidden w-[170px] px-5 py-3.5 text-right lg:table-cell"><div className="ml-auto h-8 w-24 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="hidden w-[190px] px-5 py-3.5 text-right md:table-cell"><div className="ml-auto h-4 w-24 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="w-[76px] px-5 py-3.5 text-center"><div className="mx-auto h-10 w-10 animate-pulse rounded-btn bg-surface-3/60" /></td>
+      <td className="w-[76px] px-5 py-3.5 text-center"><div className="mx-auto h-10 w-10 animate-pulse rounded-btn bg-surface-3/60" /></td>
+      <td className="w-[84px] px-5 py-3.5 text-center"><div className="mx-auto h-10 w-10 animate-pulse rounded-btn bg-surface-3/60" /></td>
     </tr>
   );
 }
@@ -128,42 +130,6 @@ function resolveStatus(client: HysteriaClient): "online" | "offline" | "disabled
     return "online";
   }
   return "offline";
-}
-
-function InlineActions({
-  client,
-  onArtifacts,
-  onEdit,
-  onDelete,
-}: {
-  client: HysteriaClient;
-  onArtifacts: (c: HysteriaClient) => void;
-  onEdit: (c: HysteriaClient) => void;
-  onDelete: (c: HysteriaClient) => void | Promise<void>;
-}) {
-  return (
-    <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover/row:opacity-100">
-      <button type="button" onClick={() => void onArtifacts(client)} title="Show QR"
-        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt">
-        <QrCode size={14} strokeWidth={1.4} />
-      </button>
-      <button type="button" onClick={() => onEdit(client)} title="Edit"
-        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt">
-        <Pencil size={14} strokeWidth={1.4} />
-      </button>
-      <ConfirmPopover
-        title="Delete user"
-        description={`Remove ${client.username} and revoke access?`}
-        confirmText="Delete"
-        onConfirm={() => onDelete(client)}
-      >
-        <button type="button" title="Delete"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-txt-tertiary transition-colors hover:bg-status-danger/10 hover:text-status-danger">
-          <Trash2 size={14} strokeWidth={1.4} />
-        </button>
-      </ConfirmPopover>
-    </div>
-  );
 }
 
 function MobileActions({
@@ -603,64 +569,59 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* ── Floating bulk action toolbar ── */}
-      <motion.div
-        initial={false}
-        animate={{ opacity: hasSelectedClients ? 1 : 0, y: hasSelectedClients ? 0 : 14 }}
-        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-        className="fixed bottom-6 left-4 right-4 z-40 sm:left-1/2 sm:right-auto sm:-translate-x-1/2"
-        style={{ pointerEvents: hasSelectedClients ? "auto" : "none" }}
-      >
-        <div className="mx-auto flex w-max max-w-full items-center gap-2 overflow-x-auto rounded-2xl bg-surface-2/95 px-4 py-2.5 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl">
-          <span className="mr-1 inline-flex h-7 min-w-[28px] items-center justify-center rounded-lg bg-accent/15 px-2 text-[13px] font-bold tabular-nums text-accent">
-            {selectedClientIDs.length}
-          </span>
-          <span className="mr-2 text-[13px] font-medium text-txt-secondary">selected</span>
+      <div className="min-h-[62px]">
+        {hasSelectedClients ? (
+          <div className="flex w-full flex-wrap items-center gap-2 rounded-2xl bg-surface-2/95 px-4 py-2.5 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl">
+            <span className="mr-1 inline-flex h-7 min-w-[28px] items-center justify-center rounded-lg bg-accent/15 px-2 text-[13px] font-bold tabular-nums text-accent">
+              {selectedClientIDs.length}
+            </span>
+            <span className="mr-2 text-[13px] font-medium text-txt-secondary">selected</span>
 
-          <div className="h-5 w-px bg-border/50" />
+            <div className="h-5 w-px bg-border/50" />
 
-          <button
-            type="button"
-            onClick={() => void bulkSetEnabled(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-success transition-colors hover:bg-status-success/10"
-          >
-            <Power size={14} strokeWidth={1.8} />
-            Enable
-          </button>
-          <button
-            type="button"
-            onClick={() => void bulkSetEnabled(false)}
-            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-warning transition-colors hover:bg-status-warning/10"
-          >
-            <PowerOff size={14} strokeWidth={1.8} />
-            Disable
-          </button>
-          <ConfirmPopover
-            title="Delete selected users"
-            description={`Delete ${selectedClientIDs.length} users?`}
-            confirmText="Delete"
-            onConfirm={() => void deleteSelectedClients()}
-          >
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10"
+              onClick={() => void bulkSetEnabled(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-success transition-colors hover:bg-status-success/10"
             >
-              <Trash2 size={14} strokeWidth={1.8} />
-              Delete
+              <Power size={14} strokeWidth={1.8} />
+              Enable
             </button>
-          </ConfirmPopover>
+            <button
+              type="button"
+              onClick={() => void bulkSetEnabled(false)}
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-warning transition-colors hover:bg-status-warning/10"
+            >
+              <PowerOff size={14} strokeWidth={1.8} />
+              Disable
+            </button>
+            <ConfirmPopover
+              title="Delete selected users"
+              description={`Delete ${selectedClientIDs.length} users?`}
+              confirmText="Delete"
+              onConfirm={() => void deleteSelectedClients()}
+            >
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10"
+              >
+                <Trash2 size={14} strokeWidth={1.8} />
+                Delete
+              </button>
+            </ConfirmPopover>
 
-          <div className="h-5 w-px bg-border/50" />
+            <div className="h-5 w-px bg-border/50" />
 
-          <button
-            type="button"
-            onClick={() => setSelectedClientIDs([])}
-            className="inline-flex items-center justify-center rounded-lg p-1.5 text-txt-muted transition-colors hover:bg-surface-3 hover:text-txt"
-          >
-            <X size={14} strokeWidth={1.8} />
-          </button>
-        </div>
-      </motion.div>
+            <button
+              type="button"
+              onClick={() => setSelectedClientIDs([])}
+              className="inline-flex items-center justify-center rounded-lg p-1.5 text-txt-muted transition-colors hover:bg-surface-3 hover:text-txt"
+            >
+              <X size={14} strokeWidth={1.8} />
+            </button>
+          </div>
+        ) : null}
+      </div>
 
       {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
 
@@ -673,12 +634,14 @@ export default function UsersPage() {
                 <TableHead className="w-10"><div className="h-4 w-4 animate-pulse rounded bg-surface-3/60" /></TableHead>
                 <TableHead className="hidden w-14 md:table-cell">#</TableHead>
                 <TableHead>USERS</TableHead>
-                <TableHead className="hidden lg:table-cell">PROTOCOL</TableHead>
-                <TableHead>STATUS</TableHead>
-                <TableHead className="hidden lg:table-cell">TRAFFIC</TableHead>
-                <TableHead className="hidden text-right lg:table-cell">NETWORK</TableHead>
-                <TableHead className="hidden text-right md:table-cell">LAST SEEN</TableHead>
-                <TableHead className="w-[84px] text-right">ACTIONS</TableHead>
+                <TableHead className="hidden w-[96px] lg:table-cell">PROTOCOL</TableHead>
+                <TableHead className="w-[170px]">STATUS</TableHead>
+                <TableHead className="hidden w-[220px] lg:table-cell">TRAFFIC</TableHead>
+                <TableHead className="hidden w-[170px] text-right lg:table-cell">NETWORK</TableHead>
+                <TableHead className="hidden w-[190px] text-right md:table-cell">LAST SEEN</TableHead>
+                <TableHead className="w-[76px] text-center">QR</TableHead>
+                <TableHead className="w-[76px] text-center">EDIT</TableHead>
+                <TableHead className="w-[84px] text-center">DELETE</TableHead>
               </TableRow>
             </TableHeader>
             <tbody>
@@ -703,22 +666,24 @@ export default function UsersPage() {
                       USERS <SortIcon field="username" sort={sort} />
                     </button>
                   </TableHead>
-                  <TableHead className="hidden lg:table-cell">PROTOCOL</TableHead>
-                  <TableHead>STATUS</TableHead>
-                  <TableHead className="hidden lg:table-cell">
+                  <TableHead className="hidden w-[96px] lg:table-cell">PROTOCOL</TableHead>
+                  <TableHead className="w-[170px]">STATUS</TableHead>
+                  <TableHead className="hidden w-[220px] lg:table-cell">
                     <button type="button" onClick={() => toggleSort("traffic")} className="inline-flex items-center gap-1.5 hover:text-txt-primary">
                       TRAFFIC <SortIcon field="traffic" sort={sort} />
                     </button>
                   </TableHead>
-                  <TableHead className="hidden text-right lg:table-cell">
+                  <TableHead className="hidden w-[170px] text-right lg:table-cell">
                     NETWORK
                   </TableHead>
-                  <TableHead className="hidden text-right md:table-cell">
+                  <TableHead className="hidden w-[190px] text-right md:table-cell">
                     <button type="button" onClick={() => toggleSort("last_seen")} className="ml-auto inline-flex items-center gap-1.5 hover:text-txt-primary">
                       LAST SEEN <SortIcon field="last_seen" sort={sort} />
                     </button>
                   </TableHead>
-                  <TableHead className="w-[84px] text-right">ACTIONS</TableHead>
+                  <TableHead className="w-[76px] text-center">QR</TableHead>
+                  <TableHead className="w-[76px] text-center">EDIT</TableHead>
+                  <TableHead className="w-[84px] text-center">DELETE</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -733,7 +698,7 @@ export default function UsersPage() {
                     const upBps = Math.max(0, client.upload_bps || 0);
 
                     return (
-                      <TableRow key={client.id} className="group/row">
+                      <TableRow key={client.id}>
                         <TableCell>
                           <Checkbox
                             checked={selectedSet.has(client.id)}
@@ -803,15 +768,51 @@ export default function UsersPage() {
                         <TableCell className="hidden whitespace-nowrap text-right md:table-cell">
                           {formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <InlineActions client={client} onArtifacts={openArtifacts} onEdit={openEdit} onDelete={(c) => void removeClient(c.id)} />
+                        <TableCell className="text-center">
+                          <button
+                            type="button"
+                            onClick={() => void openArtifacts(client)}
+                            title="QR"
+                            aria-label={`show qr for ${client.username}`}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
+                          >
+                            <QrCode size={18} strokeWidth={1.7} />
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(client)}
+                            title="Edit"
+                            aria-label={`edit ${client.username}`}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
+                          >
+                            <Pencil size={18} strokeWidth={1.7} />
+                          </button>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <ConfirmPopover
+                            title="Delete user"
+                            description={`Remove ${client.username} and revoke access?`}
+                            confirmText="Delete"
+                            onConfirm={() => void removeClient(client.id)}
+                          >
+                            <button
+                              type="button"
+                              title="Delete"
+                              aria-label={`delete ${client.username}`}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-status-danger/10 hover:text-status-danger"
+                            >
+                              <Trash2 size={18} strokeWidth={1.7} />
+                            </button>
+                          </ConfirmPopover>
                         </TableCell>
                       </TableRow>
                     );
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9}>{clients.length ? "No users match the current filters." : "No users yet."}</TableCell>
+                    <TableCell colSpan={11}>{clients.length ? "No users match the current filters." : "No users yet."}</TableCell>
                   </TableRow>
                 )}
               </TableBody>
