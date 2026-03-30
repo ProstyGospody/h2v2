@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+const (
+	systemSnapshotMaxFiles  int64 = 20000
+	systemSnapshotPruneEvery int64 = 200
+)
+
 func (r *SQLiteRepository) InsertSystemSnapshot(ctx context.Context, snapshot SystemSnapshot) (SystemSnapshot, error) {
 	if snapshot.SnapshotAt.IsZero() {
 		snapshot.SnapshotAt = time.Now().UTC()
