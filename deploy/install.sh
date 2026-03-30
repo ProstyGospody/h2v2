@@ -235,26 +235,51 @@ build_frontend() {
 capture_env_overrides() {
   local key
   for key in "${ENV_OVERRIDE_KEYS[@]}"; do
-    if [[ -n "${!key+x}" ]]; then
+    if [[ "${!key+x}" == "x" ]]; then
       printf -v "__OVERRIDE_${key}" '%s' "${!key}"
     fi
   done
 }
 
 load_existing_env() {
-  [[ -f "${ENV_FILE}" ]] && source "${ENV_FILE}"
-  [[ -f "${CREDENTIALS_FILE}" ]] && source "${CREDENTIALS_FILE}"
+  load_kv_file "${ENV_FILE}"
+  load_kv_file "${CREDENTIALS_FILE}"
   if [[ -z "${HY2_STATS_PORT:-}" && -n "${HY2_STATS_URL:-}" && "${HY2_STATS_URL}" =~ :([0-9]{1,5})$ ]]; then
     HY2_STATS_PORT="${BASH_REMATCH[1]}"
   fi
 }
 
 apply_env_overrides() {
-  local key name
+  local key name override_value
   for key in "${ENV_OVERRIDE_KEYS[@]}"; do
     name="__OVERRIDE_${key}"
-    [[ -n "${!name+x}" ]] && printf -v "${key}" '%s' "${!name}"
+    override_value="${!name-__H2V2_UNSET__}"
+    if [[ "${override_value}" != "__H2V2_UNSET__" ]]; then
+      printf -v "${key}" '%s' "${override_value}"
+    fi
   done
+}
+
+load_kv_file() {
+  local file="$1"
+  [[ -f "${file}" ]] || return 0
+
+  local line key value
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    line="${line%$'\r'}"
+    [[ -z "${line}" ]] && continue
+    [[ "${line}" =~ ^[[:space:]]*# ]] && continue
+    [[ "${line}" == *"="* ]] || continue
+
+    key="${line%%=*}"
+    value="${line#*=}"
+
+    key="${key#"${key%%[![:space:]]*}"}"
+    key="${key%"${key##*[![:space:]]}"}"
+
+    [[ "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    printf -v "${key}" '%s' "${value}"
+  done < "${file}"
 }
 
 prompt_value() {
