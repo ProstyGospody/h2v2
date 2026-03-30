@@ -4,7 +4,6 @@ set -euo pipefail
 MODE="install"
 NONINTERACTIVE="${H2V2_NONINTERACTIVE:-0}"
 DRY_RUN=0
-MIGRATE_TO_SQLITE=0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -23,14 +22,13 @@ PANEL_WEB_PORT=13000
 BACKUP_DIR=""
 BACKUP_READY=0
 ROLLBACK_RUNNING=0
-EXISTING_INSTALLATION=0
 CHANGED=()
 
 ENV_OVERRIDE_KEYS=(
   PANEL_PUBLIC_HOST PANEL_PUBLIC_PORT PANEL_ACME_EMAIL SUBSCRIPTION_PUBLIC_HOST
   HY2_DOMAIN HY2_PORT HY2_OBFS_PASSWORD HY2_STATS_PORT
   INITIAL_ADMIN_EMAIL INITIAL_ADMIN_PASSWORD
-  PANEL_STORAGE_DRIVER PANEL_SQLITE_PATH PANEL_STORAGE_ROOT PANEL_AUDIT_DIR PANEL_RUNTIME_DIR
+  PANEL_SQLITE_PATH PANEL_STORAGE_ROOT PANEL_AUDIT_DIR PANEL_RUNTIME_DIR
 )
 
 phase() { printf "\n==> %s\n" "$1"; }
@@ -54,7 +52,6 @@ parse_args() {
       --install) MODE="install" ;;
       --reconfigure) MODE="reconfigure" ;;
       --upgrade) MODE="upgrade" ;;
-      --migrate-to-sqlite) MIGRATE_TO_SQLITE=1 ;;
       --non-interactive) NONINTERACTIVE=1 ;;
       --dry-run) DRY_RUN=1 ;;
       *) fatal "Unknown argument: $1" ;;
@@ -91,11 +88,6 @@ detect_existing_installation() {
   [[ -f "${ENV_FILE}" ]] && env_hit=1
   systemctl list-unit-files h2v2-api.service h2v2-web.service hysteria-server.service >/dev/null 2>&1 && unit_hit=1 || true
   [[ -d /var/lib/h2v2 || -d /etc/h2v2 ]] && dir_hit=1
-  if (( env_hit == 1 || unit_hit == 1 || dir_hit == 1 )); then
-    EXISTING_INSTALLATION=1
-  else
-    EXISTING_INSTALLATION=0
-  fi
   info "detected: env=${env_hit}, units=${unit_hit}, dirs=${dir_hit}"
 }
 
@@ -341,25 +333,6 @@ generate_if_empty() {
   [[ -n "${current}" ]] || printf -v "${var}" '%s' "$(openssl rand -hex "${bytes}")"
 }
 
-normalize_driver() {
-  local v
-  v="$(echo "${1:-file}" | tr '[:upper:]' '[:lower:]' | xargs)"
-  [[ "${v}" == "sqlite" ]] && echo "sqlite" || echo "file"
-}
-
-default_storage_driver() {
-  local current="${PANEL_STORAGE_DRIVER:-}"
-  if [[ -n "${current}" ]]; then
-    normalize_driver "${current}"
-    return
-  fi
-  if (( EXISTING_INSTALLATION == 0 )); then
-    echo "sqlite"
-    return
-  fi
-  echo "file"
-}
-
 collect_config() {
   phase "config render: collect"
   local host
@@ -387,8 +360,6 @@ collect_config() {
   PANEL_STORAGE_ROOT="${PANEL_STORAGE_ROOT:-/var/lib/h2v2}"
   PANEL_AUDIT_DIR="${PANEL_AUDIT_DIR:-/var/log/h2v2/audit}"
   PANEL_RUNTIME_DIR="${PANEL_RUNTIME_DIR:-/run/h2v2}"
-  PANEL_STORAGE_DRIVER="$(default_storage_driver)"
-  (( MIGRATE_TO_SQLITE == 1 )) && PANEL_STORAGE_DRIVER="sqlite"
   PANEL_SQLITE_PATH="${PANEL_SQLITE_PATH:-${PANEL_STORAGE_ROOT}/data/h2v2.db}"
   SESSION_COOKIE_NAME="${SESSION_COOKIE_NAME:-pp_session}"
   CSRF_COOKIE_NAME="${CSRF_COOKIE_NAME:-pp_csrf}"
@@ -413,7 +384,6 @@ collect_config() {
 validate_config() {
   [[ -n "${PANEL_PUBLIC_HOST:-}" && -n "${SUBSCRIPTION_PUBLIC_HOST:-}" && -n "${HY2_DOMAIN:-}" ]] || fatal "public hosts and HY2_DOMAIN are required"
   [[ "${PANEL_PUBLIC_PORT}" != "${PANEL_API_PORT}" && "${PANEL_PUBLIC_PORT}" != "${PANEL_WEB_PORT}" ]] || fatal "PANEL_PUBLIC_PORT conflicts with internal port"
-  PANEL_STORAGE_DRIVER="$(normalize_driver "${PANEL_STORAGE_DRIVER}")"
 }
 
 write_env_files() {
@@ -431,7 +401,6 @@ SUBSCRIPTION_PUBLIC_HOST=${SUBSCRIPTION_PUBLIC_HOST}
 SUBSCRIPTION_PUBLIC_URL=${SUBSCRIPTION_PUBLIC_URL}
 PANEL_API_INTERNAL_URL=${PANEL_API_INTERNAL_URL}
 PANEL_ACME_EMAIL=${PANEL_ACME_EMAIL}
-PANEL_STORAGE_DRIVER=${PANEL_STORAGE_DRIVER}
 PANEL_STORAGE_ROOT=${PANEL_STORAGE_ROOT}
 PANEL_SQLITE_PATH=${PANEL_SQLITE_PATH}
 PANEL_AUDIT_DIR=${PANEL_AUDIT_DIR}
@@ -559,8 +528,6 @@ create_backup() {
   for u in h2v2-api.service h2v2-web.service hysteria-server.service; do
     [[ -f "/etc/systemd/system/${u}" ]] && run cp -a "/etc/systemd/system/${u}" "${BACKUP_DIR}/systemd/${u}"
   done
-  [[ -d /var/lib/h2v2/state ]] && run rsync -a /var/lib/h2v2/state/ "${BACKUP_DIR}/storage/state/"
-  [[ -d /var/lib/h2v2/snapshots ]] && run rsync -a /var/lib/h2v2/snapshots/ "${BACKUP_DIR}/storage/snapshots/"
   [[ -d /var/lib/h2v2/data ]] && run rsync -a /var/lib/h2v2/data/ "${BACKUP_DIR}/storage/data/"
   [[ -d /var/log/h2v2/audit ]] && run rsync -a /var/log/h2v2/audit/ "${BACKUP_DIR}/audit/"
   BACKUP_READY=1
@@ -579,8 +546,6 @@ rollback_from_backup() {
   for u in h2v2-api.service h2v2-web.service hysteria-server.service; do
     [[ -f "${BACKUP_DIR}/systemd/${u}" ]] && run cp -a "${BACKUP_DIR}/systemd/${u}" "/etc/systemd/system/${u}"
   done
-  [[ -d "${BACKUP_DIR}/storage/state" ]] && run rsync -a --delete "${BACKUP_DIR}/storage/state/" /var/lib/h2v2/state/
-  [[ -d "${BACKUP_DIR}/storage/snapshots" ]] && run rsync -a --delete "${BACKUP_DIR}/storage/snapshots/" /var/lib/h2v2/snapshots/
   [[ -d "${BACKUP_DIR}/storage/data" ]] && run rsync -a --delete "${BACKUP_DIR}/storage/data/" /var/lib/h2v2/data/
   [[ -d "${BACKUP_DIR}/audit" ]] && run rsync -a --delete "${BACKUP_DIR}/audit/" /var/log/h2v2/audit/
   run systemctl daemon-reload
@@ -592,15 +557,6 @@ on_error() {
   warn "installer failed at line ${line}"
   (( ROLLBACK_RUNNING == 0 )) && rollback_from_backup
   exit 1
-}
-
-run_migration_if_needed() {
-  (( MIGRATE_TO_SQLITE == 1 )) || return 0
-  [[ "${PANEL_STORAGE_DRIVER}" == "sqlite" ]] || { warn "migrate requested but driver=${PANEL_STORAGE_DRIVER}; skip"; return 0; }
-  phase "migrate: file -> sqlite"
-  (( DRY_RUN == 1 )) && return 0
-  run runuser -u h2v2 -- "${BIN_DIR}/panel-api" migrate-to-sqlite --db "${PANEL_SQLITE_PATH}" --storage-root "${PANEL_STORAGE_ROOT}" --audit-dir "${PANEL_AUDIT_DIR}" --runtime-dir "${PANEL_RUNTIME_DIR}"
-  changed "sqlite migration executed"
 }
 
 bootstrap_admin() {
@@ -663,12 +619,12 @@ summary() {
     for item in "${CHANGED[@]}"; do printf "  - %s\n" "${item}"; done
   fi
   printf "backup: %s\n" "${BACKUP_DIR:-not-created}"
-  printf "active storage driver: %s\n" "${PANEL_STORAGE_DRIVER:-file}"
+  printf "active storage driver: sqlite\n"
   printf "\nverify:\n"
   printf "  systemctl status h2v2-api h2v2-web hysteria-server caddy\n"
   printf "  bash %s/scripts/smoke-check.sh %s\n" "${SRC_DIR}" "${ENV_FILE}"
   printf "\nrollback:\n"
-  printf "  rsync -a --delete %s/storage/state/ /var/lib/h2v2/state/\n" "${BACKUP_DIR:-/path/to/backup}"
+  printf "  rsync -a --delete %s/storage/data/ /var/lib/h2v2/data/\n" "${BACKUP_DIR:-/path/to/backup}"
   printf "  cp %s/env/.env.generated %s\n" "${BACKUP_DIR:-/path/to/backup}" "${ENV_FILE}"
 }
 
@@ -689,7 +645,6 @@ main() {
   write_env_files
   render_runtime_configs
   install_sudoers_and_units
-  run_migration_if_needed
   bootstrap_admin
   restart_services
   health_checks

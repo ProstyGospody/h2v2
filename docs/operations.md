@@ -30,34 +30,13 @@ journalctl -u caddy -n 200 --no-pager
 - Hysteria config: `/etc/h2v2/hysteria/server.yaml`
 - Hysteria TLS cert/key: `/etc/h2v2/hysteria/tls.crt`, `/etc/h2v2/hysteria/tls.key`
 - Storage root: `/var/lib/h2v2`
-- SQLite DB: `/var/lib/h2v2/data/h2v2.db` (default path for sqlite driver)
+- SQLite DB: `/var/lib/h2v2/data/h2v2.db`
 - Audit dir: `/var/log/h2v2/audit`
 
 ## Smoke check
 
 ```bash
 sudo bash /opt/h2v2/current/scripts/smoke-check.sh /opt/h2v2/.env.generated
-```
-
-## Enable sqlite
-
-1. Migrate existing file data:
-
-```bash
-runuser -u h2v2 -- /opt/h2v2/bin/panel-api migrate-to-sqlite --db /var/lib/h2v2/data/h2v2.db --storage-root /var/lib/h2v2 --audit-dir /var/log/h2v2/audit --runtime-dir /run/h2v2
-```
-
-2. Edit `/opt/h2v2/.env.generated`:
-
-```bash
-PANEL_STORAGE_DRIVER=sqlite
-PANEL_SQLITE_PATH=/var/lib/h2v2/data/h2v2.db
-```
-
-3. Restart API:
-
-```bash
-systemctl restart h2v2-api
 ```
 
 ## Backup / export / restore
@@ -86,11 +65,4 @@ Daily backup + rotation:
 
 ```bash
 bash /opt/h2v2/current/scripts/sqlite-backup-rotate.sh --env-file /opt/h2v2/.env.generated --keep-days 14
-```
-
-## Rollback to file mode
-
-```bash
-sed -i 's/^PANEL_STORAGE_DRIVER=.*/PANEL_STORAGE_DRIVER=file/' /opt/h2v2/.env.generated
-systemctl restart h2v2-api
 ```

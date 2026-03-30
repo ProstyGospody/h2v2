@@ -2,12 +2,10 @@ package repository
 
 import (
 	"context"
-	"strings"
 	"time"
 )
 
 const (
-	StorageDriverFile   = "file"
 	StorageDriverSQLite = "sqlite"
 )
 
@@ -44,29 +42,13 @@ type Repository interface {
 }
 
 type OpenOptions struct {
-	Driver      string
 	StorageRoot string
-	AuditDir    string
-	RuntimeDir  string
 	SQLitePath  string
 }
 
 func Open(opts OpenOptions) (Repository, error) {
-	driver := NormalizeDriver(opts.Driver)
-	switch driver {
-	case StorageDriverSQLite:
+	if opts.SQLitePath != "" {
 		return NewSQLiteRepository(opts.SQLitePath)
-	default:
-		return NewFileRepository(opts.StorageRoot, opts.AuditDir, opts.RuntimeDir)
 	}
-}
-
-func NormalizeDriver(value string) string {
-	driver := strings.ToLower(strings.TrimSpace(value))
-	switch driver {
-	case StorageDriverSQLite:
-		return StorageDriverSQLite
-	default:
-		return StorageDriverFile
-	}
+	return NewSQLiteRepository(defaultSQLitePath(opts.StorageRoot))
 }

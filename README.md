@@ -6,7 +6,7 @@ Control plane stack:
 
 - `panel-api`: Go
 - `panel-web`: React + Vite + Tailwind CSS + Radix UI + React Router + TanStack Query + react-hook-form + Recharts + Framer Motion
-- Storage driver: `file` (default) or `sqlite`
+- Storage: `sqlite` (`/var/lib/h2v2/data/h2v2.db` by default)
 - Caddy (TLS reverse proxy and certificate issuer)
 - Native procfs-based host metrics (live CPU/RAM/network)
 - systemd
@@ -36,13 +36,11 @@ Installer modes:
 - `sudo bash ./deploy/install.sh --install` (default)
 - `sudo bash ./deploy/install.sh --reconfigure`
 - `sudo bash ./deploy/install.sh --upgrade`
-- `sudo bash ./deploy/install.sh --migrate-to-sqlite`
 - add `--non-interactive` or `--dry-run` when needed
 
 Storage default behavior:
 
-- fresh install: `PANEL_STORAGE_DRIVER=sqlite`
-- existing install (reconfigure/upgrade): current driver is preserved
+- SQLite is always used.
 
 ## What deploy does
 
@@ -52,17 +50,14 @@ Installer phases:
 2. Backup of env/config/storage/systemd before changes
 3. Build/install phase (packages, binaries, source sync)
 4. Config render phase (`.env`, Caddy, Hysteria config, systemd)
-5. Optional `file -> sqlite` migration
-6. Health checks (service state + smoke script)
-7. Auto-rollback from backup on failed health checks
+5. Health checks (service state + smoke script)
+6. Auto-rollback from backup on failed health checks
 
 ## Generated files and directories
 
 - Main generated env: `/opt/h2v2/.env.generated`
 - Initial admin credentials file: `/root/h2v2-initial-admin.txt`
-- File-backed state: `/var/lib/h2v2/state/`
 - SQLite data dir: `/var/lib/h2v2/data/`
-- Historical snapshots: `/var/lib/h2v2/snapshots/`
 - Backups: `/var/lib/h2v2/backups/`
 - Audit records: `/var/log/h2v2/audit/`
 - Runtime locks/temp: `/run/h2v2/`
@@ -97,7 +92,6 @@ sudo bash /opt/h2v2/current/scripts/smoke-check.sh /opt/h2v2/.env.generated
 SQLite operations:
 
 ```bash
-runuser -u h2v2 -- /opt/h2v2/bin/panel-api migrate-to-sqlite --db /var/lib/h2v2/data/h2v2.db --storage-root /var/lib/h2v2 --audit-dir /var/log/h2v2/audit --runtime-dir /run/h2v2
 runuser -u h2v2 -- /opt/h2v2/bin/panel-api sqlite-backup --db /var/lib/h2v2/data/h2v2.db --out /var/lib/h2v2/backups/panel-$(date -u +%Y%m%d-%H%M).db
 runuser -u h2v2 -- /opt/h2v2/bin/panel-api export --db /var/lib/h2v2/data/h2v2.db --out /var/lib/h2v2/backups/export-$(date -u +%Y%m%d-%H%M).json
 runuser -u h2v2 -- /opt/h2v2/bin/panel-api sqlite-restore --db /var/lib/h2v2/data/h2v2.db --from /var/lib/h2v2/backups/panel-YYYYmmdd-HHMM.db

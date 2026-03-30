@@ -70,8 +70,6 @@ func run() int {
 		logger.Info("admin account prepared", "email", *email)
 		return 0
 
-	case "migrate-to-sqlite":
-		return runMigrateToSQLite(ctx, os.Args[2:])
 	case "sqlite-backup":
 		return runSQLiteBackup(ctx, os.Args[2:])
 	case "export":
@@ -81,7 +79,7 @@ func run() int {
 
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", command)
-		fmt.Fprintln(os.Stderr, "available commands: serve, bootstrap-admin, migrate-to-sqlite, sqlite-backup, export, sqlite-restore")
+		fmt.Fprintln(os.Stderr, "available commands: serve, bootstrap-admin, sqlite-backup, export, sqlite-restore")
 		return 1
 	}
 }
@@ -114,36 +112,6 @@ func runServe(ctx context.Context, cfg config.Config, logger *slog.Logger) error
 		}
 	}
 	return nil
-}
-
-func runMigrateToSQLite(ctx context.Context, args []string) int {
-	defaultRoot := firstNonEmpty(os.Getenv("PANEL_STORAGE_ROOT"), "/var/lib/h2v2")
-	defaultDB := firstNonEmpty(
-		os.Getenv("PANEL_SQLITE_PATH"),
-		filepathJoin(defaultRoot, "data", "h2v2.db"),
-		"/var/lib/h2v2/data/h2v2.db",
-	)
-	defaultStorageRoot := defaultRoot
-	defaultAuditDir := firstNonEmpty(os.Getenv("PANEL_AUDIT_DIR"), "/var/log/h2v2/audit")
-	defaultRunDir := firstNonEmpty(os.Getenv("PANEL_RUNTIME_DIR"), "/run/h2v2")
-
-	fs := flag.NewFlagSet("migrate-to-sqlite", flag.ContinueOnError)
-	db := fs.String("db", defaultDB, "sqlite db path")
-	storageRoot := fs.String("storage-root", defaultStorageRoot, "file storage root")
-	auditDir := fs.String("audit-dir", defaultAuditDir, "audit directory")
-	runDir := fs.String("runtime-dir", defaultRunDir, "runtime directory")
-	if err := fs.Parse(args); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to parse flags: %v\n", err)
-		return 1
-	}
-
-	report, err := repository.MigrateFileToSQLite(ctx, *storageRoot, *auditDir, *runDir, *db)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "migration failed: %v\n", err)
-		return 1
-	}
-	fmt.Printf("migration completed: db=%s source=%+v target=%+v\n", report.SQLitePath, report.Source, report.Target)
-	return 0
 }
 
 func runSQLiteBackup(ctx context.Context, args []string) int {

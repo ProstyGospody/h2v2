@@ -53,27 +53,14 @@ sudo -E bash ./deploy/install.sh --non-interactive
 sudo bash ./deploy/install.sh --reconfigure
 ```
 
-Storage driver defaults:
+Storage defaults:
 
-- clean install defaults to `sqlite`
-- existing installation keeps the previously configured driver
+- SQLite is always used.
 
 ## Upgrade binaries/templates
 
 ```bash
 sudo bash ./deploy/install.sh --upgrade
-```
-
-## SQLite migration mode
-
-```bash
-sudo bash ./deploy/install.sh --migrate-to-sqlite
-```
-
-This mode keeps the same installer flow but additionally runs:
-
-```bash
-runuser -u h2v2 -- /opt/h2v2/bin/panel-api migrate-to-sqlite --db /var/lib/h2v2/data/h2v2.db --storage-root /var/lib/h2v2 --audit-dir /var/log/h2v2/audit --runtime-dir /run/h2v2
 ```
 
 ## Dry-run

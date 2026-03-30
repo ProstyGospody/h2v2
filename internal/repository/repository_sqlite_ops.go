@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 )
@@ -22,13 +21,6 @@ type EntityCounts struct {
 	ServiceStates    int `json:"service_states"`
 }
 
-type MigrationReport struct {
-	Driver     string       `json:"driver"`
-	SQLitePath string       `json:"sqlite_path"`
-	Source     EntityCounts `json:"source_counts"`
-	Target     EntityCounts `json:"target_counts"`
-}
-
 type ExportPayload struct {
 	Driver           string            `json:"driver"`
 	SQLitePath       string            `json:"sqlite_path"`
@@ -41,77 +33,6 @@ type ExportPayload struct {
 	SystemSnapshots  []SystemSnapshot  `json:"system_snapshots"`
 	AuditLogs        []AuditLog        `json:"audit_logs"`
 	ServiceStates    []ServiceState    `json:"service_states"`
-}
-
-func MigrateFileToSQLite(ctx context.Context, storageRoot string, auditDir string, runDir string, sqlitePath string) (MigrationReport, error) {
-	fileRepo, err := NewFileRepository(storageRoot, auditDir, runDir)
-	if err != nil {
-		return MigrationReport{}, err
-	}
-	defer fileRepo.Close()
-
-	sqliteRepo, err := NewSQLiteRepository(sqlitePath)
-	if err != nil {
-		return MigrationReport{}, err
-	}
-	defer sqliteRepo.Close()
-
-	snapshot, err := captureFileSnapshot(ctx, fileRepo)
-	if err != nil {
-		return MigrationReport{}, err
-	}
-
-	if err := sqliteRepo.migrateTable(ctx, "admins", func(tx *sql.Tx) error {
-		return sqliteRepo.importAdminsTx(ctx, tx, snapshot.admins)
-	}); err != nil {
-		return MigrationReport{}, err
-	}
-	if err := sqliteRepo.migrateTable(ctx, "hysteria_users", func(tx *sql.Tx) error {
-		return sqliteRepo.importHysteriaUsersTx(ctx, tx, snapshot.hysteriaUsers)
-	}); err != nil {
-		return MigrationReport{}, err
-	}
-	if err := sqliteRepo.migrateTable(ctx, "sessions", func(tx *sql.Tx) error {
-		return sqliteRepo.importSessionsTx(ctx, tx, snapshot.sessions)
-	}); err != nil {
-		return MigrationReport{}, err
-	}
-	if err := sqliteRepo.migrateTable(ctx, "hysteria_snapshots", func(tx *sql.Tx) error {
-		return sqliteRepo.importHysteriaSnapshotsTx(ctx, tx, snapshot.hysteriaSnapshots)
-	}); err != nil {
-		return MigrationReport{}, err
-	}
-	if err := sqliteRepo.migrateTable(ctx, "system_snapshots", func(tx *sql.Tx) error {
-		return sqliteRepo.importSystemSnapshotsTx(ctx, tx, snapshot.systemSnapshots)
-	}); err != nil {
-		return MigrationReport{}, err
-	}
-	if err := sqliteRepo.migrateTable(ctx, "audit_logs", func(tx *sql.Tx) error {
-		return sqliteRepo.importAuditLogsTx(ctx, tx, snapshot.auditLogs)
-	}); err != nil {
-		return MigrationReport{}, err
-	}
-	if err := sqliteRepo.migrateTable(ctx, "service_states", func(tx *sql.Tx) error {
-		return sqliteRepo.importServiceStatesTx(ctx, tx, snapshot.serviceStates)
-	}); err != nil {
-		return MigrationReport{}, err
-	}
-
-	sourceCounts := snapshot.counts()
-	targetCounts, err := sqliteRepo.countEntities(ctx)
-	if err != nil {
-		return MigrationReport{}, err
-	}
-	if sourceCounts != targetCounts {
-		return MigrationReport{}, fmt.Errorf("migration validation failed: source=%+v target=%+v", sourceCounts, targetCounts)
-	}
-
-	return MigrationReport{
-		Driver:     StorageDriverSQLite,
-		SQLitePath: sqlitePath,
-		Source:     sourceCounts,
-		Target:     targetCounts,
-	}, nil
 }
 
 func (r *SQLiteRepository) BackupTo(ctx context.Context, outPath string) error {
@@ -368,21 +289,6 @@ func copyFile(src string, dst string, mode os.FileMode) error {
 	return nil
 }
 
-func (r *SQLiteRepository) migrateTable(ctx context.Context, table string, fn func(*sql.Tx) error) error {
-	tx, err := r.db.BeginTx(resolveCtx(ctx), nil)
-	if err != nil {
-		return fmt.Errorf("%s: begin transaction: %w", table, err)
-	}
-	if err := fn(tx); err != nil {
-		_ = tx.Rollback()
-		return fmt.Errorf("%s: %w", table, err)
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("%s: commit transaction: %w", table, err)
-	}
-	return nil
-}
-
 func (r *SQLiteRepository) importAdminsTx(ctx context.Context, tx *sql.Tx, items []Admin) error {
 	stmt := `INSERT INTO admins (id, email, password_hash, is_active, created_at_ns, updated_at_ns)
 		VALUES (?, ?, ?, ?, ?, ?)
@@ -487,54 +393,6 @@ func countEntitiesTx(ctx context.Context, tx *sql.Tx) (EntityCounts, error) {
 	}, nil
 }
 
-func (r *SQLiteRepository) countEntities(ctx context.Context) (EntityCounts, error) {
-	getCount := func(table string) (int, error) {
-		var count int
-		query := fmt.Sprintf(`SELECT COUNT(*) FROM %s`, table)
-		if err := r.db.QueryRowContext(resolveCtx(ctx), query).Scan(&count); err != nil {
-			return 0, err
-		}
-		return count, nil
-	}
-	admins, err := getCount("admins")
-	if err != nil {
-		return EntityCounts{}, err
-	}
-	sessions, err := getCount("sessions")
-	if err != nil {
-		return EntityCounts{}, err
-	}
-	hUsers, err := getCount("hysteria_users")
-	if err != nil {
-		return EntityCounts{}, err
-	}
-	hSnapshots, err := getCount("hysteria_snapshots")
-	if err != nil {
-		return EntityCounts{}, err
-	}
-	systemSnapshots, err := getCount("system_snapshots")
-	if err != nil {
-		return EntityCounts{}, err
-	}
-	auditLogs, err := getCount("audit_logs")
-	if err != nil {
-		return EntityCounts{}, err
-	}
-	serviceStates, err := getCount("service_states")
-	if err != nil {
-		return EntityCounts{}, err
-	}
-	return EntityCounts{
-		Admins:            admins,
-		Sessions:          sessions,
-		HysteriaUsers:     hUsers,
-		HysteriaSnapshots: hSnapshots,
-		SystemSnapshots:   systemSnapshots,
-		AuditLogs:         auditLogs,
-		ServiceStates:     serviceStates,
-	}, nil
-}
-
 func (r *SQLiteRepository) listAdmins(ctx context.Context) ([]Admin, error) {
 	rows, err := r.db.QueryContext(resolveCtx(ctx), `SELECT id, email, password_hash, is_active, created_at_ns, updated_at_ns FROM admins ORDER BY created_at_ns ASC, id ASC`)
 	if err != nil {
@@ -590,75 +448,4 @@ func (r *SQLiteRepository) listHysteriaUsers(ctx context.Context) ([]HysteriaUse
 		out = append(out, item)
 	}
 	return out, rows.Err()
-}
-
-type fileSnapshot struct {
-	admins            []Admin
-	sessions          []Session
-	hysteriaUsers     []HysteriaUser
-	hysteriaSnapshots []HysteriaSnapshot
-	systemSnapshots   []SystemSnapshot
-	auditLogs         []AuditLog
-	serviceStates     []ServiceState
-}
-
-func (s fileSnapshot) counts() EntityCounts {
-	return EntityCounts{
-		Admins:            len(s.admins),
-		Sessions:          len(s.sessions),
-		HysteriaUsers:     len(s.hysteriaUsers),
-		HysteriaSnapshots: len(s.hysteriaSnapshots),
-		SystemSnapshots:   len(s.systemSnapshots),
-		AuditLogs:         len(s.auditLogs),
-		ServiceStates:     len(s.serviceStates),
-	}
-}
-
-func captureFileSnapshot(ctx context.Context, repo *FileRepository) (fileSnapshot, error) {
-	out := fileSnapshot{}
-	err := repo.withLock(ctx, func() error {
-		var err error
-		out.admins, err = repo.loadAdminsNoLock()
-		if err != nil {
-			return err
-		}
-		out.sessions, err = repo.loadSessionsNoLock()
-		if err != nil {
-			return err
-		}
-		out.hysteriaUsers, err = repo.loadHysteriaUsersNoLock()
-		if err != nil {
-			return err
-		}
-		out.hysteriaSnapshots, err = repo.loadHysteriaSnapshotsNoLock("")
-		if err != nil {
-			return err
-		}
-		out.systemSnapshots, err = loadEntities[SystemSnapshot](repo.systemSnapshotsDir)
-		if err != nil {
-			return err
-		}
-		out.auditLogs, err = repo.loadAuditLogsNoLock()
-		if err != nil {
-			return err
-		}
-		out.serviceStates, err = repo.loadServiceStatesNoLock()
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		return fileSnapshot{}, err
-	}
-	sort.Slice(out.hysteriaSnapshots, func(i, j int) bool { return out.hysteriaSnapshots[i].ID < out.hysteriaSnapshots[j].ID })
-	sort.Slice(out.systemSnapshots, func(i, j int) bool { return out.systemSnapshots[i].ID < out.systemSnapshots[j].ID })
-	sort.Slice(out.auditLogs, func(i, j int) bool { return out.auditLogs[i].ID < out.auditLogs[j].ID })
-	sort.Slice(out.serviceStates, func(i, j int) bool {
-		if out.serviceStates[i].ServiceName == out.serviceStates[j].ServiceName {
-			return out.serviceStates[i].ID < out.serviceStates[j].ID
-		}
-		return out.serviceStates[i].ServiceName < out.serviceStates[j].ServiceName
-	})
-	return out, nil
 }

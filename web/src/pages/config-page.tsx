@@ -1,4 +1,4 @@
-import { CheckCircle2, Download, Play, RefreshCw, Save, Upload } from "lucide-react";
+import { Download, Play, RefreshCw, Save, Upload } from "lucide-react";
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
@@ -11,7 +11,6 @@ import {
   getHysteriaSettings,
   restoreSQLiteBackup,
   saveHysteriaSettings,
-  validateHysteriaSettings,
 } from "@/domain/settings/services";
 import { Hy2ConfigValidation, Hy2Settings } from "@/domain/settings/types";
 import { APIError } from "@/services/api";
@@ -59,16 +58,6 @@ export default function ConfigPage() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
-
-  async function validateDraft() {
-    setBusy(true); setError("");
-    try {
-      const p = await validateHysteriaSettings(normalizeSettingsDraft(draft));
-      setDraft(toSettingsDraft(p.settings)); setRawYaml(p.raw_yaml || rawYaml); setValidation(p.config_validation || null);
-      setSnack(p.config_validation.valid ? "Configuration is valid" : "Validation returned issues");
-    } catch (err) { setError(extractValidationError(err, "Validation failed")); }
-    finally { setBusy(false); }
-  }
 
   async function saveDraft() {
     setBusy(true); setError("");
@@ -147,7 +136,6 @@ export default function ConfigPage() {
             <Button onClick={() => void load()} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><RefreshCw size={18} strokeWidth={1.6} />Reload</Button>
             <Button onClick={() => void backupSQLite()} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Download size={18} strokeWidth={1.6} />Backup</Button>
             <Button variant="danger" onClick={triggerRestorePicker} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Upload size={18} strokeWidth={1.6} />Restore</Button>
-            <Button onClick={() => void validateDraft()} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><CheckCircle2 size={18} strokeWidth={1.6} />Validate</Button>
             <Button variant="primary" onClick={() => void saveDraft()} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Save size={18} strokeWidth={1.6} />Save</Button>
             <Button variant="primary" onClick={() => setApplyDialog(true)} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Play size={18} strokeWidth={1.6} />Apply</Button>
           </>

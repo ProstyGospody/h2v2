@@ -126,9 +126,6 @@ func (h *Handler) RestoreSQLiteBackup(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) requireSQLiteRepository() (*repository.SQLiteRepository, error) {
-	if repository.NormalizeDriver(h.cfg.StorageDriver) != repository.StorageDriverSQLite {
-		return nil, fmt.Errorf("sqlite storage driver is required")
-	}
 	repo, ok := h.repo.(*repository.SQLiteRepository)
 	if ok {
 		return repo, nil

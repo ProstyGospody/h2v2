@@ -54,7 +54,7 @@ export function ClientFormDialog({
           {previewOpen && (
             <div className="border-t border-[var(--control-border)] p-4">
               <textarea readOnly value={previewConfig} rows={12}
-                className="w-full rounded-lg border border-[var(--control-border)] bg-surface-0 px-4 py-3 font-mono text-[13px] leading-6 text-txt-primary outline-none" />
+                className="w-full rounded-lg border border-[var(--control-border)] bg-[var(--control-bg)] px-4 py-2.5 font-mono text-[13px] leading-6 text-txt-primary outline-none" />
             </div>
           )}
         </div>
