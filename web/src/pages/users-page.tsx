@@ -588,8 +588,22 @@ export default function UsersPage() {
         }
       />
 
-      <div className="flex items-center justify-between text-[13px] text-txt-secondary">
+      <div className="flex items-center justify-between gap-3 text-[13px] text-txt-secondary">
         <span>{filteredClients.length} users</span>
+        <div className="hidden items-center gap-2 sm:flex">
+          <span>Rows:</span>
+          <select
+            value={rowsPerPage}
+            onChange={(event) => handleRowsPerPageChange(event.target.value)}
+            className="rounded-lg bg-surface-1 px-3 py-1.5 text-[13px] text-txt outline-none shadow-[inset_0_0_0_1px_var(--control-border)]"
+          >
+            {rowsPerPageOptions.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* ── Floating bulk action toolbar ── */}
@@ -669,9 +683,9 @@ export default function UsersPage() {
                 <TableHead className="hidden w-[96px] lg:table-cell">Protocol</TableHead>
                 <TableHead className="w-[170px]">Status</TableHead>
                 <TableHead className="hidden w-[220px] lg:table-cell">Traffic</TableHead>
-                <TableHead className="hidden w-[190px] lg:table-cell">Network</TableHead>
-                <TableHead className="hidden w-[170px] md:table-cell">Last Seen</TableHead>
-                <TableHead className="w-[88px] text-right">Actions</TableHead>
+                <TableHead className="hidden w-[170px] text-right lg:table-cell">Network</TableHead>
+                <TableHead className="hidden w-[186px] text-right md:table-cell">Last Seen</TableHead>
+                <TableHead className="w-[72px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <tbody>
@@ -680,23 +694,6 @@ export default function UsersPage() {
           </Table>
         ) : (
           <>
-            <div className="flex items-center justify-end border-b border-border/50 px-4 py-3.5 sm:px-5">
-              <div className="flex items-center gap-2 text-[13px] text-txt-secondary">
-                <span>Rows:</span>
-                <select
-                  value={rowsPerPage}
-                  onChange={(event) => handleRowsPerPageChange(event.target.value)}
-                  className="rounded-lg border border-border bg-surface-1 px-3 py-1.5 text-[13px] text-txt outline-none"
-                >
-                  {rowsPerPageOptions.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
             <Table>
               <TableHeader>
                 <TableRow className="border-t-0 hover:bg-transparent">
@@ -720,17 +717,17 @@ export default function UsersPage() {
                       Traffic <SortIcon field="traffic" sort={sort} />
                     </button>
                   </TableHead>
-                  <TableHead className="hidden w-[190px] lg:table-cell">
-                    <button type="button" onClick={() => toggleSort("download_bps")} className="inline-flex items-center gap-1.5 hover:text-txt-primary">
+                  <TableHead className="hidden w-[170px] text-right lg:table-cell">
+                    <button type="button" onClick={() => toggleSort("download_bps")} className="ml-auto inline-flex items-center gap-1.5 hover:text-txt-primary">
                       Network <SortIcon field="download_bps" sort={sort} />
                     </button>
                   </TableHead>
-                  <TableHead className="hidden w-[170px] md:table-cell">
-                    <button type="button" onClick={() => toggleSort("last_seen")} className="inline-flex items-center gap-1.5 hover:text-txt-primary">
+                  <TableHead className="hidden w-[186px] text-right md:table-cell">
+                    <button type="button" onClick={() => toggleSort("last_seen")} className="ml-auto inline-flex items-center gap-1.5 hover:text-txt-primary">
                       Last Seen <SortIcon field="last_seen" sort={sort} />
                     </button>
                   </TableHead>
-                  <TableHead className="w-[88px] text-right">Actions</TableHead>
+                  <TableHead className="w-[72px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -800,19 +797,19 @@ export default function UsersPage() {
                             <p className="text-[11px] font-medium text-txt-tertiary">{formatBytes(traffic)}</p>
                           </div>
                         </TableCell>
-                        <TableCell className="hidden w-[190px] lg:table-cell">
-                          <div className="flex items-center gap-3 text-[11px] font-semibold tabular-nums text-txt-secondary">
-                            <span className="inline-flex min-w-[84px] items-center gap-1.5 whitespace-nowrap">
+                        <TableCell className="hidden w-[170px] text-right lg:table-cell">
+                          <div className="flex flex-col items-end gap-1 text-[11px] font-semibold tabular-nums text-txt-secondary">
+                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                               <ArrowDownToLine size={12} strokeWidth={1.8} className="text-status-success" />
                               {formatRate(downBps)}
                             </span>
-                            <span className="inline-flex min-w-[84px] items-center gap-1.5 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                               <ArrowUpFromLine size={12} strokeWidth={1.8} className="text-status-warning" />
                               {formatRate(upBps)}
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="hidden w-[170px] md:table-cell">
+                        <TableCell className="hidden w-[186px] whitespace-nowrap text-right md:table-cell">
                           {formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}
                         </TableCell>
                         <TableCell className="text-right">
