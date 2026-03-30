@@ -50,7 +50,7 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
   return (
     <div className="grid gap-5 xl:grid-cols-12">
       <section className="space-y-5 rounded-2xl bg-surface-2 p-6 xl:col-span-7">
-        <SectionTitle icon={<Globe size={18} strokeWidth={1.6} />} title="Connection Profile" description="Listener and encryption settings" />
+        <SectionTitle icon={<Globe size={18} strokeWidth={1.6} />} title="Connection Profile" />
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Input label="Listen" value={draft.listen} onChange={(e) => onDraftChange({ ...draft, listen: e.target.value.replace(/^:/, "") })} />
           <SelectField label="TLS Mode" value={tlsMode} onValueChange={(v) => onDraftChange({ ...draft, tlsMode: v, tlsEnabled: true })} options={[{ value: "acme", label: "ACME" }, { value: "tls", label: "Manual TLS" }]} />
@@ -72,7 +72,7 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
       </section>
 
       <section className="space-y-5 rounded-2xl bg-surface-2 p-6 xl:col-span-5">
-        <SectionTitle icon={<Wrench size={18} strokeWidth={1.6} />} title="Runtime Defaults" description="Bandwidth, transport and protocol options" />
+        <SectionTitle icon={<Wrench size={18} strokeWidth={1.6} />} title="Runtime Defaults" />
         <div className="grid gap-4 md:grid-cols-2">
           <LabeledToggle label="TLS Insecure" checked={Boolean(draft.clientTLSInsecure)} onCheckedChange={(v) => onDraftChange({ ...draft, clientTLSInsecure: v })} />
           <LabeledToggle label="Ignore Client Bandwidth" checked={Boolean(draft.ignoreClientBandwidth)} onCheckedChange={(v) => onDraftChange({ ...draft, ignoreClientBandwidth: v })} />
@@ -86,7 +86,7 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
 
       {masqueradeType !== "none" && (
         <section className="space-y-5 rounded-2xl bg-surface-2 p-6 xl:col-span-7">
-          <SectionTitle icon={<Shield size={18} strokeWidth={1.6} />} title="Masquerade Details" description="Traffic camouflage configuration" />
+          <SectionTitle icon={<Shield size={18} strokeWidth={1.6} />} title="Masquerade Details" />
           {masqueradeType === "proxy" && (
             <div className="space-y-4">
               <Input label="Masquerade Proxy URL" value={draft.masquerade?.proxy?.url || ""} onChange={(e) => onDraftChange({ ...draft, masquerade: { type: "proxy", proxy: { url: e.target.value, rewriteHost: draft.masquerade?.proxy?.rewriteHost || false, insecure: draft.masquerade?.proxy?.insecure || false } } })} />
@@ -113,7 +113,7 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
       )}
 
       <section className={cn("space-y-5 rounded-2xl bg-surface-2 p-6", masqueradeType !== "none" ? "xl:col-span-5" : "xl:col-span-12")}>
-        <SectionTitle icon={<SlidersHorizontal size={18} strokeWidth={1.6} />} title="QUIC Tuning" description="Advanced transport parameters" />
+        <SectionTitle icon={<SlidersHorizontal size={18} strokeWidth={1.6} />} title="QUIC Tuning" />
         <LabeledToggle label="Enable Custom QUIC" checked={draft.quicEnabled} onCheckedChange={(v) => onDraftChange({ ...draft, quicEnabled: v })} />
         {draft.quicEnabled && (
           <div className="grid gap-4 md:grid-cols-2">
@@ -129,10 +129,9 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
       </section>
 
       <section className="space-y-5 rounded-2xl bg-surface-2 p-6 xl:col-span-12">
-        <SectionTitle icon={<Code size={18} strokeWidth={1.6} />} title="Generated YAML" description="Preview of the configuration file" />
+        <SectionTitle icon={<Code size={18} strokeWidth={1.6} />} title="Generated YAML" />
         <textarea readOnly value={rawYaml} rows={16}
           className="w-full rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] px-5 py-4 font-mono text-[13px] leading-6 text-txt outline-none" />
-        <p className="text-[13px] text-txt-muted">Read-only preview of generated configuration</p>
       </section>
     </div>
   );

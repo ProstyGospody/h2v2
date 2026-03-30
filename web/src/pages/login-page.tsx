@@ -75,7 +75,6 @@ export default function LoginPage() {
               </motion.div>
               <div>
                 <h1 className="text-[24px] font-bold text-txt-primary">Welcome back</h1>
-                <p className="mt-1.5 text-[15px] text-txt-secondary">Sign in to H2V2</p>
               </div>
             </div>
 
@@ -102,8 +101,6 @@ export default function LoginPage() {
                 {isSubmitting ? <><Loader2 size={18} strokeWidth={1.8} className="animate-spin" />Signing in...</> : "Sign in"}
               </Button>
             </form>
-
-            <p className="text-center text-[13px] text-txt-muted">Secured connection &middot; H2V2</p>
           </div>
         </div>
       </motion.div>

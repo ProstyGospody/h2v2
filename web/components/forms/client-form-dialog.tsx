@@ -43,8 +43,7 @@ export function ClientFormDialog({
             className="w-full rounded-lg border border-[var(--control-border)] bg-[var(--control-bg)] px-4 py-2.5 text-[14px] text-txt-primary outline-none transition-colors placeholder:text-txt-tertiary focus:border-accent-secondary/50 focus:bg-[var(--control-bg-hover)] focus:shadow-[0_0_0_3px_var(--accent-soft)]" />
         </div>
 
-        <Input label="Auth Secret (optional)" value={values.authSecret} onChange={(e) => setValues((p) => ({ ...p, authSecret: e.target.value }))}
-          placeholder={mode === "create" ? "Leave empty to auto-generate" : "Leave empty to keep current secret"} />
+        <Input label="Auth Secret" value={values.authSecret} onChange={(e) => setValues((p) => ({ ...p, authSecret: e.target.value }))} />
 
         <div className="overflow-hidden rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)]">
           <button type="button" className="flex w-full items-center justify-between px-4 py-3 text-left text-[14px] font-semibold text-txt-primary transition-colors hover:bg-[var(--control-bg-hover)]"
@@ -56,7 +55,6 @@ export function ClientFormDialog({
             <div className="border-t border-[var(--control-border)] p-4">
               <textarea readOnly value={previewConfig} rows={12}
                 className="w-full rounded-lg border border-[var(--control-border)] bg-surface-0 px-4 py-3 font-mono text-[13px] leading-6 text-txt-primary outline-none" />
-              <p className="mt-2 text-[12px] text-txt-secondary">Read-only preview</p>
             </div>
           )}
         </div>

@@ -37,6 +37,8 @@ const HISTORY_LIMIT_1H = 900;
 const HISTORY_LIMIT_24H = 3200;
 const MAX_CHART_BARS_1H = 90;
 const MAX_CHART_BARS_24H = 160;
+const TRAFFIC_BUCKET_MS_1H = 5 * 60 * 1000;
+const TRAFFIC_BUCKET_MS_24H = 60 * 60 * 1000;
 
 type ActionState = { name: string; action: "restart" | "reload" } | null;
 type HistoryWindow = "1h" | "24h";
@@ -58,15 +60,27 @@ function clampPercent(value: number): number {
   return Math.max(0, Math.min(100, value));
 }
 
-function formatShortTime(value: Date): string {
-  if (!(value instanceof Date) || Number.isNaN(value.getTime())) return "--:--";
-  return value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
 function formatTooltipDate(value: unknown): string {
   const date = value instanceof Date ? value : new Date(String(value));
   if (Number.isNaN(date.getTime())) return "--";
   return `${date.toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" })} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+function formatTrafficTick(value: Date, window: HistoryWindow): string {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) return "--:--";
+  if (window === "24h") {
+    return value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+  return value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatTrafficTooltipLabel(value: unknown, window: HistoryWindow): string {
+  const date = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(date.getTime())) return "--";
+  if (window === "24h") {
+    return `${date.toLocaleDateString([], { day: "2-digit", month: "short" })} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  }
+  return formatTooltipDate(date);
 }
 
 function AnimatedNumber({ value, format = (n) => n.toFixed(0) }: { value: number; format?: (v: number) => string }) {
@@ -190,7 +204,7 @@ export default function DashboardPage() {
     historyLoadingRef.current = true;
     setHistoryError("");
     try {
-      const step = historyWindow === "24h" ? 30 : 5;
+      const step = historyWindow === "24h" ? 60 : 5;
       const limit = historyWindow === "24h" ? HISTORY_LIMIT_24H : HISTORY_LIMIT_1H;
       const p = await apiFetch<SystemHistoryResponse>(`/api/system/history?window=${historyWindow}&step=${step}&limit=${limit}`, { method: "GET" });
       const next = Array.isArray(p.items) ? p.items : [];
@@ -253,7 +267,7 @@ export default function DashboardPage() {
 
   const trafficUsageBars = useMemo<TrafficUsageBarPoint[]>(() => {
     if (!historyPoints.length) return [];
-    const bucketMs = 60_000;
+    const bucketMs = historyWindow === "24h" ? TRAFFIC_BUCKET_MS_24H : TRAFFIC_BUCKET_MS_1H;
     const bucketed = new Map<number, TrafficUsageBarPoint>();
     for (let i = 0; i < historyPoints.length; i++) {
       const pt = historyPoints[i];
@@ -438,11 +452,11 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={trafficUsageBars} barGap={4} barCategoryGap="25%">
                 <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
-                <XAxis dataKey="timestamp" tickFormatter={(v) => formatShortTime(new Date(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
+                <XAxis dataKey="timestamp" tickFormatter={(v) => formatTrafficTick(new Date(v), historyWindow)} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
                 <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={58} />
                 <Tooltip
                   formatter={(v: number) => formatBytes(Number(v))}
-                  labelFormatter={(label) => formatTooltipDate(label)}
+                  labelFormatter={(label) => formatTrafficTooltipLabel(label, historyWindow)}
                   contentStyle={tooltipStyle}
                   cursor={{ fill: "var(--accent-soft)" }}
                 />

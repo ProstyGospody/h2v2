@@ -6,9 +6,9 @@ import {
   LogOut,
   Moon,
   PanelLeft,
-  Shield,
   SlidersHorizontal,
   Sun,
+  Users2,
   Zap,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -32,7 +32,7 @@ const SIDEBAR_WIDTH_COLLAPSED = 96;
 
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: <Activity size={24} strokeWidth={1.8} />, section: "MAIN" },
-  { href: "/users", label: "Users", icon: <Shield size={24} strokeWidth={1.8} />, section: "MAIN" },
+  { href: "/users", label: "Users", icon: <Users2 size={24} strokeWidth={1.8} />, section: "MAIN" },
   { href: "/config", label: "Settings", icon: <SlidersHorizontal size={24} strokeWidth={1.8} />, section: "SYSTEM" },
   { href: "/audit", label: "Audit Log", icon: <HardDrive size={24} strokeWidth={1.8} />, section: "SYSTEM" },
 ];
@@ -117,8 +117,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
         <div className={cn("relative flex w-full items-center pb-4 pt-5", compact ? "justify-center px-2" : "justify-start px-5")}>
           <div className={cn("relative flex min-w-0 items-center", compact && "mx-auto")}>
             <div className="relative">
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-accent to-accent-secondary opacity-30 blur-lg" />
-              <div className={cn("relative grid place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-secondary shadow-lg shadow-accent/20", compact ? "h-11 w-11" : "h-12 w-12")}>
+              <div className={cn("relative grid place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-secondary shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]", compact ? "h-11 w-11" : "h-12 w-12")}>
                 <Zap size={compact ? 22 : 24} strokeWidth={2} className="text-white" />
               </div>
             </div>
@@ -126,7 +125,6 @@ export function PanelShell({ children }: { children: ReactNode }) {
             {!compact && (
               <div className="min-w-0 flex-1 pl-3">
                 <p className="truncate text-[17px] font-bold text-txt-primary">H2V2</p>
-                <p className="text-[12px] text-txt-muted">Control Panel</p>
               </div>
             )}
           </div>
