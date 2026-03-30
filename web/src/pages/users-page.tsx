@@ -427,6 +427,7 @@ export default function UsersPage() {
                   <TableHead className="hidden lg:table-cell">Protocol</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden lg:table-cell">Traffic</TableHead>
+                  <TableHead className="hidden lg:table-cell">Network</TableHead>
                   <TableHead className="hidden md:table-cell">Last Seen</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -507,6 +508,11 @@ export default function UsersPage() {
                                 style={{ width: `${ratioWidth}%` }}
                               />
                             </div>
+                            <p className="text-[11px] font-medium text-txt-tertiary">{formatBytes(traffic)}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <div className="space-y-1.5">
                             <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold text-txt-secondary">
                               <span className="inline-flex items-center gap-1.5">
                                 <ArrowDownToLine size={12} strokeWidth={1.8} className="text-status-success" />
@@ -517,7 +523,6 @@ export default function UsersPage() {
                                 {formatRate(upBps)}
                               </span>
                             </div>
-                            <p className="text-[11px] font-medium text-txt-tertiary">{formatBytes(traffic)}</p>
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">{formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}</TableCell>
@@ -567,7 +572,7 @@ export default function UsersPage() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8}>
+                    <TableCell colSpan={9}>
                       {clients.length ? "No users match the current filters." : "No users yet."}
                     </TableCell>
                   </TableRow>

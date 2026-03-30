@@ -15,11 +15,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     <button
       ref={ref}
       className={cn(
-        "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-secondary/50",
+        "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus",
         size === "sm" && "px-3.5 py-2 text-[13px]",
         size === "md" && "px-5 py-2.5 text-[14px]",
         variant === "primary" &&
-          "border-accent/20 bg-gradient-to-br from-accent to-accent-secondary text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] hover:brightness-105 active:brightness-95",
+          "border-transparent bg-gradient-to-br from-accent to-accent-secondary text-white hover:brightness-105 active:brightness-95",
         variant === "ghost" &&
           "border-[var(--control-border)] bg-[var(--control-bg)] text-txt-primary shadow-[inset_0_1px_0_var(--shell-highlight)] hover:border-[var(--control-border-strong)] hover:bg-[var(--control-bg-hover)]",
         variant === "danger" &&
