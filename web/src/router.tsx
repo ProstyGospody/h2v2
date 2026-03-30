@@ -4,6 +4,7 @@ import { AuthGuard } from "@/shell/auth-guard";
 import { PanelShell } from "@/shell/panel-shell";
 import { ErrorBoundary } from "@/src/components/ErrorBoundary";
 import { ToastProvider } from "@/src/components/ui/Toast";
+import { AuditFeedProvider } from "@/src/state/audit-feed";
 
 import AuditPage from "./pages/audit-page";
 import ConfigPage from "./pages/config-page";
@@ -15,11 +16,13 @@ function PanelLayout() {
   return (
     <AuthGuard>
       <ToastProvider>
-        <PanelShell>
-          <ErrorBoundary>
-            <Outlet />
-          </ErrorBoundary>
-        </PanelShell>
+        <AuditFeedProvider>
+          <PanelShell>
+            <ErrorBoundary>
+              <Outlet />
+            </ErrorBoundary>
+          </PanelShell>
+        </AuditFeedProvider>
       </ToastProvider>
     </AuthGuard>
   );

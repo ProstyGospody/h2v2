@@ -24,19 +24,14 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="grid h-16 w-16 place-items-center rounded-2xl bg-status-danger/10">
             <AlertTriangle size={28} strokeWidth={1.6} className="text-status-danger" />
           </div>
-          <div>
-            <h2 className="text-[18px] font-bold text-txt-primary">Something went wrong</h2>
-            <p className="mt-2 text-[14px] leading-relaxed text-txt-secondary">
-              {this.state.error.message || "An unexpected error occurred"}
-            </p>
-          </div>
+          <h2 className="text-[18px] font-bold text-txt-primary">Something went wrong</h2>
           <button
             type="button"
             onClick={() => this.setState({ error: null })}
             className="inline-flex items-center gap-2 rounded-xl bg-accent/15 px-5 py-2.5 text-[14px] font-semibold text-accent transition-colors hover:bg-accent/25"
           >
             <RotateCcw size={16} strokeWidth={1.8} />
-            Try again
+            Retry
           </button>
         </div>
       </div>

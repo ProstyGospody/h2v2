@@ -1,7 +1,7 @@
 import { Download, Play, Save, Upload } from "lucide-react";
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
+import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
 import { ServerSettingsForm } from "@/components/forms/server-settings-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { normalizeSettingsDraft, toSettingsDraft } from "@/domain/settings/adapters";
@@ -32,8 +32,6 @@ export default function ConfigPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [applyDialog, setApplyDialog] = useState(false);
-  const [restoreDialog, setRestoreDialog] = useState(false);
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [snack, setSnack] = useState("");
@@ -71,7 +69,7 @@ export default function ConfigPage() {
 
   async function applyConfig() {
     setApplying(true); setError("");
-    try { await applyHysteriaSettings(); setApplyDialog(false); setSnack("Hysteria restarted"); await load(); }
+    try { await applyHysteriaSettings(); setSnack("Hysteria restarted"); await load(); }
     catch (err) { setError(extractValidationError(err, "Apply failed")); }
     finally { setApplying(false); }
   }
@@ -98,7 +96,6 @@ export default function ConfigPage() {
     event.target.value = "";
     if (!file) return;
     setRestoreFile(file);
-    setRestoreDialog(true);
   }
 
   async function restoreSQLite() {
@@ -106,7 +103,6 @@ export default function ConfigPage() {
     setStorageBusy(true); setError("");
     try {
       await restoreSQLiteBackup(restoreFile);
-      setRestoreDialog(false);
       setRestoreFile(null);
       setSnack("Database restored");
     } catch (err) {
@@ -134,9 +130,30 @@ export default function ConfigPage() {
         actions={
           <>
             <Button onClick={() => void backupSQLite()} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Download size={18} strokeWidth={1.6} />Backup</Button>
-            <Button variant="danger" onClick={triggerRestorePicker} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Upload size={18} strokeWidth={1.6} />Restore</Button>
+            {restoreFile ? (
+              <>
+                <Button onClick={triggerRestorePicker} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Upload size={18} strokeWidth={1.6} />Select DB</Button>
+                <ConfirmPopover
+                  title="Restore database"
+                  description={`Restore from ${restoreFile.name}?`}
+                  confirmText="Restore"
+                  onConfirm={() => void restoreSQLite()}
+                >
+                  <Button variant="danger" disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Upload size={18} strokeWidth={1.6} />Restore</Button>
+                </ConfirmPopover>
+              </>
+            ) : (
+              <Button variant="danger" onClick={triggerRestorePicker} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Upload size={18} strokeWidth={1.6} />Restore</Button>
+            )}
             <Button variant="primary" onClick={() => void saveDraft()} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Save size={18} strokeWidth={1.6} />Save</Button>
-            <Button variant="primary" onClick={() => setApplyDialog(true)} disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Play size={18} strokeWidth={1.6} />Apply</Button>
+            <ConfirmPopover
+              title="Apply configuration"
+              description="Restart hysteria-server?"
+              confirmText="Apply"
+              onConfirm={() => void applyConfig()}
+            >
+              <Button variant="primary" disabled={busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Play size={18} strokeWidth={1.6} />Apply</Button>
+            </ConfirmPopover>
           </>
         }
       />
@@ -148,8 +165,6 @@ export default function ConfigPage() {
 
       <ServerSettingsForm draft={draft} rawYaml={rawYaml} onDraftChange={setDraft} />
 
-      <ConfirmDialog open={applyDialog} title="Apply configuration" description="Restart hysteria-server with the current saved settings?" busy={applying} confirmColor="secondary" confirmText="Apply & Restart" onClose={() => setApplyDialog(false)} onConfirm={() => void applyConfig()} />
-      <ConfirmDialog open={restoreDialog} title="Restore database" description={restoreFile ? `Restore from ${restoreFile.name}?` : "Restore selected backup?"} busy={storageBusy} confirmText="Restore" onClose={() => { if (!storageBusy) { setRestoreDialog(false); setRestoreFile(null); } }} onConfirm={() => void restoreSQLite()} />
       <Toast open={Boolean(snack)} onOpenChange={(open) => !open && setSnack("")} message={snack} variant="success" />
     </div>
   );

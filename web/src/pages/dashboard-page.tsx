@@ -28,7 +28,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
+import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
 import { PageHeader } from "@/components/ui/page-header";
 import { APIError, apiFetch } from "@/services/api";
 import { ServiceDetails, ServiceSummary, SystemHistoryResponse, SystemLiveResponse } from "@/types/common";
@@ -42,19 +42,24 @@ const HISTORY_LIMIT_24H = 3200;
 const TRAFFIC_BUCKET_MS_1H = 5 * 60 * 1000;
 const TRAFFIC_BUCKET_MS_24H = 60 * 60 * 1000;
 
-type ActionState = { name: string; action: "restart" | "reload" } | null;
 type HistoryWindow = "1h" | "24h";
 
 type HistoryTrendPoint = {
   timestamp: Date;
   download: number;
   upload: number;
+  connections: number;
 };
 
 type TrafficUsageBarPoint = {
   timestamp: Date;
   download_bytes: number;
   upload_bytes: number;
+};
+
+type SparkPoint = {
+  idx: number;
+  value: number;
 };
 
 function clampPercent(value: number): number {
@@ -167,6 +172,39 @@ function SectionHeader({ icon, title, children }: { icon: React.ReactNode; title
   );
 }
 
+function MiniSparkline({
+  data,
+  color,
+  gradientId,
+}: {
+  data: SparkPoint[];
+  color: string;
+  gradientId: string;
+}) {
+  if (!data.length) {
+    return <div className="h-6 w-20 rounded-md bg-surface-3/45" />;
+  }
+
+  return (
+    <AreaChart width={80} height={24} data={data}>
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.42} />
+          <stop offset="100%" stopColor={color} stopOpacity={0.05} />
+        </linearGradient>
+      </defs>
+      <Area
+        type="monotone"
+        dataKey="value"
+        stroke={color}
+        strokeWidth={1.5}
+        fill={`url(#${gradientId})`}
+        isAnimationActive={false}
+      />
+    </AreaChart>
+  );
+}
+
 function MetricsCarousel({ children }: { children: React.ReactNode }) {
   const items = Array.isArray(children) ? children : [children];
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -247,7 +285,6 @@ export default function DashboardPage() {
   const [servicesError, setServicesError] = useState("");
   const [serviceDetails, setServiceDetails] = useState<ServiceDetails | null>(null);
   const [serviceDetailsOpen, setServiceDetailsOpen] = useState(false);
-  const [serviceActionState, setServiceActionState] = useState<ActionState>(null);
   const loadingRef = useRef(false);
   const historyLoadingRef = useRef(false);
 
@@ -317,10 +354,9 @@ export default function DashboardPage() {
     finally { setServicesBusy(false); }
   }
 
-  async function runServiceAction() {
-    if (!serviceActionState) return;
+  async function runServiceAction(name: string, action: "restart" | "reload") {
     setServicesBusy(true);
-    try { await apiFetch<{ ok: boolean }>(`/api/services/${serviceActionState.name}/${serviceActionState.action}`, { method: "POST", body: JSON.stringify({}) }); setServiceActionState(null); await loadServices(); }
+    try { await apiFetch<{ ok: boolean }>(`/api/services/${name}/${action}`, { method: "POST", body: JSON.stringify({}) }); await loadServices(); }
     catch (err) { setServicesError(err instanceof APIError ? err.message : "Failed to run action"); }
     finally { setServicesBusy(false); }
   }
@@ -338,10 +374,48 @@ export default function DashboardPage() {
 
   const historyPoints = useMemo<HistoryTrendPoint[]>(() => {
     return historyItems
-      .map((s) => { const t = new Date(s.timestamp); return Number.isNaN(t.getTime()) ? null : { timestamp: t, download: Math.max(0, s.network_rx_bps || 0), upload: Math.max(0, s.network_tx_bps || 0) }; })
+      .map((s) => {
+        const t = new Date(s.timestamp);
+        if (Number.isNaN(t.getTime())) return null;
+        const tcp = Number((s as Record<string, unknown>).tcp_sockets || 0);
+        const udp = Number((s as Record<string, unknown>).udp_sockets || 0);
+        return {
+          timestamp: t,
+          download: Math.max(0, s.network_rx_bps || 0),
+          upload: Math.max(0, s.network_tx_bps || 0),
+          connections: Math.max(0, (Number.isFinite(tcp) ? tcp : 0) + (Number.isFinite(udp) ? udp : 0)),
+        };
+      })
       .filter((x): x is HistoryTrendPoint => Boolean(x))
       .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }, [historyItems]);
+
+  const networkSparkline = useMemo<SparkPoint[]>(() => {
+    return historyPoints.map((pt, idx) => ({ idx, value: pt.download + pt.upload })).slice(-24);
+  }, [historyPoints]);
+
+  const trafficSparkline = useMemo<SparkPoint[]>(() => {
+    if (!historyPoints.length) return [];
+    const points: SparkPoint[] = [];
+    let total = 0;
+    for (let idx = 0; idx < historyPoints.length; idx++) {
+      const current = historyPoints[idx];
+      const prevMs = idx > 0 ? historyPoints[idx - 1].timestamp.getTime() : current.timestamp.getTime() - 5_000;
+      const dt = Math.max(1, (current.timestamp.getTime() - prevMs) / 1000);
+      total += (current.download + current.upload) * dt;
+      points.push({ idx, value: total });
+    }
+    return points.slice(-24);
+  }, [historyPoints]);
+
+  const connectionsSparkline = useMemo<SparkPoint[]>(() => {
+    const hasConnectionHistory = historyPoints.some((pt) => pt.connections > 0);
+    if (hasConnectionHistory) {
+      return historyPoints.map((pt, idx) => ({ idx, value: pt.connections })).slice(-24);
+    }
+    const fallback = Math.max(0, tcpConnections + udpConnections);
+    return Array.from({ length: 12 }, (_unused, idx) => ({ idx, value: fallback }));
+  }, [historyPoints, tcpConnections, udpConnections]);
 
   const trafficUsageBars = useMemo<TrafficUsageBarPoint[]>(() => {
     const bucketMs = historyWindow === "24h" ? TRAFFIC_BUCKET_MS_24H : TRAFFIC_BUCKET_MS_1H;
@@ -485,30 +559,32 @@ export default function DashboardPage() {
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/35">
             <Network size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Network</p>
             <div className="mt-1.5 flex flex-wrap items-center gap-3 text-[15px] font-semibold text-txt-primary">
               <span className="inline-flex items-center gap-1.5"><ArrowDownToLine size={14} strokeWidth={1.8} className="text-status-success" /><AnimatedNumber value={networkRx} format={formatRate} /></span>
               <span className="inline-flex items-center gap-1.5"><ArrowUpFromLine size={14} strokeWidth={1.8} className="text-status-warning" /><AnimatedNumber value={networkTx} format={formatRate} /></span>
             </div>
           </div>
+          <div className="shrink-0"><MiniSparkline data={networkSparkline} color="var(--data-2)" gradientId="spark-network" /></div>
         </div>
 
         <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl bg-surface-2 p-5">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/35">
             <Globe size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Total Traffic</p>
             <p className="mt-1.5 text-[15px] font-semibold text-txt-primary"><AnimatedNumber value={totalTraffic} format={formatBytes} /></p>
           </div>
+          <div className="shrink-0"><MiniSparkline data={trafficSparkline} color="var(--data-1)" gradientId="spark-traffic" /></div>
         </div>
 
         <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl bg-surface-2 p-5">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/35">
             <Zap size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Connections</p>
             <div className="mt-1.5 flex items-center gap-3 text-[15px] font-semibold text-txt-primary">
               <span>TCP <AnimatedNumber value={tcpConnections} /></span>
@@ -516,6 +592,7 @@ export default function DashboardPage() {
               <span>UDP <AnimatedNumber value={udpConnections} /></span>
             </div>
           </div>
+          <div className="shrink-0"><MiniSparkline data={connectionsSparkline} color="var(--status-success)" gradientId="spark-connections" /></div>
         </div>
       </div>
 
@@ -550,8 +627,8 @@ export default function DashboardPage() {
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-lg border border-border/40 bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">Down total: {formatBytes(trafficTotals.download)}</span>
-              <span className="rounded-lg border border-border/40 bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">Up total: {formatBytes(trafficTotals.upload)}</span>
+              <span className="rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">Down total: {formatBytes(trafficTotals.download)}</span>
+              <span className="rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">Up total: {formatBytes(trafficTotals.upload)}</span>
             </div>
           </div>
           <div className="h-[300px]">
@@ -628,8 +705,22 @@ export default function DashboardPage() {
                 </div>
                 <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-border/30 pt-2.5">
                   <Button size="sm" className="h-8 min-w-[96px] flex-1 px-3 sm:flex-none" onClick={() => void openServiceDetails(item.service_name)} disabled={servicesBusy}><Eye size={15} strokeWidth={1.6} />Details</Button>
-                  <Button size="sm" className="h-8 min-w-[96px] flex-1 px-3 sm:flex-none" onClick={() => setServiceActionState({ name: item.service_name, action: "reload" })} disabled={servicesBusy}><RefreshCw size={15} strokeWidth={1.6} />Reload</Button>
-                  <Button size="sm" className="h-8 min-w-[96px] flex-1 px-3 sm:flex-none" onClick={() => setServiceActionState({ name: item.service_name, action: "restart" })} disabled={servicesBusy}><RotateCcw size={15} strokeWidth={1.6} />Restart</Button>
+                  <ConfirmPopover
+                    title="Reload service"
+                    description={`Reload ${item.service_name}?`}
+                    confirmText="Reload"
+                    onConfirm={() => void runServiceAction(item.service_name, "reload")}
+                  >
+                    <Button size="sm" className="h-8 min-w-[96px] flex-1 px-3 sm:flex-none" disabled={servicesBusy}><RefreshCw size={15} strokeWidth={1.6} />Reload</Button>
+                  </ConfirmPopover>
+                  <ConfirmPopover
+                    title="Restart service"
+                    description={`Restart ${item.service_name}?`}
+                    confirmText="Restart"
+                    onConfirm={() => void runServiceAction(item.service_name, "restart")}
+                  >
+                    <Button size="sm" className="h-8 min-w-[96px] flex-1 px-3 sm:flex-none" disabled={servicesBusy}><RotateCcw size={15} strokeWidth={1.6} />Restart</Button>
+                  </ConfirmPopover>
                 </div>
               </div>
             )) : <div className="rounded-2xl bg-surface-2 p-6 text-[14px] text-txt-secondary">Service activity is not available yet.</div>}
@@ -650,7 +741,7 @@ export default function DashboardPage() {
             <p className="text-[13px] text-txt-muted">Checked: {formatDateTime(serviceDetails.checked_at)}</p>
             <div>
               <p className="mb-2 text-[14px] font-semibold text-txt">Recent logs</p>
-              <pre className="m-0 max-h-[320px] overflow-auto rounded-xl border border-border/50 bg-surface-0 p-4 font-mono text-[13px] leading-6 text-txt-secondary">
+              <pre className="m-0 max-h-[320px] overflow-auto rounded-xl bg-surface-0 p-4 font-mono text-[13px] leading-6 text-txt-secondary">
                 {serviceDetails.last_logs?.length ? serviceDetails.last_logs.join("\n") : "No logs available"}
               </pre>
             </div>
@@ -658,9 +749,6 @@ export default function DashboardPage() {
         )}
       </Dialog>
 
-      <ConfirmDialog open={Boolean(serviceActionState)} title="Confirm service action"
-        description={`${serviceActionState?.action === "restart" ? "Restart" : "Reload"} ${serviceActionState?.name || "service"} now?`}
-        busy={servicesBusy} confirmText="Confirm" onClose={() => setServiceActionState(null)} onConfirm={() => void runServiceAction()} />
     </div>
   );
 }

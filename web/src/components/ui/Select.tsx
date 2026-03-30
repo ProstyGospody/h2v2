@@ -14,7 +14,7 @@ const SelectTrigger = forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex h-10 w-full items-center justify-between rounded-lg border border-[var(--control-border)] bg-[var(--control-bg)] px-4 text-left text-[14px] font-medium text-txt-primary outline-none transition-colors placeholder:text-txt-tertiary focus:border-accent-secondary/50 focus:bg-[var(--control-bg-hover)] focus:shadow-[0_0_0_3px_var(--accent-soft)] data-[placeholder]:text-txt-tertiary",
+      "inline-flex h-10 w-full items-center justify-between rounded-lg border-0 bg-[var(--control-bg)] px-4 text-left text-[14px] font-medium text-txt-primary shadow-[inset_0_0_0_1px_var(--control-border)] outline-none transition-colors placeholder:text-txt-tertiary focus:bg-[var(--control-bg-hover)] focus:shadow-[inset_0_0_0_1px_var(--accent),0_0_0_3px_var(--accent-soft)] data-[placeholder]:text-txt-tertiary",
       className,
     )}
     {...props}
@@ -37,7 +37,7 @@ const SelectContent = forwardRef<
       ref={ref}
       position={position}
       className={cn(
-        "z-50 overflow-hidden rounded-xl border border-[var(--control-border)] bg-surface-2/96 shadow-[0_18px_42px_-26px_var(--dialog-shadow)] backdrop-blur-xl",
+        "z-50 overflow-hidden rounded-xl border-0 bg-surface-2/96 shadow-[0_18px_42px_-26px_var(--dialog-shadow),inset_0_0_0_1px_var(--control-border)] backdrop-blur-xl",
         position === "popper" && "translate-y-1",
         className,
       )}

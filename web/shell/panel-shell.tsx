@@ -15,7 +15,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { cn } from "@/src/components/ui";
+import { Badge, cn } from "@/src/components/ui";
+import { useAuditFeed } from "@/src/state/audit-feed";
 import { applyTheme, resolveTheme, type ThemeMode } from "@/src/theme";
 import { apiFetch } from "@/services/api";
 
@@ -45,6 +46,7 @@ function isActive(pathname: string, href: string): boolean {
 export function PanelShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const { newCount, markSeen } = useAuditFeed();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>(() => resolveTheme());
@@ -67,6 +69,12 @@ export function PanelShell({ children }: { children: ReactNode }) {
     setMobileOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    if (pathname === "/audit") {
+      markSeen();
+    }
+  }, [markSeen, pathname]);
+
   async function logout() {
     try {
       await apiFetch<{ ok: boolean }>("/api/auth/logout", { method: "POST", body: JSON.stringify({}) });
@@ -82,12 +90,16 @@ export function PanelShell({ children }: { children: ReactNode }) {
 
   function SidebarNavLink({ item, compact, onNavigate }: { item: NavItem; compact: boolean; onNavigate?: () => void }) {
     const selected = isActive(pathname, item.href);
+    const showAuditBadge = item.href === "/audit" && newCount > 0;
 
     return (
       <button
         type="button"
         title={compact ? item.label : undefined}
         onClick={() => {
+          if (item.href === "/audit") {
+            markSeen();
+          }
           navigate(item.href);
           onNavigate?.();
         }}
@@ -107,6 +119,17 @@ export function PanelShell({ children }: { children: ReactNode }) {
         </span>
 
         {!compact && <span className="text-[14px] font-semibold whitespace-nowrap">{item.label}</span>}
+        {showAuditBadge ? (
+          compact ? (
+            <span className="absolute right-1.5 top-1.5 inline-flex min-w-[16px] items-center justify-center rounded-md bg-status-warning/90 px-1 py-0.5 text-[9px] font-bold leading-none text-surface-0">
+              {newCount > 9 ? "9+" : newCount}
+            </span>
+          ) : (
+            <Badge variant="warning" className="ml-auto min-w-[22px] justify-center px-1.5 py-0.5 text-[11px]">
+              {newCount > 99 ? "99+" : newCount}
+            </Badge>
+          )
+        ) : null}
       </button>
     );
   }

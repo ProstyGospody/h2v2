@@ -20,7 +20,6 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ClientArtifactsDialog } from "@/components/dialogs/client-artifacts-dialog";
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
 import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
 import { ClientFormDialog } from "@/components/forms/client-form-dialog";
 import { PageHeader } from "@/components/ui/page-header";
@@ -240,11 +239,6 @@ export default function UsersPage() {
   const [formError, setFormError] = useState("");
   const [editingClient, setEditingClient] = useState<HysteriaClient | null>(null);
 
-  const [deleteTarget, setDeleteTarget] = useState<HysteriaClient | null>(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
-  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const [bulkDeleteBusy, setBulkDeleteBusy] = useState(false);
-
   const [artifactOpen, setArtifactOpen] = useState(false);
   const [artifactLoading, setArtifactLoading] = useState(false);
   const [artifactClient, setArtifactClient] = useState<HysteriaClient | null>(null);
@@ -409,20 +403,13 @@ export default function UsersPage() {
     }
   }
 
-  async function removeClient() {
-    if (!deleteTarget) {
-      return;
-    }
-    setDeleteBusy(true);
+  async function removeClient(clientID: string) {
     try {
-      await deleteClient(deleteTarget.id);
-      setDeleteTarget(null);
+      await deleteClient(clientID);
       toast.notify("User deleted");
       await load();
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Failed to delete user");
-    } finally {
-      setDeleteBusy(false);
     }
   }
 
@@ -436,7 +423,6 @@ export default function UsersPage() {
     let firstError = "";
     let deletedCount = 0;
 
-    setBulkDeleteBusy(true);
     setError("");
     try {
       for (const id of targetIDs) {
@@ -462,8 +448,6 @@ export default function UsersPage() {
         setSelectedClientIDs([]);
       }
     } finally {
-      setBulkDeleteBusy(false);
-      setBulkDeleteOpen(false);
       await load();
     }
   }
@@ -585,7 +569,7 @@ export default function UsersPage() {
                 className="h-12 rounded-2xl border-border/80 bg-surface-2/70 pl-11 shadow-[inset_0_1px_0_var(--shell-highlight)]"
               />
             </div>
-            <div className="flex w-full items-center gap-1 rounded-2xl border border-border/70 bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)] sm:w-auto">
+            <div className="flex w-full items-center gap-1 rounded-2xl bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)] sm:w-auto">
               {(["all", "online", "enabled", "disabled"] as ClientFilter[]).map((item) => (
                 <button
                   key={item}
@@ -618,7 +602,7 @@ export default function UsersPage() {
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2"
           >
-            <div className="flex items-center gap-2 rounded-2xl border border-border/70 bg-surface-2/95 px-4 py-2.5 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl">
+            <div className="flex items-center gap-2 rounded-2xl bg-surface-2/95 px-4 py-2.5 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl">
               <span className="mr-1 inline-flex h-7 min-w-[28px] items-center justify-center rounded-lg bg-accent/15 px-2 text-[13px] font-bold tabular-nums text-accent">
                 {selectedClientIDs.length}
               </span>
@@ -642,14 +626,20 @@ export default function UsersPage() {
                 <PowerOff size={14} strokeWidth={1.8} />
                 Disable
               </button>
-              <button
-                type="button"
-                onClick={() => setBulkDeleteOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10"
+              <ConfirmPopover
+                title="Delete selected users"
+                description={`Delete ${selectedClientIDs.length} users?`}
+                confirmText="Delete"
+                onConfirm={() => void deleteSelectedClients()}
               >
-                <Trash2 size={14} strokeWidth={1.8} />
-                Delete
-              </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10"
+                >
+                  <Trash2 size={14} strokeWidth={1.8} />
+                  Delete
+                </button>
+              </ConfirmPopover>
 
               <div className="h-5 w-px bg-border/50" />
 
@@ -826,7 +816,7 @@ export default function UsersPage() {
                           {formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}
                         </TableCell>
                         <TableCell className="text-right">
-                          <InlineActions client={client} onArtifacts={openArtifacts} onEdit={openEdit} onDelete={async (c) => { await deleteClient(c.id); toast.notify("User deleted"); await load(); }} />
+                          <InlineActions client={client} onArtifacts={openArtifacts} onEdit={openEdit} onDelete={(c) => void removeClient(c.id)} />
                         </TableCell>
                       </TableRow>
                     );
@@ -928,7 +918,7 @@ export default function UsersPage() {
                       />
                       {status}
                     </span>
-                    <MobileActions client={client} onArtifacts={openArtifacts} onEdit={openEdit} onDelete={setDeleteTarget} />
+                    <MobileActions client={client} onArtifacts={openArtifacts} onEdit={openEdit} onDelete={(c) => void removeClient(c.id)} />
                   </div>
                 </div>
 
@@ -989,26 +979,6 @@ export default function UsersPage() {
         error={formError}
         onClose={() => setFormOpen(false)}
         onSubmit={submitForm}
-      />
-
-      <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        title="Delete user"
-        description={`Delete ${deleteTarget?.username || "user"} and remove access?`}
-        busy={deleteBusy}
-        confirmText="Delete"
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={() => void removeClient()}
-      />
-
-      <ConfirmDialog
-        open={bulkDeleteOpen}
-        title="Delete selected users"
-        description={`Delete ${selectedClientIDs.length} selected users and remove access?`}
-        busy={bulkDeleteBusy}
-        confirmText="Delete selected"
-        onClose={() => setBulkDeleteOpen(false)}
-        onConfirm={() => void deleteSelectedClients()}
       />
 
       <ClientArtifactsDialog

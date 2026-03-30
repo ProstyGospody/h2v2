@@ -1,10 +1,9 @@
 import { RefreshCw, Shield } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/ui/page-header";
-import { APIError, apiFetch } from "@/services/api";
-import { Button, Badge, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "@/src/components/ui";
-import { AuditLogItem } from "@/types/common";
+import { Button, Input, Badge, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "@/src/components/ui";
+import { useAuditFeed } from "@/src/state/audit-feed";
 import { formatDateTime } from "@/utils/format";
 
 function actionVariant(action: string): "default" | "success" | "warning" | "danger" {
@@ -15,36 +14,92 @@ function actionVariant(action: string): "default" | "success" | "warning" | "dan
   return "default";
 }
 
+function actionKind(action: string): "create" | "update" | "delete" | "other" {
+  const l = action.toLowerCase();
+  if (l.includes("delete") || l.includes("remove")) return "delete";
+  if (l.includes("create") || l.includes("add")) return "create";
+  if (l.includes("update") || l.includes("change") || l.includes("edit")) return "update";
+  return "other";
+}
+
 export default function AuditPage() {
-  const [items, setItems] = useState<AuditLogItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const { items, loading, error, refresh, markSeen } = useAuditFeed();
+  const [actionFilter, setActionFilter] = useState<"all" | "create" | "update" | "delete">("all");
+  const [actorFilter, setActorFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
-  const load = useCallback(async () => {
-    setError("");
-    try {
-      const p = await apiFetch<{ items: AuditLogItem[] }>("/api/audit?limit=250", { method: "GET" });
-      setItems(p.items || []);
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : "Failed to load audit log");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  useEffect(() => {
+    markSeen();
+  }, [markSeen, items]);
 
-  useEffect(() => { void load(); }, [load]);
+  const filteredItems = useMemo(() => {
+    const actorNeedle = actorFilter.trim().toLowerCase();
+    const fromMs = dateFrom ? new Date(`${dateFrom}T00:00:00`).getTime() : Number.NEGATIVE_INFINITY;
+    const toMs = dateTo ? new Date(`${dateTo}T23:59:59.999`).getTime() : Number.POSITIVE_INFINITY;
+
+    return items.filter((item) => {
+      const kind = actionKind(item.action);
+      if (actionFilter !== "all" && kind !== actionFilter) return false;
+
+      const actor = (item.admin_email || "system").toLowerCase();
+      if (actorNeedle && !actor.includes(actorNeedle)) return false;
+
+      const itemMs = new Date(item.created_at).getTime();
+      if (!Number.isFinite(itemMs)) return false;
+      if (itemMs < fromMs || itemMs > toMs) return false;
+      return true;
+    });
+  }, [actionFilter, actorFilter, dateFrom, dateTo, items]);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Audit Log"
         actions={
-          <Button variant="primary" onClick={() => void load()} className="w-full sm:w-auto">
+          <Button variant="primary" onClick={() => void refresh()} className="h-11 w-full rounded-2xl px-4 sm:w-auto">
             <RefreshCw size={18} strokeWidth={1.6} />
             Refresh
           </Button>
         }
       />
+
+      <div className="grid gap-3 md:grid-cols-4">
+        <div>
+          <label className="mb-2 block text-[13px] font-medium text-txt-secondary">Action</label>
+          <select
+            value={actionFilter}
+            onChange={(event) => setActionFilter(event.target.value as "all" | "create" | "update" | "delete")}
+            className="h-10 w-full rounded-xl bg-[var(--control-bg)] px-3 text-[14px] text-txt-primary outline-none focus:shadow-[0_0_0_3px_var(--accent-soft)]"
+          >
+            <option value="all">All</option>
+            <option value="create">Create</option>
+            <option value="update">Update</option>
+            <option value="delete">Delete</option>
+          </select>
+        </div>
+        <Input
+          label="Actor"
+          value={actorFilter}
+          onChange={(event) => setActorFilter(event.target.value)}
+          placeholder="Actor"
+          className="h-10 rounded-xl"
+        />
+        <Input
+          label="From"
+          type="date"
+          value={dateFrom}
+          onChange={(event) => setDateFrom(event.target.value)}
+          className="h-10 rounded-xl"
+        />
+        <Input
+          label="To"
+          type="date"
+          value={dateTo}
+          onChange={(event) => setDateTo(event.target.value)}
+          className="h-10 rounded-xl"
+        />
+      </div>
 
       {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
 
@@ -75,19 +130,24 @@ export default function AuditPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.map((item, i) => (
+              {filteredItems.map((item, i) => (
                 <TableRow key={item.id} style={{ animationDelay: `${i * 0.03}s` }} className="animate-[fadein_0.2s_ease_forwards] opacity-0">
                   <TableCell className="whitespace-nowrap text-[12px] text-txt-secondary sm:text-[14px]">{formatDateTime(item.created_at)}</TableCell>
                   <TableCell><span className="font-medium">{item.admin_email || "system"}</span></TableCell>
                   <TableCell><Badge variant={actionVariant(item.action)}>{item.action}</Badge></TableCell>
                   <TableCell><span className="text-txt-secondary">{item.entity_type}{item.entity_id ? <span className="text-txt-muted">:{item.entity_id}</span> : ""}</span></TableCell>
                   <TableCell className="hidden lg:table-cell">
-                    <pre className="m-0 max-w-[340px] truncate whitespace-pre-wrap break-words rounded-lg border border-border/50 bg-surface-0/50 p-3 font-mono text-[13px] text-txt-secondary">
+                    <pre className="m-0 max-w-[340px] truncate whitespace-pre-wrap break-words rounded-lg bg-surface-0/50 p-3 font-mono text-[13px] text-txt-secondary">
                       {item.payload_json || "{}"}
                     </pre>
                   </TableCell>
                 </TableRow>
               ))}
+              {!filteredItems.length ? (
+                <TableRow>
+                  <TableCell colSpan={5}>No audit records match filters.</TableCell>
+                </TableRow>
+              ) : null}
             </TableBody>
           </Table>
         )}

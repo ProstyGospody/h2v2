@@ -21,9 +21,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         variant === "primary" &&
           "border-0 bg-gradient-to-br from-accent to-accent-secondary text-white hover:brightness-105 active:brightness-95",
         variant === "ghost" &&
-          "border border-[var(--control-border)] bg-[var(--control-bg)] text-txt-primary shadow-[inset_0_1px_0_var(--shell-highlight)] hover:border-[var(--control-border-strong)] hover:bg-[var(--control-bg-hover)]",
+          "border-0 bg-[var(--control-bg)] text-txt-primary shadow-[inset_0_0_0_1px_var(--control-border),inset_0_1px_0_var(--shell-highlight)] hover:bg-[var(--control-bg-hover)] hover:shadow-[inset_0_0_0_1px_var(--control-border-strong),inset_0_1px_0_var(--shell-highlight)]",
         variant === "danger" &&
-          "border border-status-danger/38 bg-status-danger/16 text-status-danger shadow-[inset_0_1px_0_var(--shell-highlight)] hover:border-status-danger/55 hover:bg-status-danger/24",
+          "border-0 bg-status-danger/16 text-status-danger shadow-[inset_0_0_0_1px_rgba(185,120,130,0.45),inset_0_1px_0_var(--shell-highlight)] hover:bg-status-danger/24 hover:shadow-[inset_0_0_0_1px_rgba(185,120,130,0.62),inset_0_1px_0_var(--shell-highlight)]",
         className,
       )}
       {...props}
