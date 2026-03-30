@@ -428,9 +428,9 @@ export default function UsersPage() {
                   <TableHead className="hidden w-14 md:table-cell">#</TableHead>
                   <TableHead>User</TableHead>
                   <TableHead className="hidden w-[96px] lg:table-cell">Protocol</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="w-[170px]">Status</TableHead>
                   <TableHead className="hidden lg:table-cell">Traffic</TableHead>
-                  <TableHead className="hidden lg:table-cell">Network</TableHead>
+                  <TableHead className="hidden w-[190px] lg:table-cell">Network</TableHead>
                   <TableHead className="hidden md:table-cell">Last Seen</TableHead>
                   <TableHead className="w-[88px] text-right">Actions</TableHead>
                 </TableRow>
@@ -484,20 +484,22 @@ export default function UsersPage() {
                         <TableCell className="hidden lg:table-cell">
                           <Badge variant="protocol-hy2">HY2</Badge>
                         </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span
-                              className={cn(
-                                "h-[6px] w-[6px] rounded-full",
-                                statusOnline && client.enabled && "bg-status-success shadow-[0_0_8px_var(--status-success-soft)]",
-                                !statusOnline && client.enabled && "bg-status-warning",
-                                !client.enabled && "bg-txt-muted",
-                              )}
-                            />
-                            <span className="text-[11px] text-txt-secondary">
-                              {!client.enabled ? "disabled" : statusOnline ? "online" : "offline"}
+                        <TableCell className="whitespace-nowrap">
+                          <div className="flex min-w-[150px] items-center gap-3">
+                            <span className="inline-flex w-[74px] items-center gap-2">
+                              <span
+                                className={cn(
+                                  "h-[6px] w-[6px] rounded-full",
+                                  statusOnline && client.enabled && "bg-status-success shadow-[0_0_8px_var(--status-success-soft)]",
+                                  !statusOnline && client.enabled && "bg-status-warning",
+                                  !client.enabled && "bg-txt-muted",
+                                )}
+                              />
+                              <span className="w-[62px] text-[11px] text-txt-secondary">
+                                {!client.enabled ? "disabled" : statusOnline ? "online" : "offline"}
+                              </span>
                             </span>
-                            <Toggle checked={client.enabled} onCheckedChange={() => void toggleEnabled(client)} />
+                            <Toggle className="shrink-0" checked={client.enabled} onCheckedChange={() => void toggleEnabled(client)} />
                           </div>
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
@@ -514,14 +516,14 @@ export default function UsersPage() {
                             <p className="text-[11px] font-medium text-txt-tertiary">{formatBytes(traffic)}</p>
                           </div>
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell">
+                        <TableCell className="hidden w-[190px] lg:table-cell">
                           <div className="space-y-1.5">
-                            <div className="flex items-center gap-3 text-[11px] font-semibold text-txt-secondary">
-                              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <div className="flex items-center gap-3 text-[11px] font-semibold tabular-nums text-txt-secondary">
+                              <span className="inline-flex min-w-[84px] items-center gap-1.5 whitespace-nowrap">
                                 <ArrowDownToLine size={12} strokeWidth={1.8} className="text-status-success" />
                                 {formatRate(downBps)}
                               </span>
-                              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                              <span className="inline-flex min-w-[84px] items-center gap-1.5 whitespace-nowrap">
                                 <ArrowUpFromLine size={12} strokeWidth={1.8} className="text-status-warning" />
                                 {formatRate(upBps)}
                               </span>
