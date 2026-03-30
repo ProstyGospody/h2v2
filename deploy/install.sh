@@ -283,8 +283,12 @@ load_kv_file() {
 }
 
 prompt_value() {
-  local var="$1" text="$2" default="$3"
-  local current="${!var:-}"
+  local var="$1"
+  local text="$2"
+  local default="$3"
+  local current=""
+  [[ "${var}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || fatal "Invalid variable name in prompt_value: ${var}"
+  current="${!var-}"
   if [[ -n "${current}" && "${MODE}" != "reconfigure" ]]; then return; fi
   if is_noninteractive; then
     [[ -n "${current}" ]] && return
@@ -305,7 +309,12 @@ prompt_value() {
 }
 
 prompt_password() {
-  local var="$1" text="$2" current="${!var:-}" answer=""
+  local var="$1"
+  local text="$2"
+  local current=""
+  local answer=""
+  [[ "${var}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || fatal "Invalid variable name in prompt_password: ${var}"
+  current="${!var-}"
   if [[ -n "${current}" && "${MODE}" != "reconfigure" ]]; then return; fi
   if is_noninteractive; then
     [[ -n "${current}" ]] || printf -v "${var}" '%s' "$(openssl rand -base64 24 | tr -d '=+/\n' | cut -c1-20)"
@@ -318,8 +327,12 @@ prompt_password() {
 }
 
 generate_if_empty() {
-  local var="$1" bytes="$2"
-  [[ -n "${!var:-}" ]] || printf -v "${var}" '%s' "$(openssl rand -hex "${bytes}")"
+  local var="$1"
+  local bytes="$2"
+  local current=""
+  [[ "${var}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || fatal "Invalid variable name in generate_if_empty: ${var}"
+  current="${!var-}"
+  [[ -n "${current}" ]] || printf -v "${var}" '%s' "$(openssl rand -hex "${bytes}")"
 }
 
 normalize_driver() {
