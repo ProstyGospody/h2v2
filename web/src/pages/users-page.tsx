@@ -1,5 +1,4 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { motion } from "framer-motion";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -10,7 +9,6 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import type { MouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ClientArtifactsDialog } from "@/components/dialogs/client-artifacts-dialog";
@@ -57,11 +55,22 @@ function initials(value: string): string {
   return clean ? clean.slice(0, 1).toUpperCase() : "?";
 }
 
+function resolveStatus(client: HysteriaClient): "online" | "offline" | "disabled" {
+  if (!client.enabled) {
+    return "disabled";
+  }
+  if (client.online_count > 0) {
+    return "online";
+  }
+  return "offline";
+}
+
 export default function UsersPage() {
   const [clients, setClients] = useState<HysteriaClient[]>([]);
   const [defaults, setDefaults] = useState<HysteriaClientDefaults | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<ClientFilter>("all");
   const [page, setPage] = useState(0);
@@ -131,11 +140,9 @@ export default function UsersPage() {
         if (filter === "disabled" && client.enabled) {
           return false;
         }
-
         if (!needle) {
           return true;
         }
-
         const haystack = [client.username, client.username_normalized, client.note || "", client.id].join(" ").toLowerCase();
         return haystack.includes(needle);
       });
@@ -143,7 +150,10 @@ export default function UsersPage() {
 
   const selectedSet = useMemo(() => new Set(selectedClientIDs), [selectedClientIDs]);
   const filteredIDs = useMemo(() => filteredClients.map((client) => client.id), [filteredClients]);
-  const selectedFilteredCount = useMemo(() => filteredIDs.reduce((sum, id) => sum + (selectedSet.has(id) ? 1 : 0), 0), [filteredIDs, selectedSet]);
+  const selectedFilteredCount = useMemo(
+    () => filteredIDs.reduce((sum, id) => sum + (selectedSet.has(id) ? 1 : 0), 0),
+    [filteredIDs, selectedSet],
+  );
 
   const allFilteredSelected = filteredIDs.length > 0 && selectedFilteredCount === filteredIDs.length;
   const someFilteredSelected = selectedFilteredCount > 0 && !allFilteredSelected;
@@ -192,8 +202,7 @@ export default function UsersPage() {
       setFormOpen(false);
       await load();
     } catch (err) {
-      const message = err instanceof APIError ? err.message : "Failed to save user";
-      setFormError(message);
+      setFormError(err instanceof APIError ? err.message : "Failed to save user");
     } finally {
       setFormBusy(false);
     }
@@ -272,8 +281,7 @@ export default function UsersPage() {
     setArtifactOpen(true);
     setArtifactLoading(true);
     try {
-      const payload = await getClientArtifacts(client.id);
-      setArtifactPayload(payload);
+      setArtifactPayload(await getClientArtifacts(client.id));
     } catch (err) {
       setArtifactPayload(null);
       setError(err instanceof APIError ? err.message : "Failed to load artifacts");
@@ -314,13 +322,8 @@ export default function UsersPage() {
       });
       return;
     }
-
     const filteredSet = new Set(filteredIDs);
     setSelectedClientIDs((current) => current.filter((id) => !filteredSet.has(id)));
-  }
-
-  function handleFilterChange(_event: MouseEvent<HTMLButtonElement>, next: ClientFilter) {
-    setFilter(next);
   }
 
   function handleRowsPerPageChange(value: string) {
@@ -336,54 +339,52 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Users"
-        actions={
-          <>
-            <Button variant="primary" onClick={openCreate} className="h-12 w-full rounded-2xl px-5 sm:w-auto">
-              <Plus size={18} strokeWidth={1.6} />
-              Add user
-            </Button>
-            <Button
-              variant="danger"
-              disabled={!selectedClientIDs.length}
-              onClick={() => setBulkDeleteOpen(true)}
-              className="h-12 w-full rounded-2xl px-5 sm:min-w-[214px] sm:w-auto"
+      <PageHeader title="Users" />
+
+      <div className="grid gap-3 lg:grid-cols-[auto_auto_1fr_auto] lg:items-center">
+        <Button variant="primary" onClick={openCreate} className="h-12 w-full rounded-2xl px-5 lg:w-auto">
+          <Plus size={18} strokeWidth={1.6} />
+          Add user
+        </Button>
+        <Button
+          variant="danger"
+          disabled={!selectedClientIDs.length}
+          onClick={() => setBulkDeleteOpen(true)}
+          className="h-12 w-full rounded-2xl px-5 lg:w-auto"
+        >
+          <Trash2 size={18} strokeWidth={1.6} />
+          Delete selected
+        </Button>
+        <div className="relative w-full">
+          <Search size={16} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
+          <Input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search users..."
+            className="h-12 rounded-2xl border-border/80 bg-surface-2/70 pl-11 shadow-[inset_0_1px_0_var(--shell-highlight)]"
+          />
+        </div>
+        <div className="flex w-full items-center gap-1 rounded-2xl border border-border/70 bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)] lg:w-auto">
+          {(["all", "online", "enabled", "disabled"] as ClientFilter[]).map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setFilter(item)}
+              className={cn(
+                "flex-1 rounded-xl px-3 py-2 text-center text-[13px] font-semibold capitalize transition-colors lg:flex-none lg:px-4",
+                filter === item ? "bg-surface-4 text-txt-primary" : "text-txt-secondary hover:text-txt-primary",
+              )}
             >
-              <Trash2 size={18} strokeWidth={1.6} />
-              Delete selected
-              <span className="inline-flex min-w-[2ch] items-center justify-center rounded-md bg-status-danger/20 px-1.5 py-0.5 text-[12px] leading-none tabular-nums">
-                {selectedClientIDs.length}
-              </span>
-            </Button>
-            <div className="relative w-full sm:w-auto sm:min-w-[240px]">
-              <Search size={16} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
-              <Input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search users..."
-                className="h-12 rounded-2xl border-border/80 bg-surface-2/70 pl-11 shadow-[inset_0_1px_0_var(--shell-highlight)]"
-              />
-            </div>
-            <div className="flex w-full flex-wrap items-center gap-1 rounded-2xl border border-border/70 bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)] sm:inline-flex sm:w-auto sm:flex-nowrap sm:gap-0">
-              {(["all", "online", "enabled", "disabled"] as ClientFilter[]).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={(event) => handleFilterChange(event, item)}
-                  className={cn(
-                    "flex-1 rounded-xl px-3 py-2 text-center text-[13px] font-semibold capitalize transition-all sm:flex-none sm:px-4",
-                    filter === item && "bg-surface-4 text-txt-primary shadow-sm",
-                    filter !== item && "text-txt-secondary hover:text-txt-primary",
-                  )}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </>
-        }
-      />
+              {item}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between text-[13px] text-txt-secondary">
+        <span>{filteredClients.length} users</span>
+        <span className="tabular-nums">{selectedClientIDs.length} selected</span>
+      </div>
 
       {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
 
@@ -397,8 +398,7 @@ export default function UsersPage() {
           </div>
         ) : (
           <>
-            <div className="flex flex-col gap-3 border-b border-border/50 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-              <p className="text-[13px] text-txt-secondary">{filteredClients.length} users</p>
+            <div className="flex items-center justify-end border-b border-border/50 px-4 py-3.5 sm:px-5">
               <div className="flex items-center gap-2 text-[13px] text-txt-secondary">
                 <span>Rows:</span>
                 <select
@@ -429,9 +429,9 @@ export default function UsersPage() {
                   <TableHead>User</TableHead>
                   <TableHead className="hidden w-[96px] lg:table-cell">Protocol</TableHead>
                   <TableHead className="w-[170px]">Status</TableHead>
-                  <TableHead className="hidden lg:table-cell">Traffic</TableHead>
+                  <TableHead className="hidden w-[220px] lg:table-cell">Traffic</TableHead>
                   <TableHead className="hidden w-[190px] lg:table-cell">Network</TableHead>
-                  <TableHead className="hidden md:table-cell">Last Seen</TableHead>
+                  <TableHead className="hidden w-[170px] md:table-cell">Last Seen</TableHead>
                   <TableHead className="w-[88px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -441,17 +441,13 @@ export default function UsersPage() {
                     const traffic = client.last_tx_bytes + client.last_rx_bytes;
                     const ratio = maxTraffic > 0 ? Math.min(100, (traffic / maxTraffic) * 100) : 0;
                     const ratioWidth = traffic > 0 ? Math.max(ratio, 4) : 0;
-                    const statusOnline = client.online_count > 0;
+                    const status = resolveStatus(client);
+                    const statusOnline = status === "online";
                     const downBps = Math.max(0, client.download_bps || 0);
                     const upBps = Math.max(0, client.upload_bps || 0);
+
                     return (
-                      <motion.tr
-                        key={client.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: index * 0.03 }}
-                        className="border-t border-border transition-colors hover:bg-surface-3"
-                      >
+                      <TableRow key={client.id}>
                         <TableCell>
                           <Checkbox
                             checked={selectedSet.has(client.id)}
@@ -465,7 +461,7 @@ export default function UsersPage() {
                             <button
                               type="button"
                               onClick={() => void openArtifacts(client)}
-                              className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-accent/15 to-accent-secondary/10 text-[13px] font-bold text-txt-primary transition-all hover:from-accent/25 hover:to-accent-secondary/20"
+                              className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-accent/15 to-accent-secondary/10 text-[13px] font-bold text-txt-primary"
                             >
                               {initials(client.username)}
                             </button>
@@ -485,29 +481,27 @@ export default function UsersPage() {
                           <Badge variant="protocol-hy2">HY2</Badge>
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
-                          <div className="flex min-w-[150px] items-center gap-3">
-                            <span className="inline-flex w-[74px] items-center gap-2">
+                          <div className="flex min-w-[154px] items-center gap-3">
+                            <span className="inline-flex w-[76px] items-center gap-2">
                               <span
                                 className={cn(
                                   "h-[6px] w-[6px] rounded-full",
-                                  statusOnline && client.enabled && "bg-status-success shadow-[0_0_8px_var(--status-success-soft)]",
-                                  !statusOnline && client.enabled && "bg-status-warning",
-                                  !client.enabled && "bg-txt-muted",
+                                  statusOnline && "bg-status-success shadow-[0_0_8px_var(--status-success-soft)]",
+                                  !statusOnline && status !== "disabled" && "bg-status-warning",
+                                  status === "disabled" && "bg-txt-muted",
                                 )}
                               />
-                              <span className="w-[62px] text-[11px] text-txt-secondary">
-                                {!client.enabled ? "disabled" : statusOnline ? "online" : "offline"}
-                              </span>
+                              <span className="w-[62px] text-[11px] text-txt-secondary">{status}</span>
                             </span>
                             <Toggle className="shrink-0" checked={client.enabled} onCheckedChange={() => void toggleEnabled(client)} />
                           </div>
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell">
+                        <TableCell className="hidden w-[220px] lg:table-cell">
                           <div className="space-y-1.5">
                             <div className="h-1.5 w-full overflow-hidden rounded-full border border-border/70 bg-border/70">
                               <div
                                 className={cn(
-                                  "h-full rounded-full bg-gradient-to-r from-accent to-accent-light shadow-[0_0_8px_var(--accent-soft)]",
+                                  "h-full rounded-full bg-gradient-to-r from-accent to-accent-light",
                                   ratio > 90 && "from-status-warning to-status-danger",
                                 )}
                                 style={{ width: `${ratioWidth}%` }}
@@ -517,20 +511,20 @@ export default function UsersPage() {
                           </div>
                         </TableCell>
                         <TableCell className="hidden w-[190px] lg:table-cell">
-                          <div className="space-y-1.5">
-                            <div className="flex items-center gap-3 text-[11px] font-semibold tabular-nums text-txt-secondary">
-                              <span className="inline-flex min-w-[84px] items-center gap-1.5 whitespace-nowrap">
-                                <ArrowDownToLine size={12} strokeWidth={1.8} className="text-status-success" />
-                                {formatRate(downBps)}
-                              </span>
-                              <span className="inline-flex min-w-[84px] items-center gap-1.5 whitespace-nowrap">
-                                <ArrowUpFromLine size={12} strokeWidth={1.8} className="text-status-warning" />
-                                {formatRate(upBps)}
-                              </span>
-                            </div>
+                          <div className="flex items-center gap-3 text-[11px] font-semibold tabular-nums text-txt-secondary">
+                            <span className="inline-flex min-w-[84px] items-center gap-1.5 whitespace-nowrap">
+                              <ArrowDownToLine size={12} strokeWidth={1.8} className="text-status-success" />
+                              {formatRate(downBps)}
+                            </span>
+                            <span className="inline-flex min-w-[84px] items-center gap-1.5 whitespace-nowrap">
+                              <ArrowUpFromLine size={12} strokeWidth={1.8} className="text-status-warning" />
+                              {formatRate(upBps)}
+                            </span>
                           </div>
                         </TableCell>
-                        <TableCell className="hidden md:table-cell">{formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}</TableCell>
+                        <TableCell className="hidden w-[170px] md:table-cell">
+                          {formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}
+                        </TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu.Root>
                             <DropdownMenu.Trigger asChild>
@@ -572,14 +566,12 @@ export default function UsersPage() {
                             </DropdownMenu.Portal>
                           </DropdownMenu.Root>
                         </TableCell>
-                      </motion.tr>
+                      </TableRow>
                     );
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9}>
-                      {clients.length ? "No users match the current filters." : "No users yet."}
-                    </TableCell>
+                    <TableCell colSpan={9}>{clients.length ? "No users match the current filters." : "No users yet."}</TableCell>
                   </TableRow>
                 )}
               </TableBody>
