@@ -22,7 +22,13 @@ export function ClientArtifactsDialog({
   const subscriptionQRSrc = currentClient ? `${qrURL(currentClient.id, 360, "subscription")}&v=${encodeURIComponent(subscriptionURL)}` : "";
 
   return (
-    <Dialog open={open} onOpenChange={(n) => { if (!n) onClose(); }} title={currentClient?.username || "Client"} contentClassName="max-w-[780px]">
+    <Dialog
+      open={open}
+      onOpenChange={(n) => { if (!n) onClose(); }}
+      title={currentClient?.username || "Client"}
+      contentClassName="max-w-[780px]"
+      footer={<Button onClick={onClose}>Close</Button>}
+    >
       {loading ? (
         <div className="flex min-h-[300px] items-center justify-center">
           <div className="flex flex-col items-center gap-3">
@@ -32,23 +38,23 @@ export function ClientArtifactsDialog({
         </div>
       ) : artifacts && currentClient ? (
         <div className="grid gap-6 sm:grid-cols-2">
-          <div className="space-y-4">
-            <div className="flex items-center justify-center gap-2 text-[13px] font-semibold text-txt-secondary">
-              <QrCode size={16} strokeWidth={1.6} />Configuration QR
+          <div className="space-y-4 rounded-xl border border-border/50 bg-surface-0/35 p-4">
+            <div className="flex items-center gap-2 text-[13px] font-semibold text-txt-secondary">
+              <QrCode size={16} strokeWidth={1.6} />Config
             </div>
-            <div className="flex justify-center">
-              <img alt="Configuration QR" src={shareQRSrc} className="h-[220px] w-[220px] rounded-xl border border-border bg-white p-2 shadow-sm" />
+            <div className="flex justify-center rounded-xl border border-border/50 bg-white p-2">
+              <img alt="Configuration QR" src={shareQRSrc} className="h-[220px] w-[220px] rounded-lg" />
             </div>
-            <Button variant="ghost" className="w-full justify-center" onClick={() => onCopy(shareURI)} disabled={!shareURI}>
+            <Button className="w-full justify-center" onClick={() => onCopy(shareURI)} disabled={!shareURI}>
               <Copy size={16} strokeWidth={1.6} />Copy Config Link
             </Button>
           </div>
-          <div className="space-y-4">
-            <div className="flex items-center justify-center gap-2 text-[13px] font-semibold text-txt-secondary">
-              <Link2 size={16} strokeWidth={1.6} />Subscription QR
+          <div className="space-y-4 rounded-xl border border-border/50 bg-surface-0/35 p-4">
+            <div className="flex items-center gap-2 text-[13px] font-semibold text-txt-secondary">
+              <Link2 size={16} strokeWidth={1.6} />Subscription
             </div>
-            <div className="flex justify-center">
-              <img alt="Subscription QR" src={subscriptionQRSrc} className="h-[220px] w-[220px] rounded-xl border border-border bg-white p-2 shadow-sm" />
+            <div className="flex justify-center rounded-xl border border-border/50 bg-white p-2">
+              <img alt="Subscription QR" src={subscriptionQRSrc} className="h-[220px] w-[220px] rounded-lg" />
             </div>
             <Button variant="ghost" className="w-full justify-center" onClick={() => onCopy(subscriptionURL)} disabled={!subscriptionURL}>
               <Copy size={16} strokeWidth={1.6} />Copy Subscription URL
@@ -56,9 +62,9 @@ export function ClientArtifactsDialog({
           </div>
         </div>
       ) : (
-        <div className="flex min-h-[180px] flex-col items-center justify-center gap-4 rounded-xl border border-status-warning/15 bg-status-warning/5 p-8">
-          <QrCode size={28} strokeWidth={1.4} className="text-status-warning/60" />
-          <p className="text-[14px] text-status-warning">No active artifacts for this client.</p>
+        <div className="flex min-h-[180px] flex-col items-center justify-center gap-4 rounded-xl border border-border/50 bg-surface-0/35 p-8">
+          <QrCode size={28} strokeWidth={1.4} className="text-txt-muted" />
+          <p className="text-[14px] text-txt-secondary">No artifacts.</p>
         </div>
       )}
     </Dialog>
