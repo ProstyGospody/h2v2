@@ -19,6 +19,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  PolarAngleAxis,
   RadialBar,
   RadialBarChart,
   ResponsiveContainer,
@@ -117,8 +118,10 @@ function RadialGauge({
           barSize={5}
           data={data}
         >
+          <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
           <RadialBar
             dataKey="value"
+            angleAxisId={0}
             background={{ fill: trackColor }}
             cornerRadius={10}
             isAnimationActive
