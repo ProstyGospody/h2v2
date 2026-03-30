@@ -1,5 +1,4 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { motion } from "framer-motion";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -75,16 +74,16 @@ function SkeletonRow() {
           </div>
         </div>
       </td>
-      <td className="hidden w-[96px] px-5 py-3.5 lg:table-cell"><div className="h-5 w-10 animate-pulse rounded-badge bg-surface-3/60" /></td>
-      <td className="w-[170px] px-5 py-3.5"><div className="h-5 w-20 animate-pulse rounded bg-surface-3/60" /></td>
-      <td className="hidden w-[220px] px-5 py-3.5 lg:table-cell">
+      <td className="hidden px-5 py-3.5 lg:table-cell"><div className="h-5 w-10 animate-pulse rounded-badge bg-surface-3/60" /></td>
+      <td className="px-5 py-3.5"><div className="h-5 w-20 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="hidden px-5 py-3.5 lg:table-cell">
         <div className="space-y-1.5">
           <div className="h-1.5 w-full animate-pulse rounded-full bg-surface-3/60" />
           <div className="h-3 w-12 animate-pulse rounded bg-surface-3/50" />
         </div>
       </td>
-      <td className="hidden w-[170px] px-5 py-3.5 text-right lg:table-cell"><div className="ml-auto h-8 w-24 animate-pulse rounded bg-surface-3/60" /></td>
-      <td className="hidden w-[190px] px-5 py-3.5 text-right md:table-cell"><div className="ml-auto h-4 w-24 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="hidden px-5 py-3.5 text-right lg:table-cell"><div className="ml-auto h-8 w-24 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="hidden px-5 py-3.5 text-right md:table-cell"><div className="ml-auto h-4 w-24 animate-pulse rounded bg-surface-3/60" /></td>
       <td className="w-[76px] px-5 py-3.5 text-center"><div className="mx-auto h-10 w-10 animate-pulse rounded-btn bg-surface-3/60" /></td>
       <td className="w-[76px] px-5 py-3.5 text-center"><div className="mx-auto h-10 w-10 animate-pulse rounded-btn bg-surface-3/60" /></td>
       <td className="w-[84px] px-5 py-3.5 text-center"><div className="mx-auto h-10 w-10 animate-pulse rounded-btn bg-surface-3/60" /></td>
@@ -102,16 +101,14 @@ function SortIcon({ field, sort }: { field: SortField; sort: SortState | null })
 function GradientProgress({ ratio, isHigh }: { ratio: number; isHigh: boolean }) {
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full border border-border/70 bg-border/70">
-      <motion.div
+      <div
         className={cn(
           "h-full rounded-full",
           isHigh
             ? "bg-gradient-to-r from-status-warning to-status-danger"
             : "bg-gradient-to-r from-accent to-accent-light",
         )}
-        initial={{ width: 0 }}
-        animate={{ width: `${ratio}%` }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
+        style={{ width: `${ratio}%` }}
       />
     </div>
   );
@@ -227,11 +224,6 @@ export default function UsersPage() {
 
   useEffect(() => {
     void load();
-  }, [load]);
-
-  useEffect(() => {
-    const timer = setInterval(() => void load(), 5000);
-    return () => clearInterval(timer);
   }, [load]);
 
   useEffect(() => {
@@ -509,6 +501,16 @@ export default function UsersPage() {
   const pageCount = Math.max(1, Math.ceil(filteredClients.length / rowsPerPage));
   const hasSelectedClients = selectedClientIDs.length > 0;
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (hasSelectedClients) {
+        return;
+      }
+      void load();
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [hasSelectedClients, load]);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -569,9 +571,9 @@ export default function UsersPage() {
         </div>
       </div>
 
-      <div className="min-h-[62px]">
-        {hasSelectedClients ? (
-          <div className="flex w-full flex-wrap items-center gap-2 rounded-2xl bg-surface-2/95 px-4 py-2.5 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl">
+      {hasSelectedClients ? (
+        <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2">
+          <div className="flex items-center gap-2 rounded-2xl bg-surface-2/95 px-4 py-2.5 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl">
             <span className="mr-1 inline-flex h-7 min-w-[28px] items-center justify-center rounded-lg bg-accent/15 px-2 text-[13px] font-bold tabular-nums text-accent">
               {selectedClientIDs.length}
             </span>
@@ -620,28 +622,28 @@ export default function UsersPage() {
               <X size={14} strokeWidth={1.8} />
             </button>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
 
       {/* ── Desktop table ── */}
       <TableContainer className="hidden overflow-x-auto sm:block">
         {loading ? (
-          <Table className="table-fixed">
+          <Table>
             <TableHeader>
               <TableRow className="border-t-0 hover:bg-transparent">
                 <TableHead className="w-10"><div className="h-4 w-4 animate-pulse rounded bg-surface-3/60" /></TableHead>
                 <TableHead className="hidden w-14 md:table-cell">#</TableHead>
                 <TableHead>USERS</TableHead>
-                <TableHead className="hidden w-[96px] lg:table-cell">PROTOCOL</TableHead>
-                <TableHead className="w-[170px]">STATUS</TableHead>
-                <TableHead className="hidden w-[220px] lg:table-cell">TRAFFIC</TableHead>
-                <TableHead className="hidden w-[170px] text-right lg:table-cell">NETWORK</TableHead>
-                <TableHead className="hidden w-[190px] text-right md:table-cell">LAST SEEN</TableHead>
-                <TableHead className="w-[76px] text-center">QR</TableHead>
-                <TableHead className="w-[76px] text-center">EDIT</TableHead>
-                <TableHead className="w-[84px] text-center">DELETE</TableHead>
+                <TableHead className="hidden lg:table-cell">PROTOCOL</TableHead>
+                <TableHead>STATUS</TableHead>
+                <TableHead className="hidden lg:table-cell">TRAFFIC</TableHead>
+                <TableHead className="hidden text-right lg:table-cell">NETWORK</TableHead>
+                <TableHead className="hidden text-right md:table-cell">LAST SEEN</TableHead>
+                <TableHead className="w-[76px] text-center" />
+                <TableHead className="w-[76px] text-center" />
+                <TableHead className="w-[84px] text-center" />
               </TableRow>
             </TableHeader>
             <tbody>
@@ -650,7 +652,7 @@ export default function UsersPage() {
           </Table>
         ) : (
           <>
-            <Table className="table-fixed">
+            <Table>
               <TableHeader>
                 <TableRow className="border-t-0 hover:bg-transparent">
                   <TableHead className="w-10">
@@ -666,24 +668,24 @@ export default function UsersPage() {
                       USERS <SortIcon field="username" sort={sort} />
                     </button>
                   </TableHead>
-                  <TableHead className="hidden w-[96px] lg:table-cell">PROTOCOL</TableHead>
-                  <TableHead className="w-[170px]">STATUS</TableHead>
-                  <TableHead className="hidden w-[220px] lg:table-cell">
+                  <TableHead className="hidden lg:table-cell">PROTOCOL</TableHead>
+                  <TableHead>STATUS</TableHead>
+                  <TableHead className="hidden lg:table-cell">
                     <button type="button" onClick={() => toggleSort("traffic")} className="inline-flex items-center gap-1.5 hover:text-txt-primary">
                       TRAFFIC <SortIcon field="traffic" sort={sort} />
                     </button>
                   </TableHead>
-                  <TableHead className="hidden w-[170px] text-right lg:table-cell">
+                  <TableHead className="hidden text-right lg:table-cell">
                     NETWORK
                   </TableHead>
-                  <TableHead className="hidden w-[190px] text-right md:table-cell">
+                  <TableHead className="hidden text-right md:table-cell">
                     <button type="button" onClick={() => toggleSort("last_seen")} className="ml-auto inline-flex items-center gap-1.5 hover:text-txt-primary">
                       LAST SEEN <SortIcon field="last_seen" sort={sort} />
                     </button>
                   </TableHead>
-                  <TableHead className="w-[76px] text-center">QR</TableHead>
-                  <TableHead className="w-[76px] text-center">EDIT</TableHead>
-                  <TableHead className="w-[84px] text-center">DELETE</TableHead>
+                  <TableHead className="w-[76px] text-center" />
+                  <TableHead className="w-[76px] text-center" />
+                  <TableHead className="w-[84px] text-center" />
                 </TableRow>
               </TableHeader>
               <TableBody>
