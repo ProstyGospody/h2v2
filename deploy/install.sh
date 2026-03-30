@@ -23,6 +23,7 @@ PANEL_WEB_PORT=13000
 BACKUP_DIR=""
 BACKUP_READY=0
 ROLLBACK_RUNNING=0
+EXISTING_INSTALLATION=0
 CHANGED=()
 
 ENV_OVERRIDE_KEYS=(
@@ -90,6 +91,11 @@ detect_existing_installation() {
   [[ -f "${ENV_FILE}" ]] && env_hit=1
   systemctl list-unit-files h2v2-api.service h2v2-web.service hysteria-server.service >/dev/null 2>&1 && unit_hit=1 || true
   [[ -d /var/lib/h2v2 || -d /etc/h2v2 ]] && dir_hit=1
+  if (( env_hit == 1 || unit_hit == 1 || dir_hit == 1 )); then
+    EXISTING_INSTALLATION=1
+  else
+    EXISTING_INSTALLATION=0
+  fi
   info "detected: env=${env_hit}, units=${unit_hit}, dirs=${dir_hit}"
 }
 
@@ -341,6 +347,19 @@ normalize_driver() {
   [[ "${v}" == "sqlite" ]] && echo "sqlite" || echo "file"
 }
 
+default_storage_driver() {
+  local current="${PANEL_STORAGE_DRIVER:-}"
+  if [[ -n "${current}" ]]; then
+    normalize_driver "${current}"
+    return
+  fi
+  if (( EXISTING_INSTALLATION == 0 )); then
+    echo "sqlite"
+    return
+  fi
+  echo "file"
+}
+
 collect_config() {
   phase "config render: collect"
   local host
@@ -368,7 +387,7 @@ collect_config() {
   PANEL_STORAGE_ROOT="${PANEL_STORAGE_ROOT:-/var/lib/h2v2}"
   PANEL_AUDIT_DIR="${PANEL_AUDIT_DIR:-/var/log/h2v2/audit}"
   PANEL_RUNTIME_DIR="${PANEL_RUNTIME_DIR:-/run/h2v2}"
-  PANEL_STORAGE_DRIVER="$(normalize_driver "${PANEL_STORAGE_DRIVER:-file}")"
+  PANEL_STORAGE_DRIVER="$(default_storage_driver)"
   (( MIGRATE_TO_SQLITE == 1 )) && PANEL_STORAGE_DRIVER="sqlite"
   PANEL_SQLITE_PATH="${PANEL_SQLITE_PATH:-${PANEL_STORAGE_ROOT}/data/h2v2.db}"
   SESSION_COOKIE_NAME="${SESSION_COOKIE_NAME:-pp_session}"

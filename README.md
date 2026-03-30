@@ -39,6 +39,11 @@ Installer modes:
 - `sudo bash ./deploy/install.sh --migrate-to-sqlite`
 - add `--non-interactive` or `--dry-run` when needed
 
+Storage default behavior:
+
+- fresh install: `PANEL_STORAGE_DRIVER=sqlite`
+- existing install (reconfigure/upgrade): current driver is preserved
+
 ## What deploy does
 
 Installer phases:

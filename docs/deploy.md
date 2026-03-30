@@ -53,6 +53,11 @@ sudo -E bash ./deploy/install.sh --non-interactive
 sudo bash ./deploy/install.sh --reconfigure
 ```
 
+Storage driver defaults:
+
+- clean install defaults to `sqlite`
+- existing installation keeps the previously configured driver
+
 ## Upgrade binaries/templates
 
 ```bash
