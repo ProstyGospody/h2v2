@@ -55,7 +55,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               key={toast.id}
               layout
               className={cn(
-                "flex w-full items-center gap-3 rounded-xl border border-border/70 bg-surface-2/95 px-5 py-3.5 text-[14px] text-txt shadow-[0_20px_46px_-28px_var(--dialog-shadow)] backdrop-blur-lg sm:max-w-[380px]",
+                "flex w-full items-center gap-3 rounded-xl bg-surface-2/95 px-5 py-3.5 text-[14px] text-txt shadow-[0_20px_46px_-28px_var(--dialog-shadow)] backdrop-blur-lg sm:max-w-[380px]",
                 toast.variant === "success" && "border-status-success/20",
                 toast.variant === "error" && "border-status-danger/20",
               )}
@@ -106,7 +106,7 @@ export function Toast({
       <AnimatePresence>
         <motion.div
           className={cn(
-            "flex w-full items-center gap-3 rounded-xl border border-border/70 bg-surface-2/95 px-5 py-3.5 text-[14px] text-txt shadow-[0_20px_46px_-28px_var(--dialog-shadow)] backdrop-blur-lg sm:max-w-[380px]",
+            "flex w-full items-center gap-3 rounded-xl bg-surface-2/95 px-5 py-3.5 text-[14px] text-txt shadow-[0_20px_46px_-28px_var(--dialog-shadow)] backdrop-blur-lg sm:max-w-[380px]",
             variant === "success" && "border-status-success/20",
             variant === "error" && "border-status-danger/20",
           )}

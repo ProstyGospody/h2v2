@@ -6,6 +6,7 @@ import {
   ArrowUpDown,
   ChevronDown,
   ChevronUp,
+  Download,
   MoreVertical,
   Pencil,
   Plus,
@@ -20,6 +21,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ClientArtifactsDialog } from "@/components/dialogs/client-artifacts-dialog";
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog";
+import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
 import { ClientFormDialog } from "@/components/forms/client-form-dialog";
 import { PageHeader } from "@/components/ui/page-header";
 import { toCreateRequest, toUpdateRequest, type ClientFormValues } from "@/domain/clients/adapters";
@@ -138,7 +140,7 @@ function InlineActions({
   client: HysteriaClient;
   onArtifacts: (c: HysteriaClient) => void;
   onEdit: (c: HysteriaClient) => void;
-  onDelete: (c: HysteriaClient) => void;
+  onDelete: (c: HysteriaClient) => void | Promise<void>;
 }) {
   return (
     <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover/row:opacity-100">
@@ -150,10 +152,17 @@ function InlineActions({
         className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt">
         <Pencil size={14} strokeWidth={1.4} />
       </button>
-      <button type="button" onClick={() => onDelete(client)} title="Delete"
-        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-txt-tertiary transition-colors hover:bg-status-danger/10 hover:text-status-danger">
-        <Trash2 size={14} strokeWidth={1.4} />
-      </button>
+      <ConfirmPopover
+        title="Delete user"
+        description={`Remove ${client.username} and revoke access?`}
+        confirmText="Delete"
+        onConfirm={() => onDelete(client)}
+      >
+        <button type="button" title="Delete"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-txt-tertiary transition-colors hover:bg-status-danger/10 hover:text-status-danger">
+          <Trash2 size={14} strokeWidth={1.4} />
+        </button>
+      </ConfirmPopover>
     </div>
   );
 }
@@ -183,7 +192,7 @@ function MobileActions({
         <DropdownMenu.Content
           sideOffset={6}
           align="end"
-          className="z-50 min-w-[160px] rounded-[10px] border border-border/80 bg-surface-2/95 p-1 shadow-[0_18px_42px_-24px_var(--dialog-shadow)] backdrop-blur-xl"
+          className="z-50 min-w-[160px] rounded-[10px] bg-surface-2/95 p-1 shadow-[0_18px_42px_-24px_var(--dialog-shadow)] backdrop-blur-xl"
         >
           <DropdownMenu.Item
             onSelect={() => void onArtifacts(client)}
@@ -347,6 +356,24 @@ export default function UsersPage() {
       setPage(maxPage);
     }
   }, [filteredClients.length, page, rowsPerPage]);
+
+  function exportCSV() {
+    const header = "username,enabled,status,traffic_bytes,download_bps,upload_bps,last_seen,note";
+    const rows = filteredClients.map((c) => {
+      const status = resolveStatus(c);
+      const traffic = c.last_tx_bytes + c.last_rx_bytes;
+      const note = (c.note || "").replace(/"/g, '""');
+      return `"${c.username}",${c.enabled},${status},${traffic},${c.download_bps || 0},${c.upload_bps || 0},"${c.last_seen_at || c.updated_at}","${note}"`;
+    });
+    const blob = new Blob([header + "\n" + rows.join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `users-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.notify("CSV exported");
+  }
 
   function openCreate() {
     setFormMode("create");
@@ -544,6 +571,10 @@ export default function UsersPage() {
             <Button variant="primary" onClick={openCreate} className="h-12 w-full rounded-2xl px-5 sm:w-auto">
               <Plus size={18} strokeWidth={1.6} />
               Add user
+            </Button>
+            <Button onClick={exportCSV} disabled={!filteredClients.length} className="h-12 w-full rounded-2xl px-5 sm:w-auto">
+              <Download size={18} strokeWidth={1.6} />
+              Export CSV
             </Button>
             <div className="relative w-full sm:w-[300px] lg:w-[340px]">
               <Search size={16} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
@@ -795,7 +826,7 @@ export default function UsersPage() {
                           {formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}
                         </TableCell>
                         <TableCell className="text-right">
-                          <InlineActions client={client} onArtifacts={openArtifacts} onEdit={openEdit} onDelete={setDeleteTarget} />
+                          <InlineActions client={client} onArtifacts={openArtifacts} onEdit={openEdit} onDelete={async (c) => { await deleteClient(c.id); toast.notify("User deleted"); await load(); }} />
                         </TableCell>
                       </TableRow>
                     );
@@ -833,7 +864,7 @@ export default function UsersPage() {
       <div className="space-y-3 sm:hidden">
         {loading ? (
           Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="animate-pulse rounded-2xl border border-border/30 bg-surface-2 p-4 space-y-3">
+            <div key={i} className="animate-pulse rounded-2xl bg-surface-2 p-4 space-y-3">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-xl bg-surface-3/60" />
                 <div className="flex-1 space-y-1.5">
@@ -860,7 +891,7 @@ export default function UsersPage() {
             const upBps = Math.max(0, client.upload_bps || 0);
 
             return (
-              <div key={client.id} className="card-hover rounded-2xl border border-border/30 bg-surface-2 p-4">
+              <div key={client.id} className="card-hover rounded-2xl bg-surface-2 p-4">
                 {/* Header */}
                 <div className="flex items-center gap-3">
                   <Checkbox
@@ -930,7 +961,7 @@ export default function UsersPage() {
             );
           })
         ) : (
-          <div className="rounded-2xl border border-border/30 bg-surface-2 p-6 text-center text-[14px] text-txt-secondary">
+          <div className="rounded-2xl bg-surface-2 p-6 text-center text-[14px] text-txt-secondary">
             {clients.length ? "No users match the current filters." : "No users yet."}
           </div>
         )}

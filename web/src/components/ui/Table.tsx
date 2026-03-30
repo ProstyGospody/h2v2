@@ -3,7 +3,7 @@ import type { HTMLAttributes, TableHTMLAttributes, TdHTMLAttributes, ThHTMLAttri
 import { cn } from "./cn";
 
 export function TableContainer({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("overflow-hidden rounded-2xl border border-border/30 bg-surface-2", className)} {...props} />;
+  return <div className={cn("overflow-hidden rounded-2xl bg-surface-2", className)} {...props} />;
 }
 
 export function Table({ className, ...props }: TableHTMLAttributes<HTMLTableElement>) {

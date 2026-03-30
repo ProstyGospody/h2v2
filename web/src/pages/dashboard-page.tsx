@@ -401,7 +401,7 @@ export default function DashboardPage() {
       {showInitialLoading && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="min-h-[108px] animate-pulse rounded-2xl border border-border/30 bg-surface-2 p-5">
+            <div key={i} className="min-h-[108px] animate-pulse rounded-2xl bg-surface-2 p-5">
               <div className="flex h-full items-center justify-between gap-4">
                 <div className="space-y-3">
                   <div className="h-3 w-12 rounded bg-surface-3/60" />
@@ -421,7 +421,7 @@ export default function DashboardPage() {
       {/* ── Primary metrics ── */}
       <MetricsCarousel>
         {/* CPU */}
-        <div className="card-hover min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5">
+        <div className="card-hover min-h-[108px] rounded-2xl bg-surface-2 p-5">
           <div className="flex h-full items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">CPU</p>
@@ -437,7 +437,7 @@ export default function DashboardPage() {
         </div>
 
         {/* RAM */}
-        <div className="card-hover min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5">
+        <div className="card-hover min-h-[108px] rounded-2xl bg-surface-2 p-5">
           <div className="flex h-full items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">RAM</p>
@@ -453,7 +453,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Online */}
-        <div className="card-hover min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5">
+        <div className="card-hover min-h-[108px] rounded-2xl bg-surface-2 p-5">
           <div className="flex h-full items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Online</p>
@@ -466,7 +466,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Uptime */}
-        <div className="card-hover min-h-[108px] rounded-2xl border border-border/30 bg-surface-2 p-5">
+        <div className="card-hover min-h-[108px] rounded-2xl bg-surface-2 p-5">
           <div className="flex h-full items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Uptime</p>
@@ -481,7 +481,7 @@ export default function DashboardPage() {
 
       {/* ── Secondary stats ── */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
+        <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl bg-surface-2 p-5">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/35">
             <Network size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
@@ -494,7 +494,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
+        <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl bg-surface-2 p-5">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/35">
             <Globe size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
@@ -504,7 +504,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl border border-border/30 bg-surface-2 p-5">
+        <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl bg-surface-2 p-5">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/35">
             <Zap size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
@@ -537,7 +537,7 @@ export default function DashboardPage() {
         )}
         {historyError && <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">{historyError}</div>}
 
-        <div className="rounded-2xl border border-border/30 bg-surface-2 p-4 sm:p-6">
+        <div className="rounded-2xl bg-surface-2 p-4 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-[13px]">
             <div className="flex flex-wrap items-center gap-4">
               <span className="inline-flex items-center gap-2 text-txt-secondary">
@@ -615,7 +615,7 @@ export default function DashboardPage() {
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {serviceItems.length ? serviceItems.map((item) => (
-              <div key={item.service_name} className="card-hover relative overflow-hidden rounded-2xl border border-border/30 bg-surface-2 p-4">
+              <div key={item.service_name} className="card-hover relative overflow-hidden rounded-2xl bg-surface-2 p-4">
                 <div className="mb-2.5 flex items-center justify-between gap-3">
                   <h4 className="min-w-0 flex-1 truncate text-[15px] font-bold text-txt-primary">{item.service_name}</h4>
                   <span className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-surface-3/40 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">

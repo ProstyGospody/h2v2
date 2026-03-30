@@ -39,6 +39,45 @@ function SelectField({ label, value, onValueChange, options }: { label: string; 
   );
 }
 
+function highlightYaml(yaml: string): string {
+  return yaml
+    .split("\n")
+    .map((line) => {
+      if (/^\s*#/.test(line)) {
+        return `<span class="text-txt-muted">${escapeHtml(line)}</span>`;
+      }
+      return line.replace(
+        /^(\s*)([\w./-]+)(:)(.*)/,
+        (_match, indent, key, colon, rest) => {
+          const restStr = rest.trim();
+          let valueHtml = escapeHtml(rest);
+          if (/^\s*(true|false)$/i.test(rest)) {
+            valueHtml = ` <span class="text-status-warning">${restStr}</span>`;
+          } else if (/^\s*\d+(\.\d+)?$/.test(rest)) {
+            valueHtml = ` <span class="text-status-info">${restStr}</span>`;
+          } else if (/^\s*["']/.test(rest) || restStr.length > 0) {
+            valueHtml = ` <span class="text-status-success">${escapeHtml(restStr)}</span>`;
+          }
+          return `${escapeHtml(indent)}<span class="text-accent">${escapeHtml(key)}</span><span class="text-txt-muted">${escapeHtml(colon)}</span>${valueHtml}`;
+        },
+      );
+    })
+    .join("\n");
+}
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function YamlHighlight({ value }: { value: string }) {
+  return (
+    <pre
+      className="max-h-[480px] overflow-auto rounded-xl bg-surface-0/80 px-5 py-4 font-mono text-[13px] leading-6 text-txt-secondary"
+      dangerouslySetInnerHTML={{ __html: highlightYaml(value) }}
+    />
+  );
+}
+
 export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: Hy2Settings; rawYaml: string; onDraftChange: (n: Hy2Settings) => void }) {
   const acmeDomains = (draft.acme?.domains || []).join(", ");
   const tlsMode = draft.tlsMode === "tls" ? "tls" : "acme";
@@ -130,8 +169,7 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
 
       <section className="space-y-5 rounded-2xl bg-surface-2 p-6 xl:col-span-12">
         <SectionTitle icon={<Code size={18} strokeWidth={1.6} />} title="Generated YAML" />
-        <textarea readOnly value={rawYaml} rows={16}
-          className="w-full rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] px-5 py-4 font-mono text-[13px] leading-6 text-txt outline-none" />
+        <YamlHighlight value={rawYaml} />
       </section>
     </div>
   );
