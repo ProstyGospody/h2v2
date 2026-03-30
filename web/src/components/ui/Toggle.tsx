@@ -10,7 +10,7 @@ const Toggle = forwardRef<ElementRef<typeof SwitchPrimitive.Root>, ComponentProp
       className={cn(
         "relative h-7 w-12 cursor-pointer rounded-full border border-[var(--control-border)] bg-[var(--control-bg)] transition-colors",
         "hover:border-[var(--control-border-strong)]",
-        "data-[state=checked]:border-transparent data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-accent data-[state=checked]:to-accent-secondary",
+        "data-[state=checked]:border-0 data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-accent data-[state=checked]:to-accent-secondary",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus",
         className,
       )}
