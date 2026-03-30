@@ -339,47 +339,58 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Users" />
-
-      <div className="grid gap-3 lg:grid-cols-[auto_auto_1fr_auto] lg:items-center">
-        <Button variant="primary" onClick={openCreate} className="h-12 w-full rounded-2xl px-5 lg:w-auto">
-          <Plus size={18} strokeWidth={1.6} />
-          Add user
-        </Button>
-        <Button
-          variant="danger"
-          disabled={!selectedClientIDs.length}
-          onClick={() => setBulkDeleteOpen(true)}
-          className="h-12 w-full rounded-2xl px-5 lg:w-auto"
-        >
-          <Trash2 size={18} strokeWidth={1.6} />
-          Delete selected
-        </Button>
-        <div className="relative w-full">
-          <Search size={16} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
-          <Input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search users..."
-            className="h-12 rounded-2xl border-border/80 bg-surface-2/70 pl-11 shadow-[inset_0_1px_0_var(--shell-highlight)]"
-          />
-        </div>
-        <div className="flex w-full items-center gap-1 rounded-2xl border border-border/70 bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)] lg:w-auto">
-          {(["all", "online", "enabled", "disabled"] as ClientFilter[]).map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => setFilter(item)}
+      <PageHeader
+        title="Users"
+        actions={
+          <>
+            <Button variant="primary" onClick={openCreate} className="h-12 w-full rounded-2xl px-5 sm:w-auto">
+              <Plus size={18} strokeWidth={1.6} />
+              Add user
+            </Button>
+            <Button
+              disabled={!selectedClientIDs.length}
+              onClick={() => setBulkDeleteOpen(true)}
               className={cn(
-                "flex-1 rounded-xl px-3 py-2 text-center text-[13px] font-semibold capitalize transition-colors lg:flex-none lg:px-4",
-                filter === item ? "bg-surface-4 text-txt-primary" : "text-txt-secondary hover:text-txt-primary",
+                "h-12 w-full rounded-2xl px-3 sm:w-auto sm:min-w-[190px]",
+                "justify-between border-status-danger/38 bg-status-danger/12 text-status-danger hover:bg-status-danger/18",
+                !selectedClientIDs.length && "border-[var(--control-border)] bg-[var(--control-bg)] text-txt-secondary hover:bg-[var(--control-bg-hover)]",
               )}
             >
-              {item}
-            </button>
-          ))}
-        </div>
-      </div>
+              <span className="inline-flex items-center gap-2">
+                <Trash2 size={16} strokeWidth={1.6} />
+                Delete selection
+              </span>
+              <span className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-md bg-status-danger/20 px-1.5 text-[12px] leading-none tabular-nums">
+                {selectedClientIDs.length}
+              </span>
+            </Button>
+            <div className="relative w-full sm:w-[300px] lg:w-[340px]">
+              <Search size={16} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
+              <Input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search users..."
+                className="h-12 rounded-2xl border-border/80 bg-surface-2/70 pl-11 shadow-[inset_0_1px_0_var(--shell-highlight)]"
+              />
+            </div>
+            <div className="flex w-full items-center gap-1 rounded-2xl border border-border/70 bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)] sm:w-auto">
+              {(["all", "online", "enabled", "disabled"] as ClientFilter[]).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setFilter(item)}
+                  className={cn(
+                    "flex-1 rounded-xl px-3 py-2 text-center text-[13px] font-semibold capitalize transition-colors sm:flex-none sm:px-4",
+                    filter === item ? "bg-surface-4 text-txt-primary" : "text-txt-secondary hover:text-txt-primary",
+                  )}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </>
+        }
+      />
 
       <div className="flex items-center justify-between text-[13px] text-txt-secondary">
         <span>{filteredClients.length} users</span>
