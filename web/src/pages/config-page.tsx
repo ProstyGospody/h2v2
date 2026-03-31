@@ -271,8 +271,40 @@ export default function ConfigPage() {
   }
 
   return (
-    <div className="space-y-5 pb-40 sm:pb-24">
-      <PageHeader title="Settings" />
+    <div className="space-y-5">
+      <PageHeader
+        title="Settings"
+        actions={
+          <>
+            <span className="inline-flex h-11 items-center rounded-xl bg-surface-2/75 px-3 text-[13px] font-medium text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)]">
+              {isDirty ? "Unsaved changes" : "Up to date"}
+            </span>
+            <Button onClick={() => void load(false)} disabled={isBusy} className="h-11 w-full rounded-2xl px-4 sm:w-auto">
+              <RefreshCw size={15} strokeWidth={1.8} />
+              Reload
+            </Button>
+            <Button onClick={discardChanges} disabled={isBusy || !isDirty} className="h-11 w-full rounded-2xl px-4 sm:w-auto">
+              <RotateCcw size={15} strokeWidth={1.8} />
+              Discard
+            </Button>
+            <Button variant="primary" onClick={() => void saveDraft()} disabled={isBusy} className="h-11 w-full rounded-2xl px-4 sm:w-auto">
+              <Save size={15} strokeWidth={1.8} />
+              Save
+            </Button>
+            <ConfirmPopover
+              title="Apply config"
+              description="Restart hysteria-server?"
+              confirmText="Apply"
+              onConfirm={() => void applyConfig()}
+            >
+              <Button variant="primary" disabled={isBusy || Boolean(validationErrors.length)} className="h-11 w-full rounded-2xl px-4 sm:w-auto">
+                <Play size={15} strokeWidth={1.8} />
+                Apply
+              </Button>
+            </ConfirmPopover>
+          </>
+        }
+      />
       <input ref={restoreInputRef} type="file" accept=".db,application/octet-stream" className="hidden" onChange={onRestoreFileSelected} />
 
       <ErrorBanner message={error} onDismiss={() => setError("")} />
@@ -301,39 +333,6 @@ export default function ConfigPage() {
           }}
         />
       )}
-
-      <div className="fixed inset-x-0 bottom-0 z-40 px-2 pb-2 sm:bottom-4 sm:left-1/2 sm:w-[calc(100vw-16px)] sm:max-w-[980px] sm:-translate-x-1/2 sm:px-0 sm:pb-0">
-        <div className="flex flex-col gap-2 rounded-2xl bg-surface-2/95 p-2 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:px-3 sm:py-2.5">
-          <span className="inline-flex h-9 items-center justify-center rounded-lg bg-surface-3/45 px-2.5 py-1 text-[12px] font-medium text-txt-secondary sm:h-auto sm:w-auto sm:justify-start">
-            {isDirty ? "Unsaved changes" : "Up to date"}
-          </span>
-          <div className="grid w-full grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:gap-2">
-            <Button onClick={() => void load(false)} disabled={isBusy} className="h-10 w-full justify-center sm:h-10 sm:w-auto">
-              <RefreshCw size={15} strokeWidth={1.8} />
-              Reload
-            </Button>
-            <Button onClick={discardChanges} disabled={isBusy || !isDirty} className="h-10 w-full justify-center sm:h-10 sm:w-auto">
-              <RotateCcw size={15} strokeWidth={1.8} />
-              Discard
-            </Button>
-            <Button variant="primary" onClick={() => void saveDraft()} disabled={isBusy} className="h-10 w-full justify-center sm:h-10 sm:w-auto">
-              <Save size={15} strokeWidth={1.8} />
-              Save
-            </Button>
-            <ConfirmPopover
-              title="Apply config"
-              description="Restart hysteria-server?"
-              confirmText="Apply"
-              onConfirm={() => void applyConfig()}
-            >
-              <Button variant="primary" disabled={isBusy || Boolean(validationErrors.length)} className="h-10 w-full justify-center sm:h-10 sm:w-auto">
-                <Play size={15} strokeWidth={1.8} />
-                Apply
-              </Button>
-            </ConfirmPopover>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
