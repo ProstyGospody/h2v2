@@ -53,9 +53,9 @@ export function DateField({
 }: DateFieldProps) {
   const labelId = useId();
   const fieldId = useId();
-  const selectedDate = parseISODate(value);
-  const minDate = parseISODate(min || "");
-  const maxDate = parseISODate(max || "");
+  const selectedDate = useMemo(() => parseISODate(value), [value]);
+  const minDate = useMemo(() => parseISODate(min || ""), [min]);
+  const maxDate = useMemo(() => parseISODate(max || ""), [max]);
   const [open, setOpen] = useState(false);
   const [viewDate, setViewDate] = useState<Date>(selectedDate || startOfDay(new Date()));
 
