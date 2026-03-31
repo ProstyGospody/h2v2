@@ -507,21 +507,6 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <PageHeader title="Dashboard" />
 
-      {showInitialLoading && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="panel-card min-h-[108px] animate-pulse">
-              <div className="flex h-full items-center justify-between gap-4">
-                <div className="space-y-3">
-                  <div className="h-3 w-12 rounded bg-surface-3/60" />
-                  <div className="h-7 w-16 rounded bg-surface-3/60" />
-                </div>
-                <div className="h-14 w-14 rounded-full bg-surface-3/60" />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
       <ErrorBanner
         message={liveError}
         onDismiss={() => setDismissedLiveError(true)}
@@ -532,6 +517,39 @@ export default function DashboardPage() {
         <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">{warningMessages.join(" | ")}</div>
       )}
 
+      {showInitialLoading ? (
+        <>
+          <MetricsCarousel>
+            {Array.from({ length: 4 }, (_, i) => (
+              <div key={`metric-skeleton-${i}`} className="panel-card min-h-[108px] animate-pulse">
+                <div className="flex h-full items-center justify-between gap-4">
+                  <div className="space-y-3">
+                    <div className="h-3 w-12 rounded bg-surface-3/60" />
+                    <div className="h-7 w-16 rounded bg-surface-3/60" />
+                  </div>
+                  <div className="h-14 w-14 rounded-full bg-surface-3/60" />
+                </div>
+              </div>
+            ))}
+          </MetricsCarousel>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={`secondary-skeleton-${i}`} className="panel-card min-h-[102px] animate-pulse">
+                <div className="flex h-full items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-surface-3/55" />
+                  <div className="min-w-0 flex-1 space-y-2.5">
+                    <div className="h-3 w-20 rounded bg-surface-3/55" />
+                    <div className="h-4 w-28 rounded bg-surface-3/55" />
+                  </div>
+                  <div className="h-6 w-16 rounded bg-surface-3/55" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
       {/* ── Primary metrics ── */}
       <MetricsCarousel>
         {/* CPU */}
@@ -636,6 +654,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
+        </>
+      )}
       {/* Traffic Consumption */}
       <div className="space-y-4">
         <SectionHeader icon={<TrendingUp size={18} strokeWidth={1.6} />} title="Traffic Consumption">
