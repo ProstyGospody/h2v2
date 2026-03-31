@@ -4,7 +4,24 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
-import { Badge, Button, Input, StateBlock, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "@/src/components/ui";
+import {
+  Badge,
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StateBlock,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/src/components/ui";
 import { useAuditFeed } from "@/src/state/audit-feed";
 import { formatDateTime } from "@/utils/format";
 
@@ -82,16 +99,17 @@ export default function AuditPage() {
       <div className="grid gap-3 md:grid-cols-4">
         <div>
           <label className="mb-2 block text-[13px] font-medium text-txt-secondary">Action</label>
-          <select
-            value={actionFilter}
-            onChange={(event) => setActionFilter(event.target.value as "all" | "create" | "update" | "delete")}
-            className="h-10 w-full rounded-xl bg-[var(--control-bg)] px-3 text-[14px] text-txt-primary outline-none focus:shadow-[0_0_0_3px_var(--accent-soft)]"
-          >
-            <option value="all">All</option>
-            <option value="create">Create</option>
-            <option value="update">Update</option>
-            <option value="delete">Delete</option>
-          </select>
+          <Select value={actionFilter} onValueChange={(value) => setActionFilter(value as "all" | "create" | "update" | "delete")}>
+            <SelectTrigger className="h-10 rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="create">Create</SelectItem>
+              <SelectItem value="update">Update</SelectItem>
+              <SelectItem value="delete">Delete</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <Input
           label="Actor"

@@ -43,6 +43,11 @@ import {
   Button,
   Checkbox,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   StateBlock,
   Table,
   TableBody,
@@ -646,17 +651,18 @@ export default function UsersPage() {
         <span>{filteredClients.length} users</span>
         <div className="hidden items-center gap-2 sm:flex">
           <span>Rows:</span>
-          <select
-            value={rowsPerPage}
-            onChange={(event) => handleRowsPerPageChange(event.target.value)}
-            className="rounded-lg bg-surface-1 px-3 py-1.5 text-[13px] text-txt outline-none shadow-[inset_0_0_0_1px_var(--control-border)]"
-          >
-            {rowsPerPageOptions.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
+          <Select value={String(rowsPerPage)} onValueChange={handleRowsPerPageChange}>
+            <SelectTrigger className="h-9 min-w-[84px] rounded-lg px-3 text-[13px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {rowsPerPageOptions.map((value) => (
+                <SelectItem key={value} value={String(value)}>
+                  {value}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
