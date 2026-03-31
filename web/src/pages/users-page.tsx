@@ -780,7 +780,7 @@ export default function UsersPage() {
       {limitWarning && <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">Showing first 500 users. Some users may not be displayed.</div>}
 
       {/* ── Desktop table ── */}
-      <TableContainer className="hidden max-h-[72vh] overflow-auto sm:block">
+      <TableContainer className="hidden sm:block">
         {loading ? (
           <Table>
             <TableHeader>
@@ -804,7 +804,8 @@ export default function UsersPage() {
           </Table>
         ) : (
           <>
-            <Table aria-rowcount={filteredClients.length + 1}>
+            <div className="max-h-[calc(100dvh-23rem)] overflow-auto">
+              <Table aria-rowcount={filteredClients.length + 1}>
               <TableHeader>
                 <TableRow className="border-t-0 hover:bg-transparent">
                   <TableHead className="w-10">
@@ -973,7 +974,8 @@ export default function UsersPage() {
                   </TableRow>
                 )}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
 
             <div className="flex flex-col gap-3 border-t border-border/50 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
               <div className="space-y-1">
