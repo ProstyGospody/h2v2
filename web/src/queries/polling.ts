@@ -24,7 +24,7 @@ export function pollingIntervalMs(
 
 export function queryRefetchInterval(
   baseMs: number,
-  query: QueryLike,
+  query: QueryLike | null | undefined,
   {
     enabled = true,
     maxMs = 60_000,
@@ -33,6 +33,6 @@ export function queryRefetchInterval(
 ): number | false {
   if (!enabled) return false;
   if (typeof document !== "undefined" && document.hidden) return false;
-  const failureCount = query.state?.fetchFailureCount ?? 0;
+  const failureCount = query?.state?.fetchFailureCount ?? 0;
   return pollingIntervalMs(baseMs, failureCount, { maxMs, jitterRatio });
 }

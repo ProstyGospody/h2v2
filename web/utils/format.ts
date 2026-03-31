@@ -1,3 +1,22 @@
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "short",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+});
+
+const DATE_TIME_NO_SECONDS_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "short",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
 export function formatBytes(value: number): string {
   if (!Number.isFinite(value) || value <= 0) {
     return "0 B";
@@ -22,9 +41,9 @@ export function formatDateTime(value?: string | null, options?: { includeSeconds
     return "-";
   }
   if (options?.includeSeconds === false) {
-    return `${date.toLocaleDateString()}, ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+    return DATE_TIME_NO_SECONDS_FORMATTER.format(date);
   }
-  return date.toLocaleString();
+  return DATE_TIME_FORMATTER.format(date);
 }
 
 export function formatUptime(totalSeconds: number): string {

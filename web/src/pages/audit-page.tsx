@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import {
   Badge,
   Button,
+  DateField,
   Input,
   Select,
   SelectContent,
@@ -169,20 +170,8 @@ export default function AuditPage() {
           placeholder="Actor"
           className="h-10 rounded-xl"
         />
-        <Input
-          label="From"
-          type="date"
-          value={dateFrom}
-          onChange={(event) => setDateFrom(event.target.value)}
-          className="h-10 rounded-xl"
-        />
-        <Input
-          label="To"
-          type="date"
-          value={dateTo}
-          onChange={(event) => setDateTo(event.target.value)}
-          className="h-10 rounded-xl"
-        />
+        <DateField label="From" value={dateFrom} onValueChange={setDateFrom} className="h-10 rounded-xl" />
+        <DateField label="To" value={dateTo} onValueChange={setDateTo} className="h-10 rounded-xl" />
       </div>
 
       <ErrorBanner message={error} onDismiss={clearError} actionLabel="Retry" onAction={() => void refresh()} />
