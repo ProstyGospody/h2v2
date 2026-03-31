@@ -23,7 +23,10 @@ export function ClientFormDialog({
 
   useEffect(() => { if (!open) return; setValues(formFromClient(client)); setPreviewOpen(true); }, [client, mode, open]);
 
-  const previewConfig = useMemo(() => buildClientConfigPreview(values, defaults, mode, client), [values, defaults, mode, client]);
+  const previewConfig = useMemo(
+    () => (open ? buildClientConfigPreview(values, defaults, mode, client) : ""),
+    [open, values, defaults, mode, client],
+  );
 
   async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); await onSubmit(values); }
 

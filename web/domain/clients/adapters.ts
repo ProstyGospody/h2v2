@@ -15,10 +15,10 @@ export function defaultsSummary(defaults: HysteriaClientDefaults | null): string
   if (!defaults) {
     return "Server defaults are loading";
   }
-  const params = defaults.client_params;
-  const options = defaults.server_options;
+  const params = defaults.client_params || ({} as HysteriaClientDefaults["client_params"]);
+  const options = defaults.server_options || ({} as HysteriaClientDefaults["server_options"]);
   const parts = [
-    `${params.server}:${params.port}`,
+    params.server ? `${params.server}:${params.port || 443}` : "",
     params.sni ? `SNI ${params.sni}` : "",
     params.insecure ? "TLS insecure" : "",
     options.obfs_type ? `OBFS ${options.obfs_type}` : "",
@@ -90,16 +90,17 @@ export function buildClientConfigPreview(
 ): string {
   const username = values.username.trim() || "<client-id>";
   const secret = resolvePreviewSecret(values, mode, client);
+  const clientParams = defaults?.client_params;
 
-  const host = formatHost(defaults?.client_params.server || "");
-  const portUnion = defaults?.client_params.portUnion?.trim() || "";
-  const port = defaults?.client_params.port || 443;
+  const host = formatHost(clientParams?.server || "");
+  const portUnion = clientParams?.portUnion?.trim() || "";
+  const port = clientParams?.port || 443;
   const authority = portUnion ? `${host}:${portUnion}` : `${host}:${port}`;
 
   const lines = ["server: " + authority, "auth: " + `${username}:${secret}`];
-  const sni = defaults?.client_params.sni?.trim() || "";
-  const insecure = Boolean(defaults?.client_params.insecure);
-  const pin = defaults?.client_params.pinSHA256?.trim() || "";
+  const sni = clientParams?.sni?.trim() || "";
+  const insecure = Boolean(clientParams?.insecure);
+  const pin = clientParams?.pinSHA256?.trim() || "";
   if (sni || insecure || pin) {
     lines.push("tls:");
     if (sni) {
@@ -113,10 +114,10 @@ export function buildClientConfigPreview(
     }
   }
 
-  if ((defaults?.client_params.obfsType || "").trim().toLowerCase() === "salamander") {
+  if ((clientParams?.obfsType || "").trim().toLowerCase() === "salamander") {
     lines.push("obfs:");
     lines.push("  type: salamander");
-    const obfsPassword = defaults?.client_params.obfsPassword?.trim() || "";
+    const obfsPassword = clientParams?.obfsPassword?.trim() || "";
     if (obfsPassword) {
       lines.push("  salamander:");
       lines.push("    password: " + obfsPassword);
