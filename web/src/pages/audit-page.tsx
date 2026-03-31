@@ -1,6 +1,7 @@
 import { RefreshCw, Shield } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button, Input, Badge, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "@/src/components/ui";
 import { useAuditFeed } from "@/src/state/audit-feed";
@@ -23,7 +24,7 @@ function actionKind(action: string): "create" | "update" | "delete" | "other" {
 }
 
 export default function AuditPage() {
-  const { items, loading, error, refresh, markSeen } = useAuditFeed();
+  const { items, loading, error, refresh, clearError, markSeen } = useAuditFeed();
   const [actionFilter, setActionFilter] = useState<"all" | "create" | "update" | "delete">("all");
   const [actorFilter, setActorFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -101,7 +102,7 @@ export default function AuditPage() {
         />
       </div>
 
-      {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
+      <ErrorBanner message={error} onDismiss={clearError} actionLabel="Retry" onAction={() => void refresh()} />
 
       <TableContainer className="overflow-x-auto">
         {loading ? (

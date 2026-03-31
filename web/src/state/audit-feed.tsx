@@ -1,5 +1,6 @@
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 
+import { usePolling } from "@/hooks/use-polling";
 import { APIError, apiFetch } from "@/services/api";
 import { AuditLogItem } from "@/types/common";
 
@@ -11,6 +12,7 @@ type AuditFeedContextValue = {
   error: string;
   newCount: number;
   refresh: () => Promise<void>;
+  clearError: () => void;
   markSeen: () => void;
 };
 
@@ -27,19 +29,31 @@ export function AuditFeedProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState("");
   const [seenAtMs, setSeenAtMs] = useState(() => Date.now());
 
-  const refresh = useCallback(async () => {
-    setError("");
+  const refresh = useCallback(async (signal?: AbortSignal) => {
+    if (!signal?.aborted) {
+      setError("");
+    }
     try {
-      const payload = await apiFetch<{ items: AuditLogItem[] }>("/api/audit?limit=250", { method: "GET" });
+      const payload = await apiFetch<{ items: AuditLogItem[] }>("/api/audit?limit=250", { method: "GET", signal });
       const next = Array.isArray(payload.items) ? [...payload.items] : [];
       next.sort((a, b) => itemTimestampMs(b) - itemTimestampMs(a));
       setItems(next);
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : "Failed to load audit log");
-    } finally {
       setLoading(false);
+    } catch (err) {
+      if (signal?.aborted || (err instanceof DOMException && err.name === "AbortError")) {
+        return;
+      }
+      setError(err instanceof APIError ? err.message : "Failed to load audit log");
+      setLoading(false);
+      throw err;
     }
   }, []);
+
+  const pollingRefresh = useCallback(async (signal: AbortSignal) => {
+    await refresh(signal);
+  }, [refresh]);
+
+  usePolling(pollingRefresh, AUDIT_POLL_MS);
 
   const markSeen = useCallback(() => {
     setSeenAtMs((current) => {
@@ -51,14 +65,7 @@ export function AuditFeedProvider({ children }: { children: ReactNode }) {
   const newCount = useMemo(() => {
     return items.reduce((count, item) => (itemTimestampMs(item) > seenAtMs ? count + 1 : count), 0);
   }, [items, seenAtMs]);
-
-  useEffect(() => {
-    void refresh();
-    const timer = setInterval(() => {
-      void refresh();
-    }, AUDIT_POLL_MS);
-    return () => clearInterval(timer);
-  }, [refresh]);
+  const clearError = useCallback(() => setError(""), []);
 
   const value = useMemo<AuditFeedContextValue>(() => ({
     items,
@@ -66,8 +73,9 @@ export function AuditFeedProvider({ children }: { children: ReactNode }) {
     error,
     newCount,
     refresh,
+    clearError,
     markSeen,
-  }), [items, loading, error, newCount, refresh, markSeen]);
+  }), [items, loading, error, newCount, refresh, clearError, markSeen]);
 
   return <AuditFeedContext.Provider value={value}>{children}</AuditFeedContext.Provider>;
 }

@@ -206,6 +206,15 @@ html.dark {
     color-scheme: dark;
   }
 
+  html.theme-transition,
+  html.theme-transition *,
+  html.theme-transition *::before,
+  html.theme-transition *::after {
+    transition-property: background-color, color, border-color, box-shadow, fill, stroke;
+    transition-duration: 260ms;
+    transition-timing-function: ease;
+  }
+
   body {
     @apply text-txt font-sans antialiased;
     position: relative;

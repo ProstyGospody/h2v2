@@ -9,11 +9,14 @@ import {
   Network,
   RefreshCw,
   RotateCcw,
+  TrendingDown,
   TrendingUp,
   Users2,
   Zap,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+
+import { usePolling } from "@/hooks/use-polling";
 import {
   Area,
   AreaChart,
@@ -29,6 +32,7 @@ import {
 } from "recharts";
 
 import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
 import { APIError, apiFetch } from "@/services/api";
 import { ServiceDetails, ServiceSummary, SystemHistoryResponse, SystemLiveResponse } from "@/types/common";
@@ -49,6 +53,8 @@ type HistoryTrendPoint = {
   download: number;
   upload: number;
   connections: number;
+  cpu: number;
+  ram: number;
 };
 
 type TrafficUsageBarPoint = {
@@ -158,7 +164,43 @@ function statusColor(status: string): string {
   return "bg-txt-muted";
 }
 
-function SectionHeader({ icon, title, children }: { icon: React.ReactNode; title: string; children?: React.ReactNode }) {
+type MetricTrend = {
+  direction: "up" | "down" | "flat";
+  delta: number;
+};
+
+function trendByDelta(delta: number): MetricTrend {
+  if (!Number.isFinite(delta) || Math.abs(delta) < 0.5) {
+    return { direction: "flat", delta: 0 };
+  }
+  if (delta > 0) {
+    return { direction: "up", delta };
+  }
+  return { direction: "down", delta };
+}
+
+function MetricTrendBadge({ trend }: { trend: MetricTrend }) {
+  const absDelta = Math.abs(trend.delta).toFixed(1);
+  if (trend.direction === "up") {
+    return (
+      <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-status-warning">
+        <TrendingUp size={12} strokeWidth={1.8} />
+        +{absDelta}
+      </span>
+    );
+  }
+  if (trend.direction === "down") {
+    return (
+      <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-status-success">
+        <TrendingDown size={12} strokeWidth={1.8} />
+        -{absDelta}
+      </span>
+    );
+  }
+  return <span className="mt-1 inline-flex items-center text-[11px] font-semibold text-txt-muted">0.0</span>;
+}
+
+function SectionHeader({ icon, title, children }: { icon: ReactNode; title: string; children?: ReactNode }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2.5">
@@ -285,43 +327,50 @@ export default function DashboardPage() {
   const [servicesError, setServicesError] = useState("");
   const [serviceDetails, setServiceDetails] = useState<ServiceDetails | null>(null);
   const [serviceDetailsOpen, setServiceDetailsOpen] = useState(false);
-  const loadingRef = useRef(false);
-  const historyLoadingRef = useRef(false);
-
-  const load = useCallback(async () => {
-    if (loadingRef.current) return;
-    loadingRef.current = true;
-    setError("");
+  const loadLive = useCallback(async (signal?: AbortSignal) => {
+    if (!signal?.aborted) {
+      setError("");
+    }
     try {
-      setLive(await apiFetch<SystemLiveResponse>("/api/system/live", { method: "GET" }));
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : "Failed to load dashboard data");
-    } finally {
-      loadingRef.current = false;
+      const data = await apiFetch<SystemLiveResponse>("/api/system/live", { method: "GET", signal });
+      setLive(data);
       setLoading(false);
-    }
-  }, []);
-
-  const loadServices = useCallback(async () => {
-    setServicesError("");
-    try {
-      const p = await apiFetch<{ items: ServiceSummary[] }>("/api/services", { method: "GET" });
-      setServiceItems(p.items || []);
     } catch (err) {
-      setServicesError(err instanceof APIError ? err.message : "Failed to load services");
-    } finally {
-      setServicesLoading(false);
+      if (signal?.aborted || (err instanceof DOMException && err.name === "AbortError")) {
+        return;
+      }
+      setError(err instanceof APIError ? err.message : "Failed to load dashboard data");
+      setLoading(false);
+      throw err;
     }
   }, []);
 
-  const loadHistory = useCallback(async () => {
-    if (historyLoadingRef.current) return;
-    historyLoadingRef.current = true;
-    setHistoryError("");
+  const loadServices = useCallback(async (signal?: AbortSignal) => {
+    if (!signal?.aborted) {
+      setServicesError("");
+    }
+    try {
+      const p = await apiFetch<{ items: ServiceSummary[] }>("/api/services", { method: "GET", signal });
+      setServiceItems(p.items || []);
+      setServicesLoading(false);
+    } catch (err) {
+      if (signal?.aborted || (err instanceof DOMException && err.name === "AbortError")) {
+        return;
+      }
+      setServicesError(err instanceof APIError ? err.message : "Failed to load services");
+      setServicesLoading(false);
+      throw err;
+    }
+  }, []);
+
+  const loadHistory = useCallback(async (signal?: AbortSignal) => {
+    if (!signal?.aborted) {
+      setHistoryError("");
+    }
     try {
       const step = historyWindow === "24h" ? 60 : 5;
       const limit = historyWindow === "24h" ? HISTORY_LIMIT_24H : HISTORY_LIMIT_1H;
-      const p = await apiFetch<SystemHistoryResponse>(`/api/system/history?window=${historyWindow}&step=${step}&limit=${limit}`, { method: "GET" });
+      const p = await apiFetch<SystemHistoryResponse>(`/api/system/history?window=${historyWindow}&step=${step}&limit=${limit}`, { method: "GET", signal });
       const next = Array.isArray(p.items) ? p.items : [];
       setHistoryItems((prev) => {
         if (
@@ -333,17 +382,25 @@ export default function DashboardPage() {
         }
         return next;
       });
-    } catch (err) {
-      setHistoryError(err instanceof APIError ? err.message : "Failed to load history");
-    } finally {
-      historyLoadingRef.current = false;
       setHistoryLoading(false);
+    } catch (err) {
+      if (signal?.aborted || (err instanceof DOMException && err.name === "AbortError")) {
+        return;
+      }
+      setHistoryError(err instanceof APIError ? err.message : "Failed to load history");
+      setHistoryLoading(false);
+      throw err;
     }
   }, [historyWindow]);
 
-  useEffect(() => { void load(); const t = setInterval(() => void load(), LIVE_POLL_MS); return () => clearInterval(t); }, [load]);
-  useEffect(() => { void loadServices(); const t = setInterval(() => void loadServices(), 15000); return () => clearInterval(t); }, [loadServices]);
-  useEffect(() => { setHistoryLoading(true); void loadHistory(); const t = setInterval(() => void loadHistory(), HISTORY_POLL_MS); return () => clearInterval(t); }, [loadHistory]);
+  const retryLive = usePolling(loadLive, LIVE_POLL_MS);
+  const retryServices = usePolling(loadServices, 15_000);
+  const retryHistory = usePolling(loadHistory, HISTORY_POLL_MS, [historyWindow]);
+  const retryAll = useCallback(() => {
+    retryLive();
+    retryServices();
+    retryHistory();
+  }, [retryLive, retryServices, retryHistory]);
 
   const warningMessages = useMemo(() => live?.errors || [], [live]);
 
@@ -384,6 +441,8 @@ export default function DashboardPage() {
           download: Math.max(0, s.network_rx_bps || 0),
           upload: Math.max(0, s.network_tx_bps || 0),
           connections: Math.max(0, (Number.isFinite(tcp) ? tcp : 0) + (Number.isFinite(udp) ? udp : 0)),
+          cpu: clampPercent(Number(s.cpu_usage_percent || 0)),
+          ram: clampPercent(Number(s.memory_used_percent || 0)),
         };
       })
       .filter((x): x is HistoryTrendPoint => Boolean(x))
@@ -467,6 +526,19 @@ export default function DashboardPage() {
       { download: 0, upload: 0 },
     );
   }, [trafficUsageBars]);
+  const cpuTrend = useMemo<MetricTrend>(() => {
+    if (historyPoints.length < 2) return { direction: "flat", delta: 0 };
+    const current = historyPoints.at(-1)?.cpu ?? cpuPercent;
+    const previous = historyPoints.at(-2)?.cpu ?? current;
+    return trendByDelta(current - previous);
+  }, [historyPoints, cpuPercent]);
+  const ramTrend = useMemo<MetricTrend>(() => {
+    if (historyPoints.length < 2) return { direction: "flat", delta: 0 };
+    const current = historyPoints.at(-1)?.ram ?? ramPercent;
+    const previous = historyPoints.at(-2)?.ram ?? current;
+    return trendByDelta(current - previous);
+  }, [historyPoints, ramPercent]);
+  const showHistorySkeleton = historyLoading && !historyPoints.length;
 
   return (
     <div className="space-y-8">
@@ -487,7 +559,7 @@ export default function DashboardPage() {
           ))}
         </div>
       )}
-      {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
+      <ErrorBanner message={error} onDismiss={() => setError("")} actionLabel="Retry" onAction={retryAll} />
       {warningMessages.length > 0 && (
         <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">{warningMessages.join(" | ")}</div>
       )}
@@ -503,6 +575,7 @@ export default function DashboardPage() {
                 <AnimatedNumber value={cpuPercent} />
                 <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
               </p>
+              <MetricTrendBadge trend={cpuTrend} />
             </div>
             <div className="shrink-0">
               <RadialGauge value={cpuPercent} size={56} autoColor />
@@ -519,6 +592,7 @@ export default function DashboardPage() {
                 <AnimatedNumber value={ramPercent} />
                 <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
               </p>
+              <MetricTrendBadge trend={ramTrend} />
             </div>
             <div className="shrink-0">
               <RadialGauge value={ramPercent} size={56} autoColor />
@@ -609,10 +683,7 @@ export default function DashboardPage() {
           </div>
         </SectionHeader>
 
-        {historyLoading && !historyPoints.length && (
-          <div className="rounded-xl border border-status-info/20 bg-status-info/8 px-5 py-3.5 text-[14px] text-status-info">Loading system history...</div>
-        )}
-        {historyError && <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">{historyError}</div>}
+        <ErrorBanner message={historyError} onDismiss={() => setHistoryError("")} actionLabel="Retry" onAction={retryHistory} />
 
         <div className="rounded-2xl bg-surface-2 p-4 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-[13px]">
@@ -631,49 +702,53 @@ export default function DashboardPage() {
               <span className="rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">Up total: {formatBytes(trafficTotals.upload)}</span>
             </div>
           </div>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={trafficUsageBars}>
-                <defs>
-                  <linearGradient id="gradDown" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--data-1)" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="var(--data-1)" stopOpacity={0.02} />
-                  </linearGradient>
-                  <linearGradient id="gradUp" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--data-2)" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="var(--data-2)" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
-                <XAxis dataKey="timestamp" tickFormatter={(v) => formatTrafficTick(new Date(v), historyWindow)} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
-                <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={58} />
-                <Tooltip
-                  formatter={(v: number) => formatBytes(Number(v))}
-                  labelFormatter={(label) => formatTrafficTooltipLabel(label, historyWindow)}
-                  contentStyle={tooltipStyle}
-                  cursor={{ stroke: "var(--border-hover)", strokeDasharray: "4 4" }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="download_bytes"
-                  stroke="var(--data-1)"
-                  strokeWidth={2}
-                  fill="url(#gradDown)"
-                  name="Download"
-                  isAnimationActive={false}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="upload_bytes"
-                  stroke="var(--data-2)"
-                  strokeWidth={2}
-                  fill="url(#gradUp)"
-                  name="Upload"
-                  isAnimationActive={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          {showHistorySkeleton ? (
+            <div className="h-[300px] animate-pulse rounded-xl bg-surface-3/40" />
+          ) : (
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={trafficUsageBars}>
+                  <defs>
+                    <linearGradient id="gradDown" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--data-1)" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="var(--data-1)" stopOpacity={0.02} />
+                    </linearGradient>
+                    <linearGradient id="gradUp" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--data-2)" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="var(--data-2)" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
+                  <XAxis dataKey="timestamp" tickFormatter={(v) => formatTrafficTick(new Date(v), historyWindow)} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={{ stroke: "var(--border)" }} />
+                  <YAxis tickFormatter={(v) => formatBytes(Number(v))} tick={{ fill: "var(--txt-icon)", fontSize: 12 }} tickLine={false} axisLine={false} width={58} />
+                  <Tooltip
+                    formatter={(v: number) => formatBytes(Number(v))}
+                    labelFormatter={(label) => formatTrafficTooltipLabel(label, historyWindow)}
+                    contentStyle={tooltipStyle}
+                    cursor={{ stroke: "var(--border-hover)", strokeDasharray: "4 4" }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="download_bytes"
+                    stroke="var(--data-1)"
+                    strokeWidth={2}
+                    fill="url(#gradDown)"
+                    name="Download"
+                    isAnimationActive={false}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="upload_bytes"
+                    stroke="var(--data-2)"
+                    strokeWidth={2}
+                    fill="url(#gradUp)"
+                    name="Upload"
+                    isAnimationActive={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
       </div>
 
@@ -681,7 +756,7 @@ export default function DashboardPage() {
       {/* ── Managed services ── */}
       <div className="space-y-2.5">
         <SectionHeader icon={<Cpu size={18} strokeWidth={1.6} />} title="Managed Services" />
-        {servicesError && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{servicesError}</div>}
+        <ErrorBanner message={servicesError} onDismiss={() => setServicesError("")} actionLabel="Retry" onAction={retryServices} />
         {servicesLoading ? (
           <div className="flex min-h-[120px] items-center justify-center rounded-2xl bg-surface-2">
             <div className="flex flex-col items-center gap-3">

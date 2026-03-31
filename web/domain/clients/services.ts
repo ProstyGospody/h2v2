@@ -9,9 +9,12 @@ import {
   HysteriaUserPayload,
 } from "@/domain/clients/types";
 
-export async function listClients(): Promise<HysteriaClient[]> {
-  const payload = await apiFetch<HysteriaClientListResponse>("/api/hysteria/users?limit=500", { method: "GET" });
-  return payload.items || [];
+const CLIENT_FETCH_LIMIT = 500;
+
+export async function listClients(): Promise<{ items: HysteriaClient[]; limited: boolean }> {
+  const payload = await apiFetch<HysteriaClientListResponse>(`/api/hysteria/users?limit=${CLIENT_FETCH_LIMIT}`, { method: "GET" });
+  const items = payload.items || [];
+  return { items, limited: items.length >= CLIENT_FETCH_LIMIT };
 }
 
 export function getClientDefaults(): Promise<HysteriaClientDefaults> {

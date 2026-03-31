@@ -12,11 +12,12 @@ import {
   Zap,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, type TouchEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Badge, cn } from "@/src/components/ui";
 import { useAuditFeed } from "@/src/state/audit-feed";
+import { hasUnsavedChangesGuard } from "@/src/state/navigation-guard";
 import { applyTheme, resolveTheme, type ThemeMode } from "@/src/theme";
 import { apiFetch } from "@/services/api";
 
@@ -50,6 +51,8 @@ export function PanelShell({ children }: { children: ReactNode }) {
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>(() => resolveTheme());
+  const swipeStartXRef = useRef<number | null>(null);
+  const swipeStartYRef = useRef<number | null>(null);
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
@@ -76,6 +79,9 @@ export function PanelShell({ children }: { children: ReactNode }) {
   }, [markSeen, pathname]);
 
   async function logout() {
+    if (hasUnsavedChangesGuard() && !window.confirm("Discard changes?")) {
+      return;
+    }
     try {
       await apiFetch<{ ok: boolean }>("/api/auth/logout", { method: "POST", body: JSON.stringify({}) });
     } catch {
@@ -87,6 +93,30 @@ export function PanelShell({ children }: { children: ReactNode }) {
   const sectionMain = navItems.filter((item) => item.section === "MAIN");
   const sectionSystem = navItems.filter((item) => item.section === "SYSTEM");
   const pageContent = useMemo(() => children, [children]);
+  function resetSwipeTrack() {
+    swipeStartXRef.current = null;
+    swipeStartYRef.current = null;
+  }
+  function onMobileSidebarTouchStart(event: TouchEvent<HTMLElement>) {
+    const touch = event.touches[0];
+    swipeStartXRef.current = touch.clientX;
+    swipeStartYRef.current = touch.clientY;
+  }
+  function onMobileSidebarTouchEnd(event: TouchEvent<HTMLElement>) {
+    if (swipeStartXRef.current === null || swipeStartYRef.current === null) {
+      return;
+    }
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - swipeStartXRef.current;
+    const deltaY = touch.clientY - swipeStartYRef.current;
+    resetSwipeTrack();
+    if (deltaX < -70 && Math.abs(deltaY) < 50) {
+      setMobileOpen(false);
+    }
+  }
+  function onMobileSidebarTouchCancel() {
+    resetSwipeTrack();
+  }
 
   function SidebarNavLink({ item, compact, onNavigate }: { item: NavItem; compact: boolean; onNavigate?: () => void }) {
     const selected = isActive(pathname, item.href);
@@ -97,6 +127,9 @@ export function PanelShell({ children }: { children: ReactNode }) {
         type="button"
         title={compact ? item.label : undefined}
         onClick={() => {
+          if (item.href !== pathname && hasUnsavedChangesGuard() && !window.confirm("Discard changes?")) {
+            return;
+          }
           if (item.href === "/audit") {
             markSeen();
           }
@@ -287,7 +320,12 @@ export function PanelShell({ children }: { children: ReactNode }) {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-[var(--dialog-overlay)] backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-[min(280px,100vw)] border-r border-border/30 sidebar-glass shadow-[0_22px_52px_-28px_var(--dialog-shadow)] animate-[slide-in-left_0.25s_ease]">
+          <aside
+            className="absolute inset-y-0 left-0 w-[min(280px,100vw)] border-r border-border/30 sidebar-glass shadow-[0_22px_52px_-28px_var(--dialog-shadow)] animate-[slide-in-left_0.25s_ease]"
+            onTouchStart={onMobileSidebarTouchStart}
+            onTouchEnd={onMobileSidebarTouchEnd}
+            onTouchCancel={onMobileSidebarTouchCancel}
+          >
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
             <SidebarContent compact={false} mobile />
           </aside>

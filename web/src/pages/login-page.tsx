@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
-import { Loader2, Lock, Mail, Moon, Sun, Zap } from "lucide-react";
+import { Eye, EyeOff, Loader2, Lock, Mail, Moon, Sun, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import { ErrorBanner } from "@/components/ui/error-banner";
 import { Button } from "@/src/components/ui";
 import { applyTheme, resolveTheme, type ThemeMode } from "@/src/theme";
 import { APIError, apiFetch } from "@/services/api";
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [error, setError] = useState(locationState?.error || "");
   const [checking, setChecking] = useState(true);
   const [theme, setTheme] = useState<ThemeMode>(() => resolveTheme());
+  const [showPassword, setShowPassword] = useState(false);
   const { register, handleSubmit, formState: { isSubmitting } } = useForm<LoginFormValues>({ defaultValues: { email: "", password: "" } });
   const redirectTo = locationState?.from || "/";
 
@@ -80,8 +82,8 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">
-                {error}
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}>
+                <ErrorBanner message={error} onDismiss={() => setError("")} />
               </motion.div>
             )}
 
@@ -94,8 +96,22 @@ export default function LoginPage() {
                 </div>
                 <div className="relative">
                   <Lock size={18} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-muted" />
-                  <input type="password" required autoComplete="current-password" placeholder="Password" {...register("password", { required: true })}
-                    className="w-full rounded-xl border border-border bg-surface-0/50 py-3.5 pl-12 pr-4 text-[15px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent-secondary/40 focus:bg-surface-0/80 focus:shadow-[0_0_0_3px_var(--accent-soft)]" />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    autoComplete="current-password"
+                    placeholder="Password"
+                    {...register("password", { required: true })}
+                    className="w-full rounded-xl border border-border bg-surface-0/50 py-3.5 pl-12 pr-11 text-[15px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent-secondary/40 focus:bg-surface-0/80 focus:shadow-[0_0_0_3px_var(--accent-soft)]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-txt-muted transition-colors hover:text-txt"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff size={17} strokeWidth={1.7} /> : <Eye size={17} strokeWidth={1.7} />}
+                  </button>
                 </div>
               </div>
               <Button type="submit" variant="primary" className="w-full justify-center rounded-xl py-3.5 text-[15px]" disabled={isSubmitting}>

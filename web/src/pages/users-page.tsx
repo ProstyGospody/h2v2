@@ -16,10 +16,13 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { usePolling } from "@/hooks/use-polling";
 
 import { ClientArtifactsDialog } from "@/components/dialogs/client-artifacts-dialog";
 import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import { ClientFormDialog } from "@/components/forms/client-form-dialog";
 import { PageHeader } from "@/components/ui/page-header";
 import { toCreateRequest, toUpdateRequest, type ClientFormValues } from "@/domain/clients/adapters";
@@ -59,6 +62,14 @@ type SortState = { field: SortField; dir: SortDir };
 
 const rowsPerPageOptions = [10, 25, 50, 100];
 const SKELETON_ROWS = 8;
+const SEARCH_DEBOUNCE_MS = 250;
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tagName = target.tagName.toLowerCase();
+  return tagName === "input" || tagName === "textarea" || tagName === "select";
+}
 
 function SkeletonRow() {
   return (
@@ -188,7 +199,9 @@ export default function UsersPage() {
   const [defaults, setDefaults] = useState<HysteriaClientDefaults | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [limitWarning, setLimitWarning] = useState(false);
 
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<ClientFilter>("all");
   const [page, setPage] = useState(0);
@@ -206,15 +219,17 @@ export default function UsersPage() {
   const [artifactLoading, setArtifactLoading] = useState(false);
   const [artifactClient, setArtifactClient] = useState<HysteriaClient | null>(null);
   const [artifactPayload, setArtifactPayload] = useState<HysteriaUserPayload | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const toast = useToast();
 
   const load = useCallback(async () => {
     setError("");
     try {
-      const [items, inherited] = await Promise.all([listClients(), getClientDefaults()]);
-      setClients(items);
+      const [result, inherited] = await Promise.all([listClients(), getClientDefaults()]);
+      setClients(result.items);
       setDefaults(inherited);
+      setLimitWarning(result.limited);
     } catch (err) {
       setError(err instanceof APIError ? err.message : "Failed to load users");
     } finally {
@@ -225,6 +240,13 @@ export default function UsersPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(searchInput);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   useEffect(() => {
     setPage(0);
@@ -330,12 +352,12 @@ export default function UsersPage() {
     toast.notify("CSV exported");
   }
 
-  function openCreate() {
+  const openCreate = useCallback(() => {
     setFormMode("create");
     setEditingClient(null);
     setFormError("");
     setFormOpen(true);
-  }
+  }, []);
 
   function openEdit(client: HysteriaClient) {
     setFormMode("edit");
@@ -501,19 +523,83 @@ export default function UsersPage() {
 
   const pageCount = Math.max(1, Math.ceil(filteredClients.length / rowsPerPage));
   const hasSelectedClients = selectedClientIDs.length > 0;
-
+  const hasSelectedRef = useRef(hasSelectedClients);
+  hasSelectedRef.current = hasSelectedClients;
   useEffect(() => {
-    const timer = setInterval(() => {
-      if (hasSelectedClients) {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const editable = isEditableTarget(event.target);
+      const key = event.key.toLowerCase();
+
+      if (!formOpen && !artifactOpen && (event.ctrlKey || event.metaKey) && key === "k") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
         return;
       }
-      void load();
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [hasSelectedClients, load]);
+      if (!formOpen && !artifactOpen && !editable && !event.ctrlKey && !event.metaKey && !event.altKey && key === "/") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+      if (!editable && !formOpen && !artifactOpen && key === "n") {
+        event.preventDefault();
+        openCreate();
+        return;
+      }
+      if (key !== "escape") {
+        return;
+      }
+      if (artifactOpen) {
+        event.preventDefault();
+        setArtifactOpen(false);
+        return;
+      }
+      if (formOpen) {
+        event.preventDefault();
+        setFormOpen(false);
+        return;
+      }
+      if (hasSelectedClients) {
+        event.preventDefault();
+        setSelectedClientIDs([]);
+        return;
+      }
+      if (searchInput) {
+        event.preventDefault();
+        setSearchInput("");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [artifactOpen, formOpen, hasSelectedClients, openCreate, searchInput]);
+
+  const pollingLoad = useCallback(async (signal: AbortSignal) => {
+    if (hasSelectedRef.current) return;
+    setError("");
+    try {
+      const [result, inherited] = await Promise.all([listClients(), getClientDefaults()]);
+      if (signal.aborted) return;
+      setClients(result.items);
+      setDefaults(inherited);
+      setLimitWarning(result.limited);
+      setLoading(false);
+    } catch (err) {
+      if (signal.aborted || (err instanceof DOMException && err.name === "AbortError")) {
+        return;
+      }
+      setError(err instanceof APIError ? err.message : "Failed to load users");
+      setLoading(false);
+      throw err;
+    }
+  }, []);
+
+  const retryUsers = usePolling(pollingLoad, 5000);
 
   return (
-    <div className="space-y-6">
+    <div className={cn("space-y-6", hasSelectedClients && "pb-28 sm:pb-24")}>
       <PageHeader
         title="Users"
         actions={
@@ -529,8 +615,9 @@ export default function UsersPage() {
             <div className="relative w-full sm:w-[300px] lg:w-[340px]">
               <Search size={16} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
               <Input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
+                ref={searchInputRef}
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
                 placeholder="Search users..."
                 className="h-12 rounded-2xl border-border/80 bg-surface-2/70 pl-11 shadow-[inset_0_1px_0_var(--shell-highlight)]"
               />
@@ -626,7 +713,8 @@ export default function UsersPage() {
         </div>
       ) : null}
 
-      {error && <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
+      <ErrorBanner message={error} onDismiss={() => setError("")} actionLabel="Retry" onAction={retryUsers} />
+      {limitWarning && <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">Showing first 500 users. Some users may not be displayed.</div>}
 
       {/* ── Desktop table ── */}
       <TableContainer className="hidden overflow-x-auto sm:block">
