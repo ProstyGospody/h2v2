@@ -76,7 +76,7 @@ function formatTooltipDate(value: unknown): string {
 function formatTrafficTick(value: Date, window: HistoryWindow): string {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) return "--:--";
   if (window === "24h") {
-    return value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return `${value.toLocaleDateString([], { day: "2-digit", month: "short" })} ${value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
   }
   return value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
@@ -377,8 +377,8 @@ export default function DashboardPage() {
       .map((s) => {
         const t = new Date(s.timestamp);
         if (Number.isNaN(t.getTime())) return null;
-        const tcp = Number((s as Record<string, unknown>).tcp_sockets || 0);
-        const udp = Number((s as Record<string, unknown>).udp_sockets || 0);
+        const tcp = Number(s.tcp_sockets || 0);
+        const udp = Number(s.udp_sockets || 0);
         return {
           timestamp: t,
           download: Math.max(0, s.network_rx_bps || 0),

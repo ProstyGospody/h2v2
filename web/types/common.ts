@@ -91,6 +91,8 @@ export type SystemHistorySample = {
   memory_used_percent: number;
   network_rx_bps: number;
   network_tx_bps: number;
+  tcp_sockets?: number;
+  udp_sockets?: number;
 };
 
 export type SystemHistoryResponse = {

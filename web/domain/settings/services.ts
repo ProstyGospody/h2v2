@@ -1,4 +1,4 @@
-import { APIError, apiFetch } from "@/services/api";
+import { APIError, apiFetch, getCSRFToken } from "@/services/api";
 
 import { HysteriaSettingsResponse, HysteriaSettingsSaveResponse, Hy2Settings } from "@/domain/settings/types";
 
@@ -62,28 +62,30 @@ function parseFilename(contentDisposition: string | null): string {
 }
 
 export async function downloadSQLiteBackup(): Promise<string> {
+  const csrfHeaderName = import.meta.env.VITE_CSRF_HEADER_NAME || "X-CSRF-Token";
+  const csrfToken = getCSRFToken();
+  const headers: Record<string, string> = {};
+  if (csrfToken) {
+    headers[csrfHeaderName] = csrfToken;
+  }
+
   const response = await fetch("/api/storage/sqlite/backup", {
     method: "GET",
     credentials: "include",
     cache: "no-store",
+    headers,
   });
 
   if (!response.ok) {
     const raw = await response.text();
-    let payload: unknown = null;
-    if (raw) {
-      try {
-        payload = JSON.parse(raw);
-      } catch {
-        payload = raw;
+    let message = `${response.status} ${response.statusText}`;
+    try {
+      const payload = raw ? JSON.parse(raw) : null;
+      if (typeof payload === "object" && payload !== null && "error" in payload) {
+        message = String(payload.error || message);
       }
-    }
-    const message =
-      typeof payload === "object" && payload !== null && "error" in payload
-        ? String((payload as Record<string, unknown>).error || "Request failed")
-        : `${response.status} ${response.statusText}`;
-    const details = typeof payload === "object" && payload !== null && "details" in payload ? (payload as Record<string, unknown>).details : null;
-    throw new APIError(message, response.status, details);
+    } catch { /* not JSON */ }
+    throw new APIError(message, response.status, null);
   }
 
   const blob = await response.blob();

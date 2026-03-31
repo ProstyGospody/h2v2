@@ -305,13 +305,20 @@ export default function UsersPage() {
     }
   }, [filteredClients.length, page, rowsPerPage]);
 
+  function escapeCSV(value: string): string {
+    const escaped = value.replace(/"/g, '""');
+    if (/^[=+\-@\t\r]/.test(escaped)) {
+      return `"'${escaped}"`;
+    }
+    return `"${escaped}"`;
+  }
+
   function exportCSV() {
     const header = "username,enabled,status,traffic_bytes,download_bps,upload_bps,last_seen,note";
     const rows = filteredClients.map((c) => {
       const status = resolveStatus(c);
       const traffic = c.last_tx_bytes + c.last_rx_bytes;
-      const note = (c.note || "").replace(/"/g, '""');
-      return `"${c.username}",${c.enabled},${status},${traffic},${c.download_bps || 0},${c.upload_bps || 0},"${c.last_seen_at || c.updated_at}","${note}"`;
+      return `${escapeCSV(c.username)},${c.enabled},${status},${traffic},${c.download_bps || 0},${c.upload_bps || 0},${escapeCSV(c.last_seen_at || c.updated_at)},${escapeCSV(c.note || "")}`;
     });
     const blob = new Blob([header + "\n" + rows.join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);

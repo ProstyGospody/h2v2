@@ -46,21 +46,22 @@ function highlightYaml(yaml: string): string {
       if (/^\s*#/.test(line)) {
         return `<span class="text-txt-muted">${escapeHtml(line)}</span>`;
       }
-      return line.replace(
+      const matched = line.replace(
         /^(\s*)([\w./-]+)(:)(.*)/,
         (_match, indent, key, colon, rest) => {
           const restStr = rest.trim();
           let valueHtml = escapeHtml(rest);
           if (/^\s*(true|false)$/i.test(rest)) {
-            valueHtml = ` <span class="text-status-warning">${restStr}</span>`;
+            valueHtml = ` <span class="text-status-warning">${escapeHtml(restStr)}</span>`;
           } else if (/^\s*\d+(\.\d+)?$/.test(rest)) {
-            valueHtml = ` <span class="text-status-info">${restStr}</span>`;
+            valueHtml = ` <span class="text-status-info">${escapeHtml(restStr)}</span>`;
           } else if (/^\s*["']/.test(rest) || restStr.length > 0) {
             valueHtml = ` <span class="text-status-success">${escapeHtml(restStr)}</span>`;
           }
           return `${escapeHtml(indent)}<span class="text-accent">${escapeHtml(key)}</span><span class="text-txt-muted">${escapeHtml(colon)}</span>${valueHtml}`;
         },
       );
+      return matched === line ? escapeHtml(line) : matched;
     })
     .join("\n");
 }
@@ -84,7 +85,8 @@ export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: H
   const obfsType = draft.obfs?.type === "salamander" ? "salamander" : "none";
   const masqueradeType = draft.masquerade?.type || "none";
 
-  useEffect(() => { if (obfsType !== "none" && masqueradeType !== "none") onDraftChange({ ...draft, masquerade: undefined }); }, [draft, masqueradeType, obfsType, onDraftChange]);
+  useEffect(() => { if (obfsType !== "none" && masqueradeType !== "none") onDraftChange({ ...draft, masquerade: undefined }); // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to obfs/masquerade type changes, not every draft mutation
+  }, [obfsType, masqueradeType, onDraftChange]);
 
   return (
     <div className="grid gap-5 xl:grid-cols-12">

@@ -26,7 +26,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
       navigate("/login", { replace: true, state: { from: target } });
       return;
     }
-    navigate("/login", { replace: true, state: { from: target } });
+    navigate("/login", { replace: true, state: { from: target, error: "Server unavailable. Please try again later." } });
   }, [location.hash, location.pathname, location.search, navigate, sessionQuery.error, sessionQuery.isError]);
 
   if (sessionQuery.isPending || sessionQuery.isError) {

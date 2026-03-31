@@ -58,7 +58,6 @@ export function toUpdateRequest(values: ClientFormValues): HysteriaClientUpdateR
   if (values.authSecret.trim()) {
     payload.auth_secret = values.authSecret.trim();
   }
-  payload.client_overrides = {};
   return payload;
 }
 

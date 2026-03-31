@@ -86,7 +86,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
 
   const sectionMain = navItems.filter((item) => item.section === "MAIN");
   const sectionSystem = navItems.filter((item) => item.section === "SYSTEM");
-  const pageContent = useMemo(() => children, [pathname]);
+  const pageContent = useMemo(() => children, [children]);
 
   function SidebarNavLink({ item, compact, onNavigate }: { item: NavItem; compact: boolean; onNavigate?: () => void }) {
     const selected = isActive(pathname, item.href);
