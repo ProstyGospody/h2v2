@@ -333,8 +333,8 @@ export default function DashboardPage() {
   }, [servicesQuery.dataUpdatedAt, servicesQuery.isSuccess]);
 
   const live = liveQuery.data || null;
-  const historyItems = historyQuery.data?.items || [];
-  const serviceItems = servicesQuery.data?.items || [];
+  const historyItems = Array.isArray(historyQuery.data?.items) ? historyQuery.data.items : [];
+  const serviceItems = Array.isArray(servicesQuery.data?.items) ? servicesQuery.data.items : [];
   const loading = liveQuery.isPending;
   const historyLoading = historyQuery.isPending;
   const servicesLoading = servicesQuery.isPending;
@@ -363,7 +363,10 @@ export default function DashboardPage() {
     retryHistory();
   }, [retryHistory, retryLive, retryServices]);
 
-  const warningMessages = useMemo(() => live?.errors || [], [live]);
+  const warningMessages = useMemo(
+    () => (Array.isArray(live?.errors) ? live.errors.filter((item): item is string => typeof item === "string") : []),
+    [live],
+  );
 
   async function openServiceDetails(name: string) {
     setServicesBusy(true);

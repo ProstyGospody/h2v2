@@ -7,6 +7,55 @@ import { AuditLogItem } from "@/types/common";
 
 const AUDIT_POLL_MS = 10000;
 const AUDIT_QUERY_KEY = ["audit", "feed"] as const;
+type UnknownRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): UnknownRecord | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  return value as UnknownRecord;
+}
+
+function asString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function asNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function asJSONText(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value === null || value === undefined) {
+    return "{}";
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "{}";
+  }
+}
+
+function normalizeAuditItem(raw: unknown, index: number): AuditLogItem {
+  const record = asRecord(raw);
+  const fallbackDate = new Date().toISOString();
+  const adminID = record?.admin_id;
+  const adminEmail = record?.admin_email;
+  const entityID = record?.entity_id;
+
+  return {
+    id: asNumber(record?.id, index + 1),
+    admin_id: typeof adminID === "string" || adminID === null ? adminID : null,
+    admin_email: typeof adminEmail === "string" || adminEmail === null ? adminEmail : null,
+    action: asString(record?.action, "unknown"),
+    entity_type: asString(record?.entity_type, "unknown"),
+    entity_id: typeof entityID === "string" || entityID === null ? entityID : null,
+    payload_json: asJSONText(record?.payload_json),
+    created_at: asString(record?.created_at, fallbackDate),
+  };
+}
 
 type AuditFeedContextValue = {
   items: AuditLogItem[];
@@ -33,8 +82,9 @@ export function AuditFeedProvider({ children }: { children: ReactNode }) {
   const auditQuery = useQuery({
     queryKey: AUDIT_QUERY_KEY,
     queryFn: async ({ signal }) => {
-      const payload = await apiFetch<{ items: AuditLogItem[] }>("/api/audit?limit=250", { method: "GET", signal });
-      const next = Array.isArray(payload.items) ? [...payload.items] : [];
+      const payload = await apiFetch<{ items?: unknown }>("/api/audit?limit=250", { method: "GET", signal });
+      const rawItems = Array.isArray(payload?.items) ? payload.items : [];
+      const next = rawItems.map((item, index) => normalizeAuditItem(item, index));
       next.sort((a, b) => itemTimestampMs(b) - itemTimestampMs(a));
       return next;
     },

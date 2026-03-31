@@ -73,6 +73,10 @@ const rowsPerPageOptions = [25, 50, 100, 250, 500];
 const SKELETON_ROWS = 8;
 const SEARCH_DEBOUNCE_MS = 250;
 
+function asText(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
@@ -140,7 +144,7 @@ function GradientProgress({ ratio, isHigh }: { ratio: number; isHigh: boolean })
 }
 
 function initials(value: string): string {
-  const clean = value.trim();
+  const clean = asText(value).trim();
   return clean ? clean.slice(0, 1).toUpperCase() : "?";
 }
 
@@ -285,7 +289,7 @@ export default function UsersPage() {
       if (filter === "enabled" && !client.enabled) return false;
       if (filter === "disabled" && client.enabled) return false;
       if (!needle) return true;
-      const haystack = [client.username, client.username_normalized, client.note || "", client.id].join(" ").toLowerCase();
+      const haystack = [asText(client.username), asText(client.username_normalized), asText(client.note), asText(client.id)].join(" ").toLowerCase();
       return haystack.includes(needle);
     });
 
@@ -295,7 +299,7 @@ export default function UsersPage() {
       sorted.sort((a, b) => {
         switch (sort.field) {
           case "username":
-            return dir * a.username.localeCompare(b.username, undefined, { sensitivity: "base" });
+            return dir * asText(a.username).localeCompare(asText(b.username), undefined, { sensitivity: "base" });
           case "traffic":
             return dir * ((a.last_tx_bytes + a.last_rx_bytes) - (b.last_tx_bytes + b.last_rx_bytes));
           case "last_seen": {
@@ -308,7 +312,7 @@ export default function UsersPage() {
         }
       });
     } else {
-      sorted.sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: "base" }));
+      sorted.sort((a, b) => asText(a.username).localeCompare(asText(b.username), undefined, { sensitivity: "base" }));
     }
     return sorted;
   }, [clients, filter, searchQuery, sort]);

@@ -25,6 +25,9 @@ export class ErrorBoundary extends Component<Props, State> {
             <AlertTriangle size={28} strokeWidth={1.6} className="text-status-danger" />
           </div>
           <h2 className="text-[18px] font-bold text-txt-primary">Something went wrong</h2>
+          {this.state.error.message ? (
+            <p className="max-w-[520px] break-words text-[12px] text-txt-secondary">{this.state.error.message}</p>
+          ) : null}
           <button
             type="button"
             onClick={() => this.setState({ error: null })}

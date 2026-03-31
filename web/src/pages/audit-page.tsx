@@ -26,16 +26,16 @@ import {
 import { useAuditFeed } from "@/src/state/audit-feed";
 import { formatDateTime } from "@/utils/format";
 
-function actionVariant(action: string): "default" | "success" | "warning" | "danger" {
-  const l = action.toLowerCase();
+function actionVariant(action: string | null | undefined): "default" | "success" | "warning" | "danger" {
+  const l = (action || "").toLowerCase();
   if (l.includes("delete") || l.includes("remove")) return "danger";
   if (l.includes("create") || l.includes("add")) return "success";
   if (l.includes("update") || l.includes("change") || l.includes("edit")) return "warning";
   return "default";
 }
 
-function actionKind(action: string): "create" | "update" | "delete" | "other" {
-  const l = action.toLowerCase();
+function actionKind(action: string | null | undefined): "create" | "update" | "delete" | "other" {
+  const l = (action || "").toLowerCase();
   if (l.includes("delete") || l.includes("remove")) return "delete";
   if (l.includes("create") || l.includes("add")) return "create";
   if (l.includes("update") || l.includes("change") || l.includes("edit")) return "update";
