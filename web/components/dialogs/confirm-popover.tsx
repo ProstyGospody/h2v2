@@ -1,6 +1,6 @@
 import * as Popover from "@radix-ui/react-popover";
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 
 import { Button } from "@/src/components/ui";
 
@@ -19,6 +19,7 @@ export function ConfirmPopover({
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const cancelRef = useRef<HTMLButtonElement | null>(null);
 
   async function handleConfirm() {
     setBusy(true);
@@ -37,6 +38,10 @@ export function ConfirmPopover({
         <Popover.Content
           sideOffset={8}
           align="end"
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            cancelRef.current?.focus();
+          }}
           className="z-50 w-[min(260px,calc(100vw-24px))] rounded-xl bg-surface-2/95 p-4 shadow-[0_18px_42px_-16px_var(--dialog-shadow)] backdrop-blur-xl"
         >
           <div className="flex items-start gap-3">
@@ -49,7 +54,7 @@ export function ConfirmPopover({
             </div>
           </div>
           <div className="mt-3 flex items-center justify-end gap-2">
-            <Button size="sm" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button>
+            <Button ref={cancelRef} size="sm" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button>
             <Button size="sm" variant="danger" onClick={() => void handleConfirm()} disabled={busy}>
               {busy ? <Loader2 size={14} className="animate-spin" /> : null}
               {confirmText}

@@ -1,84 +1,9 @@
 import { Code, Download, Gauge, Globe, Lock, Shield, SlidersHorizontal, Upload } from "lucide-react";
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo } from "react";
 
 import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
 import { Hy2Settings } from "@/domain/settings/types";
-import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Toggle } from "@/src/components/ui";
-
-function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-surface-3/55 text-txt-secondary">
-        {icon}
-      </div>
-      <h3 className="text-[15px] font-semibold text-txt-primary">{title}</h3>
-    </div>
-  );
-}
-
-function SectionCard({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <section className="panel-card min-w-0 space-y-4">
-      <SectionTitle icon={icon} title={title} />
-      {children}
-    </section>
-  );
-}
-
-function SelectField({
-  label,
-  value,
-  onValueChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onValueChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <div>
-      <label className="mb-2 block text-[13px] font-medium text-txt-secondary">{label}</label>
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((item) => (
-            <SelectItem key={item.value} value={item.value}>
-              {item.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
-
-function ToggleField({
-  label,
-  checked,
-  onCheckedChange,
-}: {
-  label: string;
-  checked: boolean;
-  onCheckedChange: (next: boolean) => void;
-}) {
-  return (
-    <div className="flex items-center justify-between rounded-xl bg-[var(--control-bg)] px-4 py-3 shadow-[inset_0_0_0_1px_var(--control-border)]">
-      <span className="text-[14px] font-medium text-txt-primary">{label}</span>
-      <Toggle checked={checked} onCheckedChange={onCheckedChange} />
-    </div>
-  );
-}
+import { Button, Input, SectionCard, SectionTitle, SelectField, ToggleField } from "@/src/components/ui";
 
 function escapeHtml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

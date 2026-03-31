@@ -12,10 +12,11 @@ import {
   Zap,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { type ReactNode, type TouchEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, type TouchEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { Badge, cn } from "@/src/components/ui";
+import { Badge, Tooltip, cn } from "@/src/components/ui";
+import { useConfirmDialog } from "@/src/components/ui/ConfirmDialog";
 import { useAuditFeed } from "@/src/state/audit-feed";
 import { hasUnsavedChangesGuard } from "@/src/state/navigation-guard";
 import { applyTheme, resolveTheme, type ThemeMode } from "@/src/theme";
@@ -29,8 +30,6 @@ type NavItem = {
 };
 
 const SIDEBAR_COLLAPSED_KEY = "panel-sidebar-collapsed";
-const SIDEBAR_WIDTH_EXPANDED = 280;
-const SIDEBAR_WIDTH_COLLAPSED = 96;
 
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: <Activity size={24} strokeWidth={1.8} />, section: "MAIN" },
@@ -48,11 +47,13 @@ export function PanelShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { newCount, markSeen } = useAuditFeed();
+  const { confirm } = useConfirmDialog();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>(() => resolveTheme());
   const swipeStartXRef = useRef<number | null>(null);
   const swipeStartYRef = useRef<number | null>(null);
+  const mobileSidebarRef = useRef<HTMLElement | null>(null);
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
@@ -78,8 +79,26 @@ export function PanelShell({ children }: { children: ReactNode }) {
     }
   }, [markSeen, pathname]);
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+    mobileSidebarRef.current?.focus();
+  }, [mobileOpen]);
+
+  const confirmDiscardChanges = useCallback(async () => {
+    if (!hasUnsavedChangesGuard()) {
+      return true;
+    }
+    return confirm({
+      title: "Discard changes?",
+      description: "Unsaved changes will be lost.",
+      confirmText: "Discard",
+      cancelText: "Stay",
+    });
+  }, [confirm]);
+
   async function logout() {
-    if (hasUnsavedChangesGuard() && !window.confirm("Discard changes?")) {
+    const shouldProceed = await confirmDiscardChanges();
+    if (!shouldProceed) {
       return;
     }
     try {
@@ -121,20 +140,26 @@ export function PanelShell({ children }: { children: ReactNode }) {
   function SidebarNavLink({ item, compact, onNavigate }: { item: NavItem; compact: boolean; onNavigate?: () => void }) {
     const selected = isActive(pathname, item.href);
     const showAuditBadge = item.href === "/audit" && newCount > 0;
+    async function handleNavigate() {
+      if (item.href !== pathname) {
+        const shouldProceed = await confirmDiscardChanges();
+        if (!shouldProceed) {
+          return;
+        }
+      }
+      if (item.href === "/audit") {
+        markSeen();
+      }
+      navigate(item.href);
+      onNavigate?.();
+    }
 
-    return (
+    const content = (
       <button
         type="button"
-        title={compact ? item.label : undefined}
+        aria-label={item.label}
         onClick={() => {
-          if (item.href !== pathname && hasUnsavedChangesGuard() && !window.confirm("Discard changes?")) {
-            return;
-          }
-          if (item.href === "/audit") {
-            markSeen();
-          }
-          navigate(item.href);
-          onNavigate?.();
+          void handleNavigate();
         }}
         className={cn(
           "group relative flex h-12 w-full items-center rounded-2xl transition-[transform,background-color,color,box-shadow] duration-200 will-change-transform",
@@ -165,6 +190,11 @@ export function PanelShell({ children }: { children: ReactNode }) {
         ) : null}
       </button>
     );
+
+    if (compact) {
+      return <Tooltip content={item.label}>{content}</Tooltip>;
+    }
+    return content;
   }
 
   function SidebarContent({ compact, mobile }: { compact: boolean; mobile: boolean }) {
@@ -229,67 +259,68 @@ export function PanelShell({ children }: { children: ReactNode }) {
           )}
 
           {!mobile && (
+            <Tooltip content={compact ? (collapsed ? "Expand sidebar" : "Collapse sidebar") : undefined}>
+              <button
+                type="button"
+                onClick={() => setCollapsed((prev) => !prev)}
+                className={cn(
+                  "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-all duration-200 hover:bg-surface-3/40 hover:text-txt-primary",
+                  compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
+                )}
+                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+              >
+                {collapsed ? <ChevronRight size={compact ? 22 : 18} strokeWidth={1.8} /> : <ChevronLeft size={compact ? 22 : 18} strokeWidth={1.8} />}
+                {!compact && (collapsed ? "Expand sidebar" : "Collapse sidebar")}
+              </button>
+            </Tooltip>
+          )}
+
+          <Tooltip content={compact ? "Toggle theme" : undefined}>
             <button
               type="button"
-              onClick={() => setCollapsed((prev) => !prev)}
-              title={compact ? (collapsed ? "Expand sidebar" : "Collapse sidebar") : undefined}
+              aria-label="Toggle theme"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className={cn(
                 "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-all duration-200 hover:bg-surface-3/40 hover:text-txt-primary",
                 compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
               )}
-              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
-              {collapsed ? <ChevronRight size={compact ? 22 : 18} strokeWidth={1.8} /> : <ChevronLeft size={compact ? 22 : 18} strokeWidth={1.8} />}
-              {!compact && (collapsed ? "Expand sidebar" : "Collapse sidebar")}
+              {theme === "dark" ? <Sun size={compact ? 22 : 18} strokeWidth={1.8} /> : <Moon size={compact ? 22 : 18} strokeWidth={1.8} />}
+              {!compact && (theme === "dark" ? "Light theme" : "Dark theme")}
             </button>
-          )}
+          </Tooltip>
 
-          <button
-            type="button"
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            title={compact ? "Toggle theme" : undefined}
-            className={cn(
-              "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-all duration-200 hover:bg-surface-3/40 hover:text-txt-primary",
-              compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
-            )}
-          >
-            {theme === "dark" ? <Sun size={compact ? 22 : 18} strokeWidth={1.8} /> : <Moon size={compact ? 22 : 18} strokeWidth={1.8} />}
-            {!compact && (theme === "dark" ? "Light theme" : "Dark theme")}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => void logout()}
-            title={compact ? "Sign out" : undefined}
-            className={cn(
-              "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-all duration-200 hover:bg-status-danger/8 hover:text-status-danger",
-              compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
-            )}
-          >
-            <LogOut size={compact ? 22 : 18} strokeWidth={1.8} />
-            {!compact && "Sign out"}
-          </button>
+          <Tooltip content={compact ? "Sign out" : undefined}>
+            <button
+              type="button"
+              aria-label="Sign out"
+              onClick={() => void logout()}
+              className={cn(
+                "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-all duration-200 hover:bg-status-danger/8 hover:text-status-danger",
+                compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
+              )}
+            >
+              <LogOut size={compact ? 22 : 18} strokeWidth={1.8} />
+              {!compact && "Sign out"}
+            </button>
+          </Tooltip>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-surface-0 text-txt">
+    <div className={cn("panel-layout min-h-screen bg-surface-0 text-txt", collapsed ? "sidebar-collapsed" : "sidebar-expanded")}>
       {/* Desktop sidebar */}
       <aside
-        className="fixed inset-y-0 left-0 z-30 hidden overflow-x-hidden border-r border-border/30 sidebar-glass lg:block"
-        style={{
-          width: `${collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED}px`,
-          transition: "width 0.34s cubic-bezier(0.22,1,0.36,1)",
-        }}
+        className="panel-desktop-sidebar fixed inset-y-0 left-0 z-30 hidden overflow-x-hidden border-r border-border/30 sidebar-glass lg:block"
       >
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
         <SidebarContent compact={collapsed} mobile={false} />
       </aside>
 
       {/* Main content */}
-      <div className={cn("transition-[padding-left] duration-300 ease-out", collapsed ? "lg:pl-[96px]" : "lg:pl-[280px]")}>
+      <div className="panel-main">
         {!mobileOpen && (
           <button
             type="button"
@@ -302,7 +333,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
         )}
 
         <main className="p-4 pt-16 sm:p-5 sm:pt-20 md:p-8 md:pt-20 lg:pt-8">
-          <AnimatePresence mode="wait" initial={false}>
+          <AnimatePresence mode="popLayout" initial={false}>
             <motion.div
               key={pathname}
               initial={{ opacity: 0, y: 8 }}
@@ -318,13 +349,54 @@ export function PanelShell({ children }: { children: ReactNode }) {
 
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-[var(--dialog-overlay)] backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+        <div className="fixed inset-0 z-50 lg:hidden" onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.preventDefault();
+            setMobileOpen(false);
+          }
+        }}>
+          <div className="absolute inset-0 bg-[var(--dialog-overlay)] backdrop-blur-sm" onClick={() => setMobileOpen(false)} aria-hidden="true" />
           <aside
+            ref={mobileSidebarRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Navigation menu"
+            tabIndex={-1}
             className="absolute inset-y-0 left-0 w-[min(280px,100vw)] border-r border-border/30 sidebar-glass shadow-[0_22px_52px_-28px_var(--dialog-shadow)] animate-[slide-in-left_0.25s_ease]"
             onTouchStart={onMobileSidebarTouchStart}
             onTouchEnd={onMobileSidebarTouchEnd}
             onTouchCancel={onMobileSidebarTouchCancel}
+            onKeyDown={(event) => {
+              if (event.key !== "Tab") {
+                return;
+              }
+              const root = mobileSidebarRef.current;
+              if (!root) {
+                return;
+              }
+              const focusable = Array.from(
+                root.querySelectorAll<HTMLElement>(
+                  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+                ),
+              );
+              if (focusable.length === 0) {
+                event.preventDefault();
+                root.focus();
+                return;
+              }
+              const first = focusable[0];
+              const last = focusable[focusable.length - 1];
+              const active = document.activeElement as HTMLElement | null;
+              if (event.shiftKey && (active === first || active === root)) {
+                event.preventDefault();
+                last.focus();
+                return;
+              }
+              if (!event.shiftKey && active === last) {
+                event.preventDefault();
+                first.focus();
+              }
+            }}
           >
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
             <SidebarContent compact={false} mobile />

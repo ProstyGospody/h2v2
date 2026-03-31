@@ -130,7 +130,7 @@ function RadialGauge({
   const data = [{ value: clamped, fill }];
   return (
     <div style={{ width: size, height: size }}>
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={size} minHeight={size} aspect={1}>
         <RadialBarChart
           cx="50%" cy="50%"
           innerRadius="70%" outerRadius="100%"
@@ -254,6 +254,7 @@ function MetricsCarousel({ children }: { children: React.ReactNode }) {
             <button
               key={i}
               type="button"
+              aria-label={`Show metric ${i + 1}`}
               onClick={() => setCurrentIndex(i)}
               className={cn(
                 "h-1.5 rounded-full transition-all duration-200",
@@ -697,7 +698,7 @@ export default function DashboardPage() {
             <StateBlock tone="loading" title="Loading chart" minHeightClassName="h-[300px]" className="rounded-xl bg-surface-3/28" />
           ) : (
             <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minHeight={300}>
                 <AreaChart data={trafficUsageBars}>
                   <defs>
                     <linearGradient id="gradDown" x1="0" y1="0" x2="0" y2="1">

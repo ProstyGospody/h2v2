@@ -3,7 +3,9 @@ import { Outlet, Navigate, createBrowserRouter } from "react-router-dom";
 import { AuthGuard } from "@/shell/auth-guard";
 import { PanelShell } from "@/shell/panel-shell";
 import { ErrorBoundary } from "@/src/components/ErrorBoundary";
+import { ConfirmDialogProvider } from "@/src/components/ui/ConfirmDialog";
 import { ToastProvider } from "@/src/components/ui/Toast";
+import { TooltipProvider } from "@/src/components/ui/Tooltip";
 import { AuditFeedProvider } from "@/src/state/audit-feed";
 
 import AuditPage from "./pages/audit-page";
@@ -15,15 +17,19 @@ import UsersPage from "./pages/users-page";
 function PanelLayout() {
   return (
     <AuthGuard>
-      <ToastProvider>
-        <AuditFeedProvider>
-          <PanelShell>
-            <ErrorBoundary>
-              <Outlet />
-            </ErrorBoundary>
-          </PanelShell>
-        </AuditFeedProvider>
-      </ToastProvider>
+      <TooltipProvider>
+        <ConfirmDialogProvider>
+          <ToastProvider>
+            <AuditFeedProvider>
+              <PanelShell>
+                <ErrorBoundary>
+                  <Outlet />
+                </ErrorBoundary>
+              </PanelShell>
+            </AuditFeedProvider>
+          </ToastProvider>
+        </ConfirmDialogProvider>
+      </TooltipProvider>
     </AuthGuard>
   );
 }

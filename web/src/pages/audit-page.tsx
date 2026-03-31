@@ -1,6 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { RefreshCw, Shield } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronUp, FilterX, RefreshCw, Shield } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
@@ -21,6 +21,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  cn,
 } from "@/src/components/ui";
 import { useAuditFeed } from "@/src/state/audit-feed";
 import { formatDateTime } from "@/utils/format";
@@ -41,6 +42,34 @@ function actionKind(action: string): "create" | "update" | "delete" | "other" {
   return "other";
 }
 
+function ExpandablePayload({ json }: { json: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const content = json || "{}";
+  const isLong = content.length > 120;
+
+  return (
+    <div className="relative">
+      <pre
+        className={cn(
+          "m-0 max-w-[340px] whitespace-pre-wrap break-words rounded-lg bg-surface-0/50 p-3 font-mono text-[13px] text-txt-secondary",
+          !expanded && isLong && "max-h-[80px] overflow-hidden",
+        )}
+      >
+        {content}
+      </pre>
+      {isLong && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-accent transition-colors hover:text-accent-light"
+        >
+          {expanded ? <><ChevronUp size={12} /> Collapse</> : <><ChevronDown size={12} /> Show more</>}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function AuditPage() {
   const { items, loading, error, refresh, clearError, markSeen } = useAuditFeed();
   const tableScrollRef = useRef<HTMLDivElement | null>(null);
@@ -48,6 +77,14 @@ export default function AuditPage() {
   const [actorFilter, setActorFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+
+  const hasActiveFilters = actionFilter !== "all" || actorFilter.trim() !== "" || dateFrom !== "" || dateTo !== "";
+  const clearFilters = useCallback(() => {
+    setActionFilter("all");
+    setActorFilter("");
+    setDateFrom("");
+    setDateTo("");
+  }, []);
 
   useEffect(() => {
     markSeen();
@@ -89,12 +126,26 @@ export default function AuditPage() {
       <PageHeader
         title="Audit Log"
         actions={
-          <Button variant="primary" onClick={() => void refresh()} className="h-11 w-full rounded-2xl px-4 sm:w-auto">
+          <Button variant="primary" onClick={() => void refresh()} className="header-btn w-full rounded-2xl px-4 sm:w-auto">
             <RefreshCw size={18} strokeWidth={1.6} />
             Refresh
           </Button>
         }
       />
+
+      <div className="flex items-center justify-between">
+        <span className="text-[13px] text-txt-secondary">{filteredItems.length} records{hasActiveFilters ? ` (of ${items.length})` : ""}</span>
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-txt-secondary transition-colors hover:bg-surface-3/50 hover:text-txt-primary"
+          >
+            <FilterX size={14} strokeWidth={1.6} />
+            Clear filters
+          </button>
+        )}
+      </div>
 
       <div className="grid gap-3 md:grid-cols-4">
         <div>
@@ -136,13 +187,38 @@ export default function AuditPage() {
 
       <ErrorBanner message={error} onDismiss={clearError} actionLabel="Retry" onAction={() => void refresh()} />
 
-      <TableContainer ref={tableScrollRef} className="max-h-[72vh] overflow-auto">
+      <div className="space-y-3 sm:hidden">
+        {loading ? (
+          <StateBlock tone="loading" title="Loading audit log" minHeightClassName="min-h-[240px]" />
+        ) : filteredItems.length ? (
+          filteredItems.map((item) => (
+            <div key={item.id} className="panel-card-compact space-y-2.5">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-[12px] text-txt-secondary">{formatDateTime(item.created_at)}</p>
+                <Badge variant={actionVariant(item.action)}>{item.action}</Badge>
+              </div>
+              <div className="flex items-center justify-between gap-3 text-[13px]">
+                <span className="truncate font-medium text-txt-primary">{item.admin_email || "system"}</span>
+                <span className="truncate text-txt-secondary">
+                  {item.entity_type}
+                  {item.entity_id ? <span className="text-txt-muted">:{item.entity_id}</span> : null}
+                </span>
+              </div>
+              <ExpandablePayload json={item.payload_json} />
+            </div>
+          ))
+        ) : (
+          <StateBlock tone="empty" title={items.length ? "No audit records match filters" : "No audit records"} icon={Shield} minHeightClassName="min-h-[200px]" />
+        )}
+      </div>
+
+      <TableContainer ref={tableScrollRef} className="hidden max-h-[72vh] overflow-auto sm:block">
         {loading ? (
           <StateBlock tone="loading" title="Loading audit log" minHeightClassName="min-h-[280px]" />
         ) : items.length === 0 ? (
           <StateBlock tone="empty" title="No audit records" icon={Shield} minHeightClassName="min-h-[240px]" />
         ) : (
-          <Table>
+          <Table aria-rowcount={filteredItems.length + 1}>
             <TableHeader>
               <TableRow className="border-t-0 hover:bg-transparent">
                 <TableHead>Timestamp</TableHead>
@@ -156,7 +232,7 @@ export default function AuditPage() {
               {filteredItems.length ? (
                 <>
                   {virtualTopPadding > 0 ? (
-                    <TableRow className="border-0 hover:bg-transparent">
+                    <TableRow className="border-0 hover:bg-transparent" aria-hidden="true">
                       <TableCell colSpan={5} style={{ height: virtualTopPadding, padding: 0 }} />
                     </TableRow>
                   ) : null}
@@ -164,21 +240,24 @@ export default function AuditPage() {
                     const item = filteredItems[virtualRow.index];
                     if (!item) return null;
                     return (
-                      <TableRow key={item.id} style={{ animationDelay: `${virtualRow.index * 0.02}s` }} className="animate-[fadein_0.2s_ease_forwards] opacity-0">
+                      <TableRow
+                        key={item.id}
+                        aria-rowindex={virtualRow.index + 2}
+                        style={{ animationDelay: `${virtualRow.index * 0.02}s` }}
+                        className="animate-[fadein_0.2s_ease_forwards] opacity-0"
+                      >
                         <TableCell className="whitespace-nowrap text-[12px] text-txt-secondary sm:text-[14px]">{formatDateTime(item.created_at)}</TableCell>
                         <TableCell><span className="font-medium">{item.admin_email || "system"}</span></TableCell>
                         <TableCell><Badge variant={actionVariant(item.action)}>{item.action}</Badge></TableCell>
                         <TableCell><span className="text-txt-secondary">{item.entity_type}{item.entity_id ? <span className="text-txt-muted">:{item.entity_id}</span> : ""}</span></TableCell>
                         <TableCell className="hidden lg:table-cell">
-                          <pre className="m-0 max-w-[340px] truncate whitespace-pre-wrap break-words rounded-lg bg-surface-0/50 p-3 font-mono text-[13px] text-txt-secondary">
-                            {item.payload_json || "{}"}
-                          </pre>
+                          <ExpandablePayload json={item.payload_json} />
                         </TableCell>
                       </TableRow>
                     );
                   })}
                   {virtualBottomPadding > 0 ? (
-                    <TableRow className="border-0 hover:bg-transparent">
+                    <TableRow className="border-0 hover:bg-transparent" aria-hidden="true">
                       <TableCell colSpan={5} style={{ height: virtualBottomPadding, padding: 0 }} />
                     </TableRow>
                   ) : null}

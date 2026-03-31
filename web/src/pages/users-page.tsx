@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
+  Loader2,
   MoreVertical,
   Pencil,
   Plus,
@@ -43,6 +44,7 @@ import {
   Button,
   Checkbox,
   Input,
+  Kbd,
   Select,
   SelectContent,
   SelectItem,
@@ -56,6 +58,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Tooltip,
   Toggle,
   cn,
 } from "@/src/components/ui";
@@ -82,26 +85,26 @@ function SkeletonRow() {
   return (
     <tr className="border-t border-border/30">
       <td className="w-10 px-5 py-3.5"><div className="h-4 w-4 animate-pulse rounded bg-surface-3/60" /></td>
-      <td className="hidden w-14 px-5 py-3.5 md:table-cell"><div className="h-4 w-6 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="hidden w-14 px-5 py-3.5 md:table-cell"><div className="h-4 w-full max-w-[24px] animate-pulse rounded bg-surface-3/60" /></td>
       <td className="px-5 py-3.5">
         <div className="flex items-center gap-2">
-          <div className="h-9 w-9 animate-pulse rounded-xl bg-surface-3/60" />
-          <div className="space-y-1.5">
-            <div className="h-3.5 w-24 animate-pulse rounded bg-surface-3/60" />
-            <div className="h-3 w-16 animate-pulse rounded bg-surface-3/50" />
+          <div className="h-9 w-9 shrink-0 animate-pulse rounded-xl bg-surface-3/60" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="h-3.5 w-full max-w-[120px] animate-pulse rounded bg-surface-3/60" />
+            <div className="h-3 w-full max-w-[80px] animate-pulse rounded bg-surface-3/50" />
           </div>
         </div>
       </td>
-      <td className="hidden px-5 py-3.5 lg:table-cell"><div className="h-5 w-10 animate-pulse rounded-badge bg-surface-3/60" /></td>
-      <td className="px-5 py-3.5"><div className="h-5 w-20 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="hidden px-5 py-3.5 lg:table-cell"><div className="h-5 w-full max-w-[40px] animate-pulse rounded-badge bg-surface-3/60" /></td>
+      <td className="px-5 py-3.5"><div className="h-5 w-full max-w-[80px] animate-pulse rounded bg-surface-3/60" /></td>
       <td className="hidden px-5 py-3.5 lg:table-cell">
         <div className="space-y-1.5">
-          <div className="h-1.5 w-full animate-pulse rounded-full bg-surface-3/60" />
-          <div className="h-3 w-12 animate-pulse rounded bg-surface-3/50" />
+          <div className="h-2 w-full animate-pulse rounded-full bg-surface-3/60" />
+          <div className="h-3 w-full max-w-[48px] animate-pulse rounded bg-surface-3/50" />
         </div>
       </td>
-      <td className="hidden px-5 py-3.5 text-right lg:table-cell"><div className="ml-auto h-8 w-24 animate-pulse rounded bg-surface-3/60" /></td>
-      <td className="hidden px-5 py-3.5 text-right md:table-cell"><div className="ml-auto h-4 w-24 animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="hidden px-5 py-3.5 text-right lg:table-cell"><div className="ml-auto h-8 w-full max-w-[96px] animate-pulse rounded bg-surface-3/60" /></td>
+      <td className="hidden px-5 py-3.5 text-right md:table-cell"><div className="ml-auto h-4 w-full max-w-[96px] animate-pulse rounded bg-surface-3/60" /></td>
       <td className="w-[76px] px-5 py-3.5 text-center"><div className="mx-auto h-10 w-10 animate-pulse rounded-btn bg-surface-3/60" /></td>
       <td className="w-[76px] px-5 py-3.5 text-center"><div className="mx-auto h-10 w-10 animate-pulse rounded-btn bg-surface-3/60" /></td>
       <td className="w-[84px] px-5 py-3.5 text-center"><div className="mx-auto h-10 w-10 animate-pulse rounded-btn bg-surface-3/60" /></td>
@@ -116,12 +119,17 @@ function SortIcon({ field, sort }: { field: SortField; sort: SortState | null })
     : <ChevronDown size={12} strokeWidth={2} className="text-accent" />;
 }
 
+function sortAria(field: SortField, sort: SortState | null): "none" | "ascending" | "descending" {
+  if (!sort || sort.field !== field) return "none";
+  return sort.dir === "asc" ? "ascending" : "descending";
+}
+
 function GradientProgress({ ratio, isHigh }: { ratio: number; isHigh: boolean }) {
   return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full border border-border/70 bg-border/70">
+    <div className="h-2 w-full overflow-hidden rounded-full bg-surface-3/40">
       <div
         className={cn(
-          "h-full rounded-full",
+          "h-full rounded-full transition-[width] duration-300",
           isHigh
             ? "bg-gradient-to-r from-status-warning to-status-danger"
             : "bg-gradient-to-r from-accent to-accent-light",
@@ -163,6 +171,7 @@ function MobileActions({
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
+          aria-label={`actions for ${client.username}`}
           className="inline-flex h-8 w-8 items-center justify-center rounded-btn text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
         >
           <MoreVertical size={16} strokeWidth={1.4} />
@@ -433,28 +442,48 @@ export default function UsersPage() {
 
     const targetIDs = [...selectedClientIDs];
     setActionError("");
+    const toastId = toast.notify(`Deleting 0/${targetIDs.length}...`, "info");
     try {
-      const results = await Promise.allSettled(targetIDs.map((id) => deleteClient(id)));
       const failedIDs: string[] = [];
       let firstError = "";
       let deletedCount = 0;
+      let processedCount = 0;
 
-      results.forEach((result, i) => {
-        if (result.status === "fulfilled") {
-          deletedCount += 1;
-        } else {
-          failedIDs.push(targetIDs[i]);
-          if (!firstError) {
-            firstError = result.reason instanceof APIError ? result.reason.message : "Failed to delete selected users";
+      const results = await Promise.all(
+        targetIDs.map(async (id) => {
+          try {
+            await deleteClient(id);
+            return { id, ok: true as const };
+          } catch (err) {
+            return { id, ok: false as const, err };
+          } finally {
+            processedCount += 1;
+            toast.update(toastId, `Deleting ${processedCount}/${targetIDs.length}...`);
           }
+        }),
+      );
+
+      results.forEach((result) => {
+        if (result.ok) {
+          deletedCount += 1;
+          return;
+        }
+        failedIDs.push(result.id);
+        if (!firstError) {
+          firstError = result.err instanceof APIError ? result.err.message : "Failed to delete selected users";
         }
       });
 
       if (deletedCount > 0) {
-        toast.notify(deletedCount === 1 ? "1 user deleted" : `${deletedCount} users deleted`);
+        toast.update(toastId, deletedCount === 1 ? "1 user deleted" : `${deletedCount} users deleted`, "success");
       }
 
       if (failedIDs.length > 0) {
+        toast.update(
+          toastId,
+          deletedCount > 0 ? `Deleted ${deletedCount} of ${targetIDs.length}` : "Failed to delete users",
+          deletedCount > 0 ? "info" : "error",
+        );
         setSelectedClientIDs(failedIDs);
         setActionError(firstError || `Deleted ${deletedCount} of ${targetIDs.length} users`);
       } else {
@@ -549,6 +578,8 @@ export default function UsersPage() {
 
   const pageCount = Math.max(1, Math.ceil(filteredClients.length / rowsPerPage));
   const hasSelectedClients = selectedClientIDs.length > 0;
+  const pageStart = filteredClients.length === 0 ? 0 : page * rowsPerPage + 1;
+  const pageEnd = filteredClients.length === 0 ? 0 : Math.min(filteredClients.length, (page + 1) * rowsPerPage);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const editable = isEditableTarget(event.target);
@@ -605,29 +636,44 @@ export default function UsersPage() {
   }, [usersQuery]);
 
   return (
-    <div className="space-y-6 pb-40 sm:pb-24">
+    <div className={cn("space-y-6", hasSelectedClients ? "pb-40 sm:pb-24" : "pb-20 sm:pb-12")}>
       <PageHeader
         title="Users"
         actions={
           <>
-            <Button variant="primary" onClick={openCreate} className="h-12 w-full rounded-2xl px-5 sm:w-auto">
-              <Plus size={18} strokeWidth={1.6} />
-              Add user
-            </Button>
-            <Button onClick={exportCSV} disabled={!filteredClients.length} className="h-12 w-full rounded-2xl px-5 sm:w-auto">
-              <Download size={18} strokeWidth={1.6} />
-              Export CSV
-            </Button>
-            <div className="relative w-full sm:w-[300px] lg:w-[340px]">
-              <Search size={16} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
-              <Input
-                ref={searchInputRef}
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Search users..."
-                className="h-12 rounded-2xl border-border/80 bg-surface-2/70 pl-11 shadow-[inset_0_1px_0_var(--shell-highlight)]"
-              />
-            </div>
+            <Tooltip content={<span className="inline-flex items-center gap-2">Add user <Kbd>N</Kbd></span>}>
+              <Button variant="primary" onClick={openCreate} className="header-btn w-full rounded-2xl px-5 sm:w-auto">
+                <Plus size={18} strokeWidth={1.6} />
+                Add user
+              </Button>
+            </Tooltip>
+            <Tooltip content={!filteredClients.length ? "No users to export" : undefined}>
+              <span className="inline-flex w-full sm:w-auto">
+                <Button
+                  onClick={exportCSV}
+                  disabled={!filteredClients.length}
+                  className={cn("header-btn w-full rounded-2xl px-5 sm:w-auto", !filteredClients.length && "pointer-events-none")}
+                >
+                  <Download size={18} strokeWidth={1.6} />
+                  Export CSV
+                </Button>
+              </span>
+            </Tooltip>
+            <Tooltip content={<span className="inline-flex items-center gap-2">Search <Kbd>/</Kbd><Kbd>Ctrl+K</Kbd></span>}>
+              <div className="relative w-full sm:w-[300px] lg:w-[340px]">
+                <Search size={16} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
+                {searchInput !== searchQuery && (
+                  <Loader2 size={14} strokeWidth={2} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-txt-muted" />
+                )}
+                <Input
+                  ref={searchInputRef}
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder="Search users..."
+                  className="header-btn rounded-2xl border-border/80 bg-surface-2/70 pl-11 shadow-[inset_0_1px_0_var(--shell-highlight)]"
+                />
+              </div>
+            </Tooltip>
             <div className="flex w-full items-center gap-1 rounded-2xl bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)] sm:w-auto">
               {(["all", "online", "enabled", "disabled"] as ClientFilter[]).map((item) => (
                 <button
@@ -705,7 +751,14 @@ export default function UsersPage() {
             </button>
             <ConfirmPopover
               title="Delete selected users"
-              description={`Delete ${selectedClientIDs.length} users?`}
+              description={(() => {
+                const names = clients
+                  .filter((c) => selectedClientIDs.includes(c.id))
+                  .map((c) => c.username);
+                if (names.length === 0) return `Delete ${selectedClientIDs.length} users?`;
+                if (names.length <= 3) return `Delete ${names.join(", ")}?`;
+                return `Delete ${names.slice(0, 3).join(", ")} and ${names.length - 3} more?`;
+              })()}
               confirmText="Delete"
               onConfirm={() => void deleteSelectedClients()}
             >
@@ -749,9 +802,9 @@ export default function UsersPage() {
                 <TableHead className="hidden lg:table-cell">TRAFFIC</TableHead>
                 <TableHead className="hidden text-right lg:table-cell">NETWORK</TableHead>
                 <TableHead className="hidden text-right md:table-cell">LAST SEEN</TableHead>
-                <TableHead className="w-[76px] text-center" />
-                <TableHead className="w-[76px] text-center" />
-                <TableHead className="w-[84px] text-center" />
+                <TableHead className="w-[76px] text-center"><span className="sr-only">QR Code</span></TableHead>
+                <TableHead className="w-[76px] text-center"><span className="sr-only">Edit</span></TableHead>
+                <TableHead className="w-[84px] text-center"><span className="sr-only">Delete</span></TableHead>
               </TableRow>
             </TableHeader>
             <tbody>
@@ -760,7 +813,7 @@ export default function UsersPage() {
           </Table>
         ) : (
           <>
-            <Table>
+            <Table aria-rowcount={filteredClients.length + 1}>
               <TableHeader>
                 <TableRow className="border-t-0 hover:bg-transparent">
                   <TableHead className="w-10">
@@ -771,14 +824,14 @@ export default function UsersPage() {
                     />
                   </TableHead>
                   <TableHead className="hidden w-14 md:table-cell">#</TableHead>
-                  <TableHead>
+                  <TableHead aria-sort={sortAria("username", sort)}>
                     <button type="button" onClick={() => toggleSort("username")} className="inline-flex items-center gap-1.5 hover:text-txt-primary">
                       USERS <SortIcon field="username" sort={sort} />
                     </button>
                   </TableHead>
                   <TableHead className="hidden lg:table-cell">PROTOCOL</TableHead>
                   <TableHead>STATUS</TableHead>
-                  <TableHead className="hidden lg:table-cell">
+                  <TableHead className="hidden lg:table-cell" aria-sort={sortAria("traffic", sort)}>
                     <button type="button" onClick={() => toggleSort("traffic")} className="inline-flex items-center gap-1.5 hover:text-txt-primary">
                       TRAFFIC <SortIcon field="traffic" sort={sort} />
                     </button>
@@ -786,21 +839,21 @@ export default function UsersPage() {
                   <TableHead className="hidden text-right lg:table-cell">
                     NETWORK
                   </TableHead>
-                  <TableHead className="hidden text-right md:table-cell">
+                  <TableHead className="hidden text-right md:table-cell" aria-sort={sortAria("last_seen", sort)}>
                     <button type="button" onClick={() => toggleSort("last_seen")} className="ml-auto inline-flex items-center gap-1.5 hover:text-txt-primary">
                       LAST SEEN <SortIcon field="last_seen" sort={sort} />
                     </button>
                   </TableHead>
-                  <TableHead className="w-[76px] text-center" />
-                  <TableHead className="w-[76px] text-center" />
-                  <TableHead className="w-[84px] text-center" />
+                  <TableHead className="w-[76px] text-center"><span className="sr-only">QR Code</span></TableHead>
+                  <TableHead className="w-[76px] text-center"><span className="sr-only">Edit</span></TableHead>
+                  <TableHead className="w-[84px] text-center"><span className="sr-only">Delete</span></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {pagedClients.length ? (
                   <>
                     {virtualTopPadding > 0 ? (
-                      <TableRow className="border-0 hover:bg-transparent">
+                      <TableRow className="border-0 hover:bg-transparent" aria-hidden="true">
                         <TableCell colSpan={11} style={{ height: virtualTopPadding, padding: 0 }} />
                       </TableRow>
                     ) : null}
@@ -817,7 +870,7 @@ export default function UsersPage() {
                       const upBps = Math.max(0, client.upload_bps || 0);
 
                       return (
-                        <TableRow key={client.id}>
+                        <TableRow key={client.id} aria-rowindex={page * rowsPerPage + index + 2}>
                           <TableCell>
                             <Checkbox
                               checked={selectedSet.has(client.id)}
@@ -855,7 +908,7 @@ export default function UsersPage() {
                               <span className="inline-flex w-[76px] items-center gap-2">
                                 <span
                                   className={cn(
-                                    "h-[6px] w-[6px] rounded-full",
+                                    "h-2 w-2 rounded-full",
                                     statusOnline && "bg-status-success shadow-[0_0_8px_var(--status-success-soft)]",
                                     !statusOnline && status !== "disabled" && "bg-status-warning",
                                     status === "disabled" && "bg-txt-muted",
@@ -888,26 +941,28 @@ export default function UsersPage() {
                             {formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}
                           </TableCell>
                           <TableCell className="text-center">
-                            <button
-                              type="button"
-                              onClick={() => void openArtifacts(client)}
-                              title="QR"
-                              aria-label={`show qr for ${client.username}`}
-                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
-                            >
-                              <QrCode size={18} strokeWidth={1.7} />
-                            </button>
+                            <Tooltip content="QR Code">
+                              <button
+                                type="button"
+                                onClick={() => void openArtifacts(client)}
+                                aria-label={`show qr for ${client.username}`}
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
+                              >
+                                <QrCode size={18} strokeWidth={1.7} />
+                              </button>
+                            </Tooltip>
                           </TableCell>
                           <TableCell className="text-center">
-                            <button
-                              type="button"
-                              onClick={() => openEdit(client)}
-                              title="Edit"
-                              aria-label={`edit ${client.username}`}
-                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
-                            >
-                              <Pencil size={18} strokeWidth={1.7} />
-                            </button>
+                            <Tooltip content="Edit">
+                              <button
+                                type="button"
+                                onClick={() => openEdit(client)}
+                                aria-label={`edit ${client.username}`}
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
+                              >
+                                <Pencil size={18} strokeWidth={1.7} />
+                              </button>
+                            </Tooltip>
                           </TableCell>
                           <TableCell className="text-center">
                             <ConfirmPopover
@@ -918,7 +973,6 @@ export default function UsersPage() {
                             >
                               <button
                                 type="button"
-                                title="Delete"
                                 aria-label={`delete ${client.username}`}
                                 className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-status-danger/10 hover:text-status-danger"
                               >
@@ -930,7 +984,7 @@ export default function UsersPage() {
                       );
                     })}
                     {virtualBottomPadding > 0 ? (
-                      <TableRow className="border-0 hover:bg-transparent">
+                      <TableRow className="border-0 hover:bg-transparent" aria-hidden="true">
                         <TableCell colSpan={11} style={{ height: virtualBottomPadding, padding: 0 }} />
                       </TableRow>
                     ) : null}
@@ -944,9 +998,14 @@ export default function UsersPage() {
             </Table>
 
             <div className="flex flex-col gap-3 border-t border-border/50 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-              <p className="text-[13px] text-txt-secondary">
-                Page {Math.min(page + 1, pageCount)} of {pageCount}
-              </p>
+              <div className="space-y-1">
+                <p className="text-[13px] text-txt-secondary">
+                  Page {Math.min(page + 1, pageCount)} of {pageCount}
+                </p>
+                <p className="text-[12px] text-txt-muted">
+                  Showing {pageStart}-{pageEnd} of {filteredClients.length} users
+                </p>
+              </div>
               <div className="flex items-center gap-2">
                 <Button size="sm" disabled={page <= 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>
                   Prev
@@ -1008,7 +1067,7 @@ export default function UsersPage() {
                     <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface-3/40 px-2 py-1 text-[11px] font-medium text-txt-secondary">
                       <span
                         className={cn(
-                          "h-[6px] w-[6px] rounded-full",
+                          "h-2 w-2 rounded-full",
                           statusOnline && "bg-status-success shadow-[0_0_8px_var(--status-success-soft)]",
                           !statusOnline && status !== "disabled" && "bg-status-warning",
                           status === "disabled" && "bg-txt-muted",
@@ -1049,15 +1108,27 @@ export default function UsersPage() {
             );
           })
         ) : (
-          <StateBlock tone="empty" title={clients.length ? "No matching users" : "No users"} minHeightClassName="min-h-[180px]" />
+          <StateBlock
+            tone="empty"
+            title={clients.length ? "No matching users" : "No users"}
+            description={clients.length ? undefined : "Create your first user"}
+            actionLabel={clients.length ? undefined : "Add user"}
+            onAction={clients.length ? undefined : openCreate}
+            minHeightClassName="min-h-[180px]"
+          />
         )}
 
         {/* Mobile pagination */}
         {!loading && pagedClients.length > 0 && (
           <div className="flex items-center justify-between pt-2">
-            <p className="text-[13px] text-txt-secondary">
-              {Math.min(page + 1, pageCount)}/{pageCount}
-            </p>
+            <div className="space-y-0.5">
+              <p className="text-[13px] text-txt-secondary">
+                {Math.min(page + 1, pageCount)}/{pageCount}
+              </p>
+              <p className="text-[11px] text-txt-muted">
+                {pageStart}-{pageEnd} of {filteredClients.length} users
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               <Button size="sm" disabled={page <= 0} onClick={() => setPage((v) => Math.max(0, v - 1))}>Prev</Button>
               <Button size="sm" disabled={page + 1 >= pageCount} onClick={() => setPage((v) => Math.min(pageCount - 1, v + 1))}>Next</Button>

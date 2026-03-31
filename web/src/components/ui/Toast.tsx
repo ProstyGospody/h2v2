@@ -13,7 +13,8 @@ type ToastItem = {
 };
 
 type ToastContextValue = {
-  notify: (message: string, variant?: ToastVariant) => void;
+  notify: (message: string, variant?: ToastVariant) => number;
+  update: (id: number, message: string, variant?: ToastVariant) => void;
 };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -52,10 +53,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => [...prev.slice(-(MAX_TOASTS - 1)), { id, message, variant }]);
     const timer = setTimeout(() => { timersRef.current.delete(id); dismiss(id); }, AUTO_DISMISS_MS);
     timersRef.current.set(id, timer);
+    return id;
+  }, [dismiss]);
+
+  const update = useCallback((id: number, message: string, variant?: ToastVariant) => {
+    setToasts((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, message, variant: variant ?? t.variant } : t)),
+    );
+    // Reset auto-dismiss timer
+    const existing = timersRef.current.get(id);
+    if (existing) clearTimeout(existing);
+    const timer = setTimeout(() => { timersRef.current.delete(id); dismiss(id); }, AUTO_DISMISS_MS);
+    timersRef.current.set(id, timer);
   }, [dismiss]);
 
   return (
-    <ToastContext.Provider value={{ notify }}>
+    <ToastContext.Provider value={{ notify, update }}>
       {children}
       <div className="fixed bottom-4 right-4 left-4 z-50 flex flex-col-reverse items-end gap-2 sm:left-auto sm:bottom-5 sm:right-5">
         <AnimatePresence mode="popLayout">
@@ -63,6 +76,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             <motion.div
               key={toast.id}
               layout
+              role={toast.variant === "error" ? "alert" : "status"}
+              aria-live={toast.variant === "error" ? "assertive" : "polite"}
               className={cn(
                 "flex w-full items-center gap-3 rounded-xl bg-surface-2/95 px-5 py-3.5 text-[14px] text-txt shadow-[0_20px_46px_-28px_var(--dialog-shadow)] backdrop-blur-lg sm:max-w-[380px]",
                 toast.variant === "success" && "border-status-success/20",

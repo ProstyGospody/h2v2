@@ -1,5 +1,5 @@
 import { AlertCircle, Inbox, Loader2 } from "lucide-react";
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 import { Button } from "./Button";
 import { cn } from "./cn";
@@ -10,11 +10,13 @@ type StateIcon = ComponentType<{ size?: number; strokeWidth?: number; className?
 type StateBlockProps = {
   tone: StateTone;
   title: string;
+  description?: string;
   actionLabel?: string;
   onAction?: () => void;
   className?: string;
   minHeightClassName?: string;
   icon?: StateIcon;
+  illustration?: ReactNode;
 };
 
 function toneIcon(tone: StateTone): StateIcon {
@@ -26,27 +28,34 @@ function toneIcon(tone: StateTone): StateIcon {
 export function StateBlock({
   tone,
   title,
+  description,
   actionLabel,
   onAction,
   className,
   minHeightClassName = "min-h-[220px]",
   icon,
+  illustration,
 }: StateBlockProps) {
   const Icon = icon || toneIcon(tone);
   return (
     <div className={cn("panel-state", minHeightClassName, className)}>
-      <div
-        className={cn(
-          "grid h-12 w-12 place-items-center rounded-full bg-surface-3/55",
-          tone === "error" && "text-status-danger",
-          tone !== "error" && "text-txt-muted",
-        )}
-      >
-        <Icon size={20} strokeWidth={1.8} className={tone === "loading" ? "animate-spin" : undefined} />
-      </div>
+      {illustration ? illustration : (
+        <div
+          className={cn(
+            "grid h-12 w-12 place-items-center rounded-full bg-surface-3/55",
+            tone === "error" && "text-status-danger",
+            tone !== "error" && "text-txt-muted",
+          )}
+        >
+          <Icon size={20} strokeWidth={1.8} className={tone === "loading" ? "animate-spin" : undefined} />
+        </div>
+      )}
       <p className={cn("text-[14px] font-medium", tone === "error" ? "text-status-danger" : "text-txt-secondary")}>
         {title}
       </p>
+      {description ? (
+        <p className="max-w-[320px] text-center text-[13px] text-txt-muted">{description}</p>
+      ) : null}
       {actionLabel && onAction ? (
         <Button size="sm" variant={tone === "error" ? "danger" : "ghost"} onClick={onAction}>
           {actionLabel}

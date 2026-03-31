@@ -1,4 +1,6 @@
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
+  Ellipsis,
   Play,
   RefreshCw,
   RotateCcw,
@@ -21,7 +23,7 @@ import {
 } from "@/domain/settings/services";
 import { Hy2ConfigValidation, Hy2Settings } from "@/domain/settings/types";
 import { APIError } from "@/services/api";
-import { Button } from "@/src/components/ui";
+import { Button, Tooltip } from "@/src/components/ui";
 import { useToast } from "@/src/components/ui/Toast";
 import { setUnsavedChangesGuard } from "@/src/state/navigation-guard";
 
@@ -271,37 +273,108 @@ export default function ConfigPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         title="Settings"
         actions={
           <>
-            <span className="inline-flex h-11 items-center rounded-xl bg-surface-2/75 px-3 text-[13px] font-medium text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)]">
+            <div className="flex w-full items-center gap-2 sm:hidden">
+              <span className="header-btn inline-flex flex-1 items-center rounded-xl bg-surface-2/75 px-3 text-[13px] font-medium text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)]">
+                {isDirty ? "Unsaved changes" : "Up to date"}
+              </span>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    aria-label="More actions"
+                    className="header-btn inline-flex w-11 items-center justify-center rounded-2xl bg-surface-2/70 text-txt-secondary shadow-[inset_0_1px_0_var(--shell-highlight)] transition-colors hover:bg-surface-3/60 hover:text-txt-primary"
+                  >
+                    <Ellipsis size={16} strokeWidth={1.8} />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    sideOffset={8}
+                    align="end"
+                    className="z-50 min-w-[164px] rounded-[10px] bg-surface-2/95 p-1 shadow-[0_18px_42px_-24px_var(--dialog-shadow)] backdrop-blur-xl"
+                  >
+                    <DropdownMenu.Item
+                      onSelect={() => void load(false)}
+                      disabled={isBusy}
+                      className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                    >
+                      <RefreshCw size={14} strokeWidth={1.8} />
+                      Reload
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      onSelect={discardChanges}
+                      disabled={isBusy || !isDirty}
+                      className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                    >
+                      <RotateCcw size={14} strokeWidth={1.8} />
+                      Discard
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+            </div>
+
+            <div className="grid w-full grid-cols-2 gap-2 sm:hidden">
+              <Tooltip content="Save config to disk">
+                <Button variant="primary" loading={saving} onClick={() => void saveDraft()} disabled={isBusy} className="header-btn w-full rounded-2xl px-4">
+                  <Save size={15} strokeWidth={1.8} />
+                  Save
+                </Button>
+              </Tooltip>
+              <Tooltip content={isDirty ? "Save changes before apply" : "Restart server with saved config"}>
+                <span className="inline-flex w-full">
+                  <ConfirmPopover
+                    title="Apply config"
+                    description="Restart hysteria-server?"
+                    confirmText="Apply"
+                    onConfirm={() => void applyConfig()}
+                  >
+                    <Button variant="primary" loading={applying} disabled={isBusy || Boolean(validationErrors.length) || isDirty} className="header-btn w-full rounded-2xl px-4">
+                      <Play size={15} strokeWidth={1.8} />
+                      Apply
+                    </Button>
+                  </ConfirmPopover>
+                </span>
+              </Tooltip>
+            </div>
+
+            <span className="header-btn hidden items-center rounded-xl bg-surface-2/75 px-3 text-[13px] font-medium text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)] sm:inline-flex">
               {isDirty ? "Unsaved changes" : "Up to date"}
             </span>
-            <Button onClick={() => void load(false)} disabled={isBusy} className="h-11 w-full rounded-2xl px-4 sm:w-auto">
+            <Button loading={reloading} onClick={() => void load(false)} disabled={isBusy} className="header-btn hidden w-full rounded-2xl px-4 sm:inline-flex sm:w-auto">
               <RefreshCw size={15} strokeWidth={1.8} />
               Reload
             </Button>
-            <Button onClick={discardChanges} disabled={isBusy || !isDirty} className="h-11 w-full rounded-2xl px-4 sm:w-auto">
+            <Button onClick={discardChanges} disabled={isBusy || !isDirty} className="header-btn hidden w-full rounded-2xl px-4 sm:inline-flex sm:w-auto">
               <RotateCcw size={15} strokeWidth={1.8} />
               Discard
             </Button>
-            <Button variant="primary" onClick={() => void saveDraft()} disabled={isBusy} className="h-11 w-full rounded-2xl px-4 sm:w-auto">
-              <Save size={15} strokeWidth={1.8} />
-              Save
-            </Button>
-            <ConfirmPopover
-              title="Apply config"
-              description="Restart hysteria-server?"
-              confirmText="Apply"
-              onConfirm={() => void applyConfig()}
-            >
-              <Button variant="primary" disabled={isBusy || Boolean(validationErrors.length)} className="h-11 w-full rounded-2xl px-4 sm:w-auto">
-                <Play size={15} strokeWidth={1.8} />
-                Apply
+            <Tooltip content="Save config to disk">
+              <Button variant="primary" loading={saving} onClick={() => void saveDraft()} disabled={isBusy} className="header-btn hidden w-full rounded-2xl px-4 sm:inline-flex sm:w-auto">
+                <Save size={15} strokeWidth={1.8} />
+                Save
               </Button>
-            </ConfirmPopover>
+            </Tooltip>
+            <Tooltip content={isDirty ? "Save changes before apply" : "Restart server with saved config"}>
+              <span className="hidden sm:inline-flex">
+                <ConfirmPopover
+                  title="Apply config"
+                  description="Restart hysteria-server?"
+                  confirmText="Apply"
+                  onConfirm={() => void applyConfig()}
+                >
+                  <Button variant="primary" loading={applying} disabled={isBusy || Boolean(validationErrors.length) || isDirty} className="header-btn hidden w-full rounded-2xl px-4 sm:inline-flex sm:w-auto">
+                    <Play size={15} strokeWidth={1.8} />
+                    Apply
+                  </Button>
+                </ConfirmPopover>
+              </span>
+            </Tooltip>
           </>
         }
       />
@@ -310,14 +383,40 @@ export default function ConfigPage() {
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
       {loading ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {Array.from({ length: 4 }, (_, index) => (
-            <section key={index} className="panel-card min-h-[168px] animate-pulse space-y-3">
-              <div className="h-4 w-28 rounded bg-surface-3/55" />
-              <div className="h-10 rounded bg-surface-3/45" />
-              <div className="h-10 rounded bg-surface-3/45" />
+        <div className="grid gap-4 xl:grid-cols-12">
+          <div className="min-w-0 space-y-4 xl:col-span-8">
+            {Array.from({ length: 4 }, (_, index) => (
+              <section key={index} className="panel-card min-h-[168px] animate-pulse space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-xl bg-surface-3/55" />
+                  <div className="h-4 w-24 rounded bg-surface-3/55" />
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2"><div className="h-3 w-16 rounded bg-surface-3/45" /><div className="h-10 w-full rounded-lg bg-surface-3/45" /></div>
+                  <div className="space-y-2"><div className="h-3 w-20 rounded bg-surface-3/45" /><div className="h-10 w-full rounded-lg bg-surface-3/45" /></div>
+                </div>
+              </section>
+            ))}
+          </div>
+          <aside className="min-w-0 space-y-4 xl:col-span-4">
+            <section className="panel-card-compact animate-pulse space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-surface-3/55" />
+                <div className="h-4 w-20 rounded bg-surface-3/55" />
+              </div>
+              <div className="space-y-2">
+                {Array.from({ length: 4 }, (_, i) => <div key={i} className="h-8 w-full rounded-lg bg-surface-3/35" />)}
+              </div>
+              <div className="h-9 w-full rounded-lg bg-surface-3/45" />
             </section>
-          ))}
+            <section className="panel-card-compact animate-pulse space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-surface-3/55" />
+                <div className="h-4 w-16 rounded bg-surface-3/55" />
+              </div>
+              <div className="h-40 w-full rounded-xl bg-surface-3/35" />
+            </section>
+          </aside>
         </div>
       ) : (
         <ServerSettingsForm
