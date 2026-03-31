@@ -21,7 +21,7 @@ import {
   saveHysteriaSettings,
   validateHysteriaSettings,
 } from "@/domain/settings/services";
-import { Hy2ConfigValidation, Hy2Settings } from "@/domain/settings/types";
+import { type Hy2ConfigValidation, type Hy2Settings } from "@/domain/settings/types";
 import { APIError } from "@/services/api";
 import { Button, Tooltip } from "@/src/components/ui";
 import { useToast } from "@/src/components/ui/Toast";
@@ -75,6 +75,177 @@ function writeSettingsCache(payload: SettingsCachePayload) {
 
 function draftSnapshot(settings: Hy2Settings): string {
   return JSON.stringify(normalizeSettingsDraft(settings));
+}
+
+type SaveApplyButtonsProps = {
+  mobile: boolean;
+  isBusy: boolean;
+  isDirty: boolean;
+  saving: boolean;
+  applying: boolean;
+  hasValidationErrors: boolean;
+  onSave: () => void;
+  onApply: () => void;
+};
+
+function SaveApplyButtons({
+  mobile,
+  isBusy,
+  isDirty,
+  saving,
+  applying,
+  hasValidationErrors,
+  onSave,
+  onApply,
+}: SaveApplyButtonsProps) {
+  const saveClassName = mobile
+    ? "header-btn w-full rounded-2xl px-4"
+    : "header-btn hidden w-full rounded-2xl px-4 sm:inline-flex sm:w-auto";
+  const applyWrapperClassName = mobile ? "inline-flex w-full" : "hidden sm:inline-flex";
+  const applyButtonClassName = mobile
+    ? "header-btn w-full rounded-2xl px-4"
+    : "header-btn hidden w-full rounded-2xl px-4 sm:inline-flex sm:w-auto";
+
+  return (
+    <>
+      <Tooltip content="Save">
+        <Button variant="primary" loading={saving} onClick={onSave} disabled={isBusy} className={saveClassName}>
+          <Save size={15} strokeWidth={1.8} />
+          Save
+        </Button>
+      </Tooltip>
+
+      <Tooltip content="Apply">
+        <span className={applyWrapperClassName}>
+          <ConfirmPopover
+            title="Apply config"
+            description="Restart hysteria-server?"
+            confirmText="Apply"
+            onConfirm={onApply}
+          >
+            <Button
+              variant="primary"
+              loading={applying}
+              disabled={isBusy || hasValidationErrors || isDirty}
+              className={applyButtonClassName}
+            >
+              <Play size={15} strokeWidth={1.8} />
+              Apply
+            </Button>
+          </ConfirmPopover>
+        </span>
+      </Tooltip>
+    </>
+  );
+}
+
+type ConfigHeaderActionsProps = {
+  isBusy: boolean;
+  isDirty: boolean;
+  saving: boolean;
+  applying: boolean;
+  reloading: boolean;
+  hasValidationErrors: boolean;
+  onReload: () => void;
+  onDiscard: () => void;
+  onSave: () => void;
+  onApply: () => void;
+};
+
+function ConfigHeaderActions({
+  isBusy,
+  isDirty,
+  saving,
+  applying,
+  reloading,
+  hasValidationErrors,
+  onReload,
+  onDiscard,
+  onSave,
+  onApply,
+}: ConfigHeaderActionsProps) {
+  return (
+    <>
+      <div className="flex w-full items-center gap-2 sm:hidden">
+        <span className="header-btn inline-flex flex-1 items-center rounded-xl bg-surface-2/75 px-3 text-[13px] font-medium text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)]">
+          {isDirty ? "Unsaved changes" : "Up to date"}
+        </span>
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <button
+              type="button"
+              aria-label="More actions"
+              className="header-btn inline-flex w-11 items-center justify-center rounded-2xl bg-surface-2/70 text-txt-secondary shadow-[inset_0_1px_0_var(--shell-highlight)] transition-colors hover:bg-surface-3/60 hover:text-txt-primary"
+            >
+              <Ellipsis size={16} strokeWidth={1.8} />
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              sideOffset={8}
+              align="end"
+              className="z-50 min-w-[164px] rounded-[10px] bg-surface-2/95 p-1 shadow-[0_18px_42px_-24px_var(--dialog-shadow)] backdrop-blur-xl"
+            >
+              <DropdownMenu.Item
+                onSelect={onReload}
+                disabled={isBusy}
+                className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+              >
+                <RefreshCw size={14} strokeWidth={1.8} />
+                Reload
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                onSelect={onDiscard}
+                disabled={isBusy || !isDirty}
+                className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+              >
+                <RotateCcw size={14} strokeWidth={1.8} />
+                Discard
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
+      </div>
+
+      <div className="grid w-full grid-cols-2 gap-2 sm:hidden">
+        <SaveApplyButtons
+          mobile
+          isBusy={isBusy}
+          isDirty={isDirty}
+          saving={saving}
+          applying={applying}
+          hasValidationErrors={hasValidationErrors}
+          onSave={onSave}
+          onApply={onApply}
+        />
+      </div>
+
+      <span className="header-btn hidden items-center rounded-xl bg-surface-2/75 px-3 text-[13px] font-medium text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)] sm:inline-flex">
+        {isDirty ? "Unsaved changes" : "Up to date"}
+      </span>
+
+      <Button loading={reloading} onClick={onReload} disabled={isBusy} className="header-btn hidden w-full rounded-2xl px-4 sm:inline-flex sm:w-auto">
+        <RefreshCw size={15} strokeWidth={1.8} />
+        Reload
+      </Button>
+
+      <Button onClick={onDiscard} disabled={isBusy || !isDirty} className="header-btn hidden w-full rounded-2xl px-4 sm:inline-flex sm:w-auto">
+        <RotateCcw size={15} strokeWidth={1.8} />
+        Discard
+      </Button>
+
+      <SaveApplyButtons
+        mobile={false}
+        isBusy={isBusy}
+        isDirty={isDirty}
+        saving={saving}
+        applying={applying}
+        hasValidationErrors={hasValidationErrors}
+        onSave={onSave}
+        onApply={onApply}
+      />
+    </>
+  );
 }
 
 export default function ConfigPage() {
@@ -277,105 +448,18 @@ export default function ConfigPage() {
       <PageHeader
         title="Settings"
         actions={
-          <>
-            <div className="flex w-full items-center gap-2 sm:hidden">
-              <span className="header-btn inline-flex flex-1 items-center rounded-xl bg-surface-2/75 px-3 text-[13px] font-medium text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)]">
-                {isDirty ? "Unsaved changes" : "Up to date"}
-              </span>
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                  <button
-                    type="button"
-                    aria-label="More actions"
-                    className="header-btn inline-flex w-11 items-center justify-center rounded-2xl bg-surface-2/70 text-txt-secondary shadow-[inset_0_1px_0_var(--shell-highlight)] transition-colors hover:bg-surface-3/60 hover:text-txt-primary"
-                  >
-                    <Ellipsis size={16} strokeWidth={1.8} />
-                  </button>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content
-                    sideOffset={8}
-                    align="end"
-                    className="z-50 min-w-[164px] rounded-[10px] bg-surface-2/95 p-1 shadow-[0_18px_42px_-24px_var(--dialog-shadow)] backdrop-blur-xl"
-                  >
-                    <DropdownMenu.Item
-                      onSelect={() => void load(false)}
-                      disabled={isBusy}
-                      className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                    >
-                      <RefreshCw size={14} strokeWidth={1.8} />
-                      Reload
-                    </DropdownMenu.Item>
-                    <DropdownMenu.Item
-                      onSelect={discardChanges}
-                      disabled={isBusy || !isDirty}
-                      className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60 data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
-                    >
-                      <RotateCcw size={14} strokeWidth={1.8} />
-                      Discard
-                    </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
-            </div>
-
-            <div className="grid w-full grid-cols-2 gap-2 sm:hidden">
-              <Tooltip content="Save config to disk">
-                <Button variant="primary" loading={saving} onClick={() => void saveDraft()} disabled={isBusy} className="header-btn w-full rounded-2xl px-4">
-                  <Save size={15} strokeWidth={1.8} />
-                  Save
-                </Button>
-              </Tooltip>
-              <Tooltip content={isDirty ? "Save changes before apply" : "Restart server with saved config"}>
-                <span className="inline-flex w-full">
-                  <ConfirmPopover
-                    title="Apply config"
-                    description="Restart hysteria-server?"
-                    confirmText="Apply"
-                    onConfirm={() => void applyConfig()}
-                  >
-                    <Button variant="primary" loading={applying} disabled={isBusy || Boolean(validationErrors.length) || isDirty} className="header-btn w-full rounded-2xl px-4">
-                      <Play size={15} strokeWidth={1.8} />
-                      Apply
-                    </Button>
-                  </ConfirmPopover>
-                </span>
-              </Tooltip>
-            </div>
-
-            <span className="header-btn hidden items-center rounded-xl bg-surface-2/75 px-3 text-[13px] font-medium text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)] sm:inline-flex">
-              {isDirty ? "Unsaved changes" : "Up to date"}
-            </span>
-            <Button loading={reloading} onClick={() => void load(false)} disabled={isBusy} className="header-btn hidden w-full rounded-2xl px-4 sm:inline-flex sm:w-auto">
-              <RefreshCw size={15} strokeWidth={1.8} />
-              Reload
-            </Button>
-            <Button onClick={discardChanges} disabled={isBusy || !isDirty} className="header-btn hidden w-full rounded-2xl px-4 sm:inline-flex sm:w-auto">
-              <RotateCcw size={15} strokeWidth={1.8} />
-              Discard
-            </Button>
-            <Tooltip content="Save config to disk">
-              <Button variant="primary" loading={saving} onClick={() => void saveDraft()} disabled={isBusy} className="header-btn hidden w-full rounded-2xl px-4 sm:inline-flex sm:w-auto">
-                <Save size={15} strokeWidth={1.8} />
-                Save
-              </Button>
-            </Tooltip>
-            <Tooltip content={isDirty ? "Save changes before apply" : "Restart server with saved config"}>
-              <span className="hidden sm:inline-flex">
-                <ConfirmPopover
-                  title="Apply config"
-                  description="Restart hysteria-server?"
-                  confirmText="Apply"
-                  onConfirm={() => void applyConfig()}
-                >
-                  <Button variant="primary" loading={applying} disabled={isBusy || Boolean(validationErrors.length) || isDirty} className="header-btn hidden w-full rounded-2xl px-4 sm:inline-flex sm:w-auto">
-                    <Play size={15} strokeWidth={1.8} />
-                    Apply
-                  </Button>
-                </ConfirmPopover>
-              </span>
-            </Tooltip>
-          </>
+          <ConfigHeaderActions
+            isBusy={isBusy}
+            isDirty={isDirty}
+            saving={saving}
+            applying={applying}
+            reloading={reloading}
+            hasValidationErrors={Boolean(validationErrors.length)}
+            onReload={() => void load(false)}
+            onDiscard={discardChanges}
+            onSave={() => void saveDraft()}
+            onApply={() => void applyConfig()}
+          />
         }
       />
       <input ref={restoreInputRef} type="file" accept=".db,application/octet-stream" className="hidden" onChange={onRestoreFileSelected} />

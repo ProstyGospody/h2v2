@@ -11,7 +11,7 @@ import {
   Users2,
   Zap,
 } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { type ReactNode, type TouchEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -50,6 +50,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
   const { confirm } = useConfirmDialog();
 
   const [mobileOpen, setMobileOpen] = useState(false);
+  const reduceMotion = useReducedMotion();
   const [theme, setTheme] = useState<ThemeMode>(() => resolveTheme());
   const swipeStartXRef = useRef<number | null>(null);
   const swipeStartYRef = useRef<number | null>(null);
@@ -350,10 +351,10 @@ export function PanelShell({ children }: { children: ReactNode }) {
           <AnimatePresence mode="sync" initial={false}>
             <motion.div
               key={pathname}
-              initial={{ opacity: 0, y: 8 }}
+              initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              exit={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: -6 }}
+              transition={reduceMotion ? { duration: 0 } : { duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             >
               {children}
             </motion.div>
@@ -376,7 +377,10 @@ export function PanelShell({ children }: { children: ReactNode }) {
             aria-modal="true"
             aria-label="Navigation menu"
             tabIndex={-1}
-            className="absolute inset-y-0 left-0 w-[min(280px,100vw)] border-r border-border/30 sidebar-glass shadow-[0_22px_52px_-28px_var(--dialog-shadow)] animate-[slide-in-left_0.25s_ease]"
+            className={cn(
+              "absolute inset-y-0 left-0 w-[min(280px,100vw)] border-r border-border/30 sidebar-glass shadow-[0_22px_52px_-28px_var(--dialog-shadow)]",
+              !reduceMotion && "animate-[slide-in-left_0.25s_ease]",
+            )}
             onTouchStart={onMobileSidebarTouchStart}
             onTouchEnd={onMobileSidebarTouchEnd}
             onTouchCancel={onMobileSidebarTouchCancel}

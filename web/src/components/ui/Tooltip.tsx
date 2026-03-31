@@ -1,5 +1,5 @@
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { forwardRef, type ReactNode } from "react";
+import { type ReactNode } from "react";
 
 import { cn } from "./cn";
 
@@ -27,9 +27,7 @@ export function Tooltip({ content, side = "top", sideOffset = 6, delayDuration, 
           side={side}
           sideOffset={sideOffset}
           className={cn(
-            "z-50 max-w-[280px] rounded-lg bg-surface-2/95 px-3 py-2 text-[12px] font-medium text-txt shadow-[0_8px_24px_-8px_var(--dialog-shadow)] backdrop-blur-lg",
-            "animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
-            "data-[side=top]:slide-in-from-bottom-2 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2",
+            "tooltip-content z-50 max-w-[280px] rounded-lg bg-surface-2/95 px-3 py-2 text-[12px] font-medium text-txt shadow-[0_8px_24px_-8px_var(--dialog-shadow)] backdrop-blur-lg",
             className,
           )}
         >

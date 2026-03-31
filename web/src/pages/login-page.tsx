@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Eye, EyeOff, Loader2, Lock, Mail, Moon, Sun, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -19,6 +19,7 @@ export default function LoginPage() {
   const [checking, setChecking] = useState(true);
   const [theme, setTheme] = useState<ThemeMode>(() => resolveTheme());
   const [showPassword, setShowPassword] = useState(false);
+  const reduceMotion = useReducedMotion();
   const { register, handleSubmit, formState: { isSubmitting } } = useForm<LoginFormValues>({ defaultValues: { email: "", password: "" } });
   const redirectTo = locationState?.from || "/";
 
@@ -46,7 +47,12 @@ export default function LoginPage() {
   if (checking) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface-0">
-        <motion.div className="flex flex-col items-center gap-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <motion.div
+          className="flex flex-col items-center gap-3"
+          initial={reduceMotion ? { opacity: 1 } : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={reduceMotion ? { duration: 0 } : { duration: 0.2 }}
+        >
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent/20 border-t-accent-light" />
           <p className="text-[14px] text-txt-secondary">Loading...</p>
         </motion.div>
@@ -65,12 +71,22 @@ export default function LoginPage() {
         {theme === "dark" ? <Sun size={14} strokeWidth={1.8} /> : <Moon size={14} strokeWidth={1.8} />}
         {theme === "dark" ? "Light" : "Dark"}
       </button>
-      <motion.div initial={{ opacity: 0, y: 24, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }} className="relative w-full max-w-[440px]">
+      <motion.div
+        initial={reduceMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 24, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={reduceMotion ? { duration: 0 } : { duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="relative w-full max-w-[440px]"
+      >
         <div className="glass-strong gradient-border rounded-2xl p-9 shadow-2xl shadow-accent/5">
           <div className="space-y-7">
             {/* Brand */}
             <div className="flex flex-col items-center gap-5 text-center">
-              <motion.div initial={{ scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }} className="relative">
+              <motion.div
+                initial={reduceMotion ? { scale: 1, rotate: 0 } : { scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
+                className="relative"
+              >
                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-accent to-accent-secondary opacity-35 blur-xl" />
                 <div className="relative grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-accent to-accent-secondary text-white shadow-lg shadow-accent/25">
                   <Zap size={26} strokeWidth={1.8} />
@@ -82,7 +98,11 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}>
+              <motion.div
+                initial={reduceMotion ? { opacity: 1, height: "auto" } : { opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                transition={reduceMotion ? { duration: 0 } : undefined}
+              >
                 <ErrorBanner message={error} onDismiss={() => setError("")} />
               </motion.div>
             )}

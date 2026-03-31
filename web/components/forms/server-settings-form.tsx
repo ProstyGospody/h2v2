@@ -2,48 +2,10 @@ import { Code, Download, Gauge, Globe, Lock, Shield, SlidersHorizontal, Upload }
 import { useEffect, useMemo } from "react";
 
 import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
-import { Hy2Settings } from "@/domain/settings/types";
+import { type Hy2Settings } from "@/domain/settings/types";
+import { buildSnapshotItems } from "@/src/features/settings/server-settings-utils";
+import { YamlPreview } from "@/src/features/settings/yaml-preview";
 import { Button, Input, SectionCard, SectionTitle, SelectField, ToggleField } from "@/src/components/ui";
-
-function escapeHtml(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function highlightYaml(yaml: string): string {
-  return yaml
-    .split("\n")
-    .map((line) => {
-      if (/^\s*#/.test(line)) {
-        return `<span class="text-txt-muted">${escapeHtml(line)}</span>`;
-      }
-      const matched = line.replace(
-        /^(\s*)([\w./-]+)(:)(.*)/,
-        (_match, indent, key, colon, rest) => {
-          const restTrim = rest.trim();
-          let value = escapeHtml(rest);
-          if (/^\s*(true|false)$/i.test(rest)) {
-            value = ` <span class="text-status-warning">${escapeHtml(restTrim)}</span>`;
-          } else if (/^\s*\d+(\.\d+)?$/.test(rest)) {
-            value = ` <span class="text-status-info">${escapeHtml(restTrim)}</span>`;
-          } else if (restTrim.length > 0) {
-            value = ` <span class="text-status-success">${escapeHtml(restTrim)}</span>`;
-          }
-          return `${escapeHtml(indent)}<span class="text-accent">${escapeHtml(key)}</span><span class="text-txt-muted">${escapeHtml(colon)}</span>${value}`;
-        },
-      );
-      return matched === line ? escapeHtml(line) : matched;
-    })
-    .join("\n");
-}
-
-function YamlPreview({ value }: { value: string }) {
-  return (
-    <pre
-      className="w-full max-h-[58vh] overflow-auto rounded-xl bg-[var(--control-bg)] px-4 py-3 font-mono text-[12px] leading-6 text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)]"
-      dangerouslySetInnerHTML={{ __html: highlightYaml(value) }}
-    />
-  );
-}
 
 export function ServerSettingsForm({
   draft,
@@ -74,13 +36,8 @@ export function ServerSettingsForm({
   }, [draft, masqueradeType, obfsType, onDraftChange]);
 
   const snapshotItems = useMemo(
-    () => [
-      { label: "Listen", value: draft.listen || "-" },
-      { label: "TLS", value: tlsMode.toUpperCase() },
-      { label: "Masking", value: obfsType !== "none" ? "OBFS" : masqueradeType !== "none" ? masqueradeType : "None" },
-      { label: "QUIC", value: draft.quicEnabled ? "On" : "Off" },
-    ],
-    [draft.listen, draft.quicEnabled, masqueradeType, obfsType, tlsMode],
+    () => buildSnapshotItems(draft, tlsMode, obfsType, masqueradeType),
+    [draft, tlsMode, obfsType, masqueradeType],
   );
 
   return (

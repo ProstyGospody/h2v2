@@ -1,30 +1,11 @@
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  ArrowUpDown,
-  ChevronDown,
-  ChevronUp,
-  Download,
-  Loader2,
-  MoreVertical,
-  Pencil,
-  Plus,
-  Power,
-  PowerOff,
-  QrCode,
-  Search,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Power, PowerOff, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ClientArtifactsDialog } from "@/components/dialogs/client-artifacts-dialog";
 import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { ClientFormDialog } from "@/components/forms/client-form-dialog";
-import { PageHeader } from "@/components/ui/page-header";
 import { toCreateRequest, toUpdateRequest, type ClientFormValues } from "@/domain/clients/adapters";
 import {
   createClient,
@@ -35,183 +16,34 @@ import {
   setClientEnabled,
   updateClient,
 } from "@/domain/clients/services";
-import { HysteriaClient, HysteriaClientDefaults, HysteriaUserPayload } from "@/domain/clients/types";
+import { type HysteriaClient, type HysteriaClientDefaults, type HysteriaUserPayload } from "@/domain/clients/types";
 import { APIError, getAPIErrorMessage } from "@/services/api";
-import { queryRefetchInterval } from "@/src/queries/polling";
-import {
-  Badge,
-  Button,
-  Checkbox,
-  Input,
-  Kbd,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  StateBlock,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableHeader,
-  TableRow,
-  Tooltip,
-  Toggle,
-  cn,
-} from "@/src/components/ui";
+import { cn } from "@/src/components/ui";
 import { useToast } from "@/src/components/ui/Toast";
-import { formatBytes, formatDateTime, formatRate } from "@/utils/format";
+import { queryRefetchInterval } from "@/src/queries/polling";
 
-type ClientFilter = "all" | "online" | "enabled" | "disabled";
-type SortField = "username" | "traffic" | "last_seen";
-type SortDir = "asc" | "desc";
-type SortState = { field: SortField; dir: SortDir };
+import { UsersCards } from "@/src/features/users/users-cards";
+import { UsersTable } from "@/src/features/users/users-table";
+import { UsersToolbar } from "@/src/features/users/users-toolbar";
+import {
+  asText,
+  escapeCSV,
+  resolveStatus,
+  selectedDeleteDescription,
+  type ClientFilter,
+  type SortField,
+  type SortState,
+} from "@/src/features/users/users-utils";
 
-const rowsPerPageOptions = [25, 50, 100, 250, 500];
-const SKELETON_ROWS = 8;
+const ROWS_PER_PAGE_OPTIONS = [25, 50, 100, 250, 500];
 const SEARCH_DEBOUNCE_MS = 250;
 const EMPTY_CLIENTS: HysteriaClient[] = [];
-
-function asText(value: unknown, fallback = ""): string {
-  return typeof value === "string" ? value : fallback;
-}
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
   const tagName = target.tagName.toLowerCase();
   return tagName === "input" || tagName === "textarea" || tagName === "select";
-}
-
-function SkeletonRow() {
-  return (
-    <tr className="border-t border-border/30">
-      <td className="w-10 px-5 py-3.5"><div className="h-4 w-4 animate-pulse rounded bg-surface-3/60" /></td>
-      <td className="hidden w-14 px-5 py-3.5 md:table-cell"><div className="h-4 w-full max-w-[24px] animate-pulse rounded bg-surface-3/60" /></td>
-      <td className="px-5 py-3.5">
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 shrink-0 animate-pulse rounded-xl bg-surface-3/60" />
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <div className="h-3.5 w-full max-w-[120px] animate-pulse rounded bg-surface-3/60" />
-            <div className="h-3 w-full max-w-[80px] animate-pulse rounded bg-surface-3/50" />
-          </div>
-        </div>
-      </td>
-      <td className="hidden px-5 py-3.5 lg:table-cell"><div className="h-5 w-full max-w-[40px] animate-pulse rounded-badge bg-surface-3/60" /></td>
-      <td className="px-5 py-3.5"><div className="h-5 w-full max-w-[80px] animate-pulse rounded bg-surface-3/60" /></td>
-      <td className="hidden px-5 py-3.5 lg:table-cell">
-        <div className="space-y-1.5">
-          <div className="h-2 w-full animate-pulse rounded-full bg-surface-3/60" />
-          <div className="h-3 w-full max-w-[48px] animate-pulse rounded bg-surface-3/50" />
-        </div>
-      </td>
-      <td className="hidden px-5 py-3.5 text-right lg:table-cell"><div className="ml-auto h-8 w-full max-w-[96px] animate-pulse rounded bg-surface-3/60" /></td>
-      <td className="hidden px-5 py-3.5 text-right md:table-cell"><div className="ml-auto h-4 w-full max-w-[96px] animate-pulse rounded bg-surface-3/60" /></td>
-      <td className="w-[76px] px-5 py-3.5 text-center"><div className="mx-auto h-10 w-10 animate-pulse rounded-btn bg-surface-3/60" /></td>
-      <td className="w-[76px] px-5 py-3.5 text-center"><div className="mx-auto h-10 w-10 animate-pulse rounded-btn bg-surface-3/60" /></td>
-      <td className="w-[84px] px-5 py-3.5 text-center"><div className="mx-auto h-10 w-10 animate-pulse rounded-btn bg-surface-3/60" /></td>
-    </tr>
-  );
-}
-
-function SortIcon({ field, sort }: { field: SortField; sort: SortState | null }) {
-  if (!sort || sort.field !== field) return <ArrowUpDown size={12} strokeWidth={1.4} className="text-txt-muted/50" />;
-  return sort.dir === "asc"
-    ? <ChevronUp size={12} strokeWidth={2} className="text-accent" />
-    : <ChevronDown size={12} strokeWidth={2} className="text-accent" />;
-}
-
-function sortAria(field: SortField, sort: SortState | null): "none" | "ascending" | "descending" {
-  if (!sort || sort.field !== field) return "none";
-  return sort.dir === "asc" ? "ascending" : "descending";
-}
-
-function GradientProgress({ ratio, isHigh }: { ratio: number; isHigh: boolean }) {
-  return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-surface-3/40">
-      <div
-        className={cn(
-          "h-full rounded-full transition-[width] duration-300",
-          isHigh
-            ? "bg-gradient-to-r from-status-warning to-status-danger"
-            : "bg-gradient-to-r from-accent to-accent-light",
-        )}
-        style={{ width: `${ratio}%` }}
-      />
-    </div>
-  );
-}
-
-function initials(value: string): string {
-  const clean = asText(value).trim();
-  return clean ? clean.slice(0, 1).toUpperCase() : "?";
-}
-
-function resolveStatus(client: HysteriaClient): "online" | "offline" | "disabled" {
-  if (!client.enabled) {
-    return "disabled";
-  }
-  if (client.online_count > 0) {
-    return "online";
-  }
-  return "offline";
-}
-
-function MobileActions({
-  client,
-  onArtifacts,
-  onEdit,
-  onDelete,
-}: {
-  client: HysteriaClient;
-  onArtifacts: (c: HysteriaClient) => void;
-  onEdit: (c: HysteriaClient) => void;
-  onDelete: (c: HysteriaClient) => void;
-}) {
-  return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger asChild>
-        <button
-          type="button"
-          aria-label={`actions for ${client.username}`}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-btn text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
-        >
-          <MoreVertical size={16} strokeWidth={1.4} />
-        </button>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          sideOffset={6}
-          align="end"
-          className="z-50 min-w-[160px] rounded-[10px] bg-surface-2/95 p-1 shadow-[0_18px_42px_-24px_var(--dialog-shadow)] backdrop-blur-xl"
-        >
-          <DropdownMenu.Item
-            onSelect={() => void onArtifacts(client)}
-            className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60"
-          >
-            <QrCode size={15} strokeWidth={1.4} />
-            Show QR
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            onSelect={() => onEdit(client)}
-            className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-txt outline-none transition-colors hover:bg-surface-3/60"
-          >
-            <Pencil size={15} strokeWidth={1.4} />
-            Edit
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            onSelect={() => onDelete(client)}
-            className="flex cursor-pointer items-center gap-2 rounded-[7px] px-2.5 py-2 text-[12px] text-status-danger outline-none transition-colors hover:bg-status-danger/8"
-          >
-            <Trash2 size={15} strokeWidth={1.4} />
-            Delete
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
-  );
 }
 
 export default function UsersPage() {
@@ -241,6 +73,7 @@ export default function UsersPage() {
 
   const toast = useToast();
   const queryClient = useQueryClient();
+
   const usersQuery = useQuery({
     queryKey: ["users", "page-data"],
     queryFn: async () => {
@@ -255,6 +88,7 @@ export default function UsersPage() {
     refetchOnWindowFocus: true,
     refetchInterval: (query) => queryRefetchInterval(5_000, query, { enabled: !hasSelectedRef.current }),
   });
+
   const clients = usersQuery.data?.clients ?? EMPTY_CLIENTS;
   const defaults: HysteriaClientDefaults | null = usersQuery.data?.defaults || null;
   const limitWarning = usersQuery.data?.limited ?? false;
@@ -277,6 +111,7 @@ export default function UsersPage() {
     const existing = new Set(clients.map((client) => client.id));
     setSelectedClientIDs((current) => current.filter((id) => existing.has(id)));
   }, [clients]);
+
   useEffect(() => {
     if (usersQuery.isSuccess) {
       setDismissedQueryError(false);
@@ -318,19 +153,6 @@ export default function UsersPage() {
     return sorted;
   }, [clients, filter, searchQuery, sort]);
 
-  async function refreshUsers() {
-    await queryClient.invalidateQueries({ queryKey: ["users", "page-data"] });
-  }
-
-  function toggleSort(field: SortField) {
-    setSort((prev) => {
-      if (prev?.field === field) {
-        return prev.dir === "asc" ? { field, dir: "desc" } : null;
-      }
-      return { field, dir: "asc" };
-    });
-  }
-
   const selectedSet = useMemo(() => new Set(selectedClientIDs), [selectedClientIDs]);
   const filteredIDs = useMemo(() => filteredClients.map((client) => client.id), [filteredClients]);
   const selectedFilteredCount = useMemo(
@@ -357,27 +179,37 @@ export default function UsersPage() {
     }
   }, [filteredClients.length, page, rowsPerPage]);
 
-  function escapeCSV(value: string): string {
-    const escaped = value.replace(/"/g, '""');
-    if (/^[=+\-@\t\r]/.test(escaped)) {
-      return `"'${escaped}"`;
-    }
-    return `"${escaped}"`;
+  const pageCount = Math.max(1, Math.ceil(filteredClients.length / rowsPerPage));
+  const hasSelectedClients = selectedClientIDs.length > 0;
+  const pageStart = filteredClients.length === 0 ? 0 : page * rowsPerPage + 1;
+  const pageEnd = filteredClients.length === 0 ? 0 : Math.min(filteredClients.length, (page + 1) * rowsPerPage);
+
+  async function refreshUsers() {
+    await queryClient.invalidateQueries({ queryKey: ["users", "page-data"] });
+  }
+
+  function toggleSort(field: SortField) {
+    setSort((prev) => {
+      if (prev?.field === field) {
+        return prev.dir === "asc" ? { field, dir: "desc" } : null;
+      }
+      return { field, dir: "asc" };
+    });
   }
 
   function exportCSV() {
     const header = "username,enabled,status,traffic_bytes,download_bps,upload_bps,last_seen,note";
-    const rows = filteredClients.map((c) => {
-      const status = resolveStatus(c);
-      const traffic = c.last_tx_bytes + c.last_rx_bytes;
-      return `${escapeCSV(c.username)},${c.enabled},${status},${traffic},${c.download_bps || 0},${c.upload_bps || 0},${escapeCSV(c.last_seen_at || c.updated_at)},${escapeCSV(c.note || "")}`;
+    const rows = filteredClients.map((client) => {
+      const status = resolveStatus(client);
+      const traffic = client.last_tx_bytes + client.last_rx_bytes;
+      return `${escapeCSV(client.username)},${client.enabled},${status},${traffic},${client.download_bps || 0},${client.upload_bps || 0},${escapeCSV(client.last_seen_at || client.updated_at)},${escapeCSV(client.note || "")}`;
     });
     const blob = new Blob([header + "\n" + rows.join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `users-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `users-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
     URL.revokeObjectURL(url);
     toast.notify("CSV exported");
   }
@@ -434,6 +266,7 @@ export default function UsersPage() {
     const targetIDs = [...selectedClientIDs];
     setActionError("");
     const toastId = toast.notify(`Deleting 0/${targetIDs.length}...`, "info");
+
     try {
       const failedIDs: string[] = [];
       let firstError = "";
@@ -498,7 +331,7 @@ export default function UsersPage() {
     if (!selectedClientIDs.length) return;
     const targetIDs = [...selectedClientIDs];
     const results = await Promise.allSettled(targetIDs.map((id) => setClientEnabled(id, enabled)));
-    const failCount = results.filter((r) => r.status === "rejected").length;
+    const failCount = results.filter((result) => result.status === "rejected").length;
     if (failCount > 0) {
       toast.notify(`Failed to update ${failCount} users`, "error");
       await refreshUsers();
@@ -567,10 +400,6 @@ export default function UsersPage() {
     setPage(0);
   }
 
-  const pageCount = Math.max(1, Math.ceil(filteredClients.length / rowsPerPage));
-  const hasSelectedClients = selectedClientIDs.length > 0;
-  const pageStart = filteredClients.length === 0 ? 0 : page * rowsPerPage + 1;
-  const pageEnd = filteredClients.length === 0 ? 0 : Math.min(filteredClients.length, (page + 1) * rowsPerPage);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const editable = isEditableTarget(event.target);
@@ -582,20 +411,24 @@ export default function UsersPage() {
         searchInputRef.current?.select();
         return;
       }
+
       if (!formOpen && !artifactOpen && !editable && !event.ctrlKey && !event.metaKey && !event.altKey && key === "/") {
         event.preventDefault();
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
         return;
       }
+
       if (!editable && !formOpen && !artifactOpen && key === "n") {
         event.preventDefault();
         openCreate();
         return;
       }
+
       if (key !== "escape") {
         return;
       }
+
       if (artifactOpen) {
         event.preventDefault();
         setArtifactOpen(false);
@@ -616,11 +449,13 @@ export default function UsersPage() {
         setSearchInput("");
       }
     };
+
     window.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [artifactOpen, formOpen, hasSelectedClients, openCreate, searchInput]);
+
   const retryUsers = useCallback(() => {
     setDismissedQueryError(false);
     void usersQuery.refetch();
@@ -628,80 +463,21 @@ export default function UsersPage() {
 
   return (
     <div className={cn("space-y-6", hasSelectedClients ? "pb-40 sm:pb-24" : "pb-20 sm:pb-12")}>
-      <PageHeader
-        title="Users"
-        actions={
-          <>
-            <Tooltip content={<span className="inline-flex items-center gap-2">Add user <Kbd>N</Kbd></span>}>
-              <Button variant="primary" onClick={openCreate} className="header-btn w-full rounded-2xl px-5 sm:w-auto">
-                <Plus size={18} strokeWidth={1.6} />
-                Add user
-              </Button>
-            </Tooltip>
-            <Tooltip content={!filteredClients.length ? "No users to export" : undefined}>
-              <span className="inline-flex w-full sm:w-auto">
-                <Button
-                  onClick={exportCSV}
-                  disabled={!filteredClients.length}
-                  className={cn("header-btn w-full rounded-2xl px-5 sm:w-auto", !filteredClients.length && "pointer-events-none")}
-                >
-                  <Download size={18} strokeWidth={1.6} />
-                  Export CSV
-                </Button>
-              </span>
-            </Tooltip>
-            <Tooltip content={<span className="inline-flex items-center gap-2">Search <Kbd>/</Kbd><Kbd>Ctrl+K</Kbd></span>}>
-              <div className="relative w-full sm:w-[300px] lg:w-[340px]">
-                <Search size={16} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
-                {searchInput !== searchQuery && (
-                  <Loader2 size={14} strokeWidth={2} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-txt-muted" />
-                )}
-                <Input
-                  ref={searchInputRef}
-                  value={searchInput}
-                  onChange={(event) => setSearchInput(event.target.value)}
-                  placeholder="Search users..."
-                  className="header-btn rounded-2xl border-border/80 bg-surface-2/70 pl-11 shadow-[inset_0_1px_0_var(--shell-highlight)]"
-                />
-              </div>
-            </Tooltip>
-            <div className="flex w-full items-center gap-1 rounded-2xl bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)] sm:w-auto">
-              {(["all", "online", "enabled", "disabled"] as ClientFilter[]).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setFilter(item)}
-                  className={cn(
-                    "flex-1 rounded-xl px-3 py-2 text-center text-[13px] font-semibold capitalize transition-colors sm:flex-none sm:px-4",
-                    filter === item ? "bg-surface-4 text-txt-primary" : "text-txt-secondary hover:text-txt-primary",
-                  )}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </>
-        }
+      <UsersToolbar
+        searchInput={searchInput}
+        searchQuery={searchQuery}
+        filter={filter}
+        filteredClientsCount={filteredClients.length}
+        rowsPerPage={rowsPerPage}
+        rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
+        searchInputRef={searchInputRef}
+        hasUsersToExport={filteredClients.length > 0}
+        onCreate={openCreate}
+        onExportCSV={exportCSV}
+        onSearchInputChange={setSearchInput}
+        onFilterChange={setFilter}
+        onRowsPerPageChange={handleRowsPerPageChange}
       />
-
-      <div className="flex items-center justify-between gap-3 text-[13px] text-txt-secondary">
-        <span>{filteredClients.length} users</span>
-        <div className="hidden items-center gap-2 sm:flex">
-          <span>Rows:</span>
-          <Select value={String(rowsPerPage)} onValueChange={handleRowsPerPageChange}>
-            <SelectTrigger className="h-9 min-w-[84px] rounded-lg px-3 text-[13px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {rowsPerPageOptions.map((value) => (
-                <SelectItem key={value} value={String(value)}>
-                  {value}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
 
       <div
         className={cn(
@@ -742,14 +518,7 @@ export default function UsersPage() {
             </button>
             <ConfirmPopover
               title="Delete selected users"
-              description={(() => {
-                const names = clients
-                  .filter((c) => selectedClientIDs.includes(c.id))
-                  .map((c) => c.username);
-                if (names.length === 0) return `Delete ${selectedClientIDs.length} users?`;
-                if (names.length <= 3) return `Delete ${names.join(", ")}?`;
-                return `Delete ${names.slice(0, 3).join(", ")} and ${names.length - 3} more?`;
-              })()}
+              description={selectedDeleteDescription(selectedClientIDs, clients)}
               confirmText="Delete"
               onConfirm={() => void deleteSelectedClients()}
             >
@@ -777,345 +546,57 @@ export default function UsersPage() {
         actionLabel={queryError ? "Retry" : undefined}
         onAction={queryError ? retryUsers : undefined}
       />
-      {limitWarning && <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">Showing first 500 users. Some users may not be displayed.</div>}
 
-      {/* ── Desktop table ── */}
-      <TableContainer className="hidden sm:block">
-        {loading ? (
-          <Table>
-            <TableHeader>
-              <TableRow className="border-t-0 hover:bg-transparent">
-                <TableHead className="w-10"><div className="h-4 w-4 animate-pulse rounded bg-surface-3/60" /></TableHead>
-                <TableHead className="hidden w-14 md:table-cell">#</TableHead>
-                <TableHead>USERS</TableHead>
-                <TableHead className="hidden lg:table-cell">PROTOCOL</TableHead>
-                <TableHead>STATUS</TableHead>
-                <TableHead className="hidden lg:table-cell">TRAFFIC</TableHead>
-                <TableHead className="hidden text-right lg:table-cell">NETWORK</TableHead>
-                <TableHead className="hidden text-right md:table-cell">LAST SEEN</TableHead>
-                <TableHead className="w-[76px] text-center"><span className="sr-only">QR Code</span></TableHead>
-                <TableHead className="w-[76px] text-center"><span className="sr-only">Edit</span></TableHead>
-                <TableHead className="w-[84px] text-center"><span className="sr-only">Delete</span></TableHead>
-              </TableRow>
-            </TableHeader>
-            <tbody>
-              {Array.from({ length: SKELETON_ROWS }, (_, i) => <SkeletonRow key={i} />)}
-            </tbody>
-          </Table>
-        ) : (
-          <>
-            <div className="max-h-[calc(100dvh-23rem)] overflow-auto">
-              <Table aria-rowcount={filteredClients.length + 1}>
-              <TableHeader>
-                <TableRow className="border-t-0 hover:bg-transparent">
-                  <TableHead className="w-10">
-                    <Checkbox
-                      checked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
-                      onCheckedChange={(value) => toggleSelectFiltered(value === true)}
-                      aria-label="select filtered users"
-                    />
-                  </TableHead>
-                  <TableHead className="hidden w-14 md:table-cell">#</TableHead>
-                  <TableHead aria-sort={sortAria("username", sort)}>
-                    <button type="button" onClick={() => toggleSort("username")} className="inline-flex items-center gap-1.5 hover:text-txt-primary">
-                      USERS <SortIcon field="username" sort={sort} />
-                    </button>
-                  </TableHead>
-                  <TableHead className="hidden lg:table-cell">PROTOCOL</TableHead>
-                  <TableHead>STATUS</TableHead>
-                  <TableHead className="hidden lg:table-cell" aria-sort={sortAria("traffic", sort)}>
-                    <button type="button" onClick={() => toggleSort("traffic")} className="inline-flex items-center gap-1.5 hover:text-txt-primary">
-                      TRAFFIC <SortIcon field="traffic" sort={sort} />
-                    </button>
-                  </TableHead>
-                  <TableHead className="hidden text-right lg:table-cell">
-                    NETWORK
-                  </TableHead>
-                  <TableHead className="hidden text-right md:table-cell" aria-sort={sortAria("last_seen", sort)}>
-                    <button type="button" onClick={() => toggleSort("last_seen")} className="ml-auto inline-flex items-center gap-1.5 hover:text-txt-primary">
-                      LAST SEEN <SortIcon field="last_seen" sort={sort} />
-                    </button>
-                  </TableHead>
-                  <TableHead className="w-[76px] text-center"><span className="sr-only">QR Code</span></TableHead>
-                  <TableHead className="w-[76px] text-center"><span className="sr-only">Edit</span></TableHead>
-                  <TableHead className="w-[84px] text-center"><span className="sr-only">Delete</span></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pagedClients.length ? (
-                  <>
-                    {pagedClients.map((client, index) => {
-                      const traffic = client.last_tx_bytes + client.last_rx_bytes;
-                      const ratio = maxTraffic > 0 ? Math.min(100, (traffic / maxTraffic) * 100) : 0;
-                      const ratioWidth = traffic > 0 ? Math.max(ratio, 4) : 0;
-                      const status = resolveStatus(client);
-                      const statusOnline = status === "online";
-                      const downBps = Math.max(0, client.download_bps || 0);
-                      const upBps = Math.max(0, client.upload_bps || 0);
+      {limitWarning && (
+        <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">
+          Showing first 500 users.
+        </div>
+      )}
 
-                      return (
-                        <TableRow key={client.id} aria-rowindex={page * rowsPerPage + index + 2}>
-                          <TableCell>
-                            <Checkbox
-                              checked={selectedSet.has(client.id)}
-                              onCheckedChange={(value) => toggleClientSelection(client.id, value === true)}
-                              aria-label={`select ${client.username}`}
-                            />
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">{page * rowsPerPage + index + 1}</TableCell>
-                          <TableCell>
-                            <div className="flex min-w-0 items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => void openArtifacts(client)}
-                                className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-accent/15 to-accent-secondary/10 text-[13px] font-bold text-txt-primary"
-                              >
-                                {initials(client.username)}
-                              </button>
-                              <div className="min-w-0">
-                                <button
-                                  type="button"
-                                  onClick={() => void openArtifacts(client)}
-                                  className="max-w-full truncate text-[14px] font-medium text-txt hover:text-txt-primary"
-                                >
-                                  {client.username}
-                                </button>
-                                <p className="truncate text-[12px] text-txt-muted">{client.note || "-"}</p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="hidden lg:table-cell">
-                            <Badge variant="protocol-hy2">HY2</Badge>
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap">
-                            <div className="flex min-w-[154px] items-center gap-3">
-                              <span className="inline-flex w-[76px] items-center gap-2">
-                                <span
-                                  className={cn(
-                                    "h-2 w-2 rounded-full",
-                                    statusOnline && "bg-status-success shadow-[0_0_8px_var(--status-success-soft)]",
-                                    !statusOnline && status !== "disabled" && "bg-status-warning",
-                                    status === "disabled" && "bg-txt-muted",
-                                  )}
-                                />
-                                <span className="w-[62px] text-[11px] text-txt-secondary">{status}</span>
-                              </span>
-                              <Toggle className="shrink-0" checked={client.enabled} onCheckedChange={() => void toggleEnabled(client)} />
-                            </div>
-                          </TableCell>
-                          <TableCell className="hidden lg:table-cell">
-                            <div className="space-y-1.5">
-                              <GradientProgress ratio={ratioWidth} isHigh={ratio > 90} />
-                              <p className="text-[11px] font-medium text-txt-tertiary">{formatBytes(traffic)}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="hidden text-right lg:table-cell">
-                            <div className="flex flex-col items-end gap-1 text-[11px] font-semibold tabular-nums text-txt-secondary">
-                              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                                <ArrowDownToLine size={12} strokeWidth={1.8} className="text-status-success" />
-                                {formatRate(downBps)}
-                              </span>
-                              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                                <ArrowUpFromLine size={12} strokeWidth={1.8} className="text-status-warning" />
-                                {formatRate(upBps)}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="hidden whitespace-nowrap text-right md:table-cell">
-                            {formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Tooltip content="QR Code">
-                              <button
-                                type="button"
-                                onClick={() => void openArtifacts(client)}
-                                aria-label={`show qr for ${client.username}`}
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
-                              >
-                                <QrCode size={18} strokeWidth={1.7} />
-                              </button>
-                            </Tooltip>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Tooltip content="Edit">
-                              <button
-                                type="button"
-                                onClick={() => openEdit(client)}
-                                aria-label={`edit ${client.username}`}
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
-                              >
-                                <Pencil size={18} strokeWidth={1.7} />
-                              </button>
-                            </Tooltip>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <ConfirmPopover
-                              title="Delete user"
-                              description={`Remove ${client.username} and revoke access?`}
-                              confirmText="Delete"
-                              onConfirm={() => void removeClient(client.id)}
-                            >
-                              <button
-                                type="button"
-                                aria-label={`delete ${client.username}`}
-                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-status-danger/10 hover:text-status-danger"
-                              >
-                                <Trash2 size={18} strokeWidth={1.7} />
-                              </button>
-                            </ConfirmPopover>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </>
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={11}>{clients.length ? "No users match the current filters." : "No users yet."}</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-              </Table>
-            </div>
+      <UsersTable
+        loading={loading}
+        clients={clients}
+        filteredClients={filteredClients}
+        pagedClients={pagedClients}
+        page={page}
+        rowsPerPage={rowsPerPage}
+        pageCount={pageCount}
+        pageStart={pageStart}
+        pageEnd={pageEnd}
+        sort={sort}
+        allFilteredSelected={allFilteredSelected}
+        someFilteredSelected={someFilteredSelected}
+        selectedSet={selectedSet}
+        maxTraffic={maxTraffic}
+        onToggleSort={toggleSort}
+        onToggleSelectFiltered={toggleSelectFiltered}
+        onToggleClientSelection={toggleClientSelection}
+        onOpenArtifacts={openArtifacts}
+        onOpenEdit={openEdit}
+        onRemoveClient={(clientID) => void removeClient(clientID)}
+        onToggleEnabled={(client) => void toggleEnabled(client)}
+        onPageChange={setPage}
+      />
 
-            <div className="flex flex-col gap-3 border-t border-border/50 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-              <div className="space-y-1">
-                <p className="text-[13px] text-txt-secondary">
-                  Page {Math.min(page + 1, pageCount)} of {pageCount}
-                </p>
-                <p className="text-[12px] text-txt-muted">
-                  Showing {pageStart}-{pageEnd} of {filteredClients.length} users
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button size="sm" disabled={page <= 0} onClick={() => setPage((value) => Math.max(0, value - 1))}>
-                  Prev
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={page + 1 >= pageCount}
-                  onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
-      </TableContainer>
-
-      {/* ── Mobile card layout ── */}
-      <div className="space-y-3 sm:hidden">
-        {loading ? (
-          <StateBlock tone="loading" title="Loading users" minHeightClassName="min-h-[220px]" />
-        ) : pagedClients.length ? (
-          pagedClients.map((client) => {
-            const traffic = client.last_tx_bytes + client.last_rx_bytes;
-            const ratio = maxTraffic > 0 ? Math.min(100, (traffic / maxTraffic) * 100) : 0;
-            const ratioWidth = traffic > 0 ? Math.max(ratio, 4) : 0;
-            const status = resolveStatus(client);
-            const statusOnline = status === "online";
-            const downBps = Math.max(0, client.download_bps || 0);
-            const upBps = Math.max(0, client.upload_bps || 0);
-
-            return (
-              <div key={client.id} className="card-hover panel-card-compact">
-                {/* Header */}
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                    checked={selectedSet.has(client.id)}
-                    onCheckedChange={(value) => toggleClientSelection(client.id, value === true)}
-                    aria-label={`select ${client.username}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void openArtifacts(client)}
-                    className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent/15 to-accent-secondary/10 text-[14px] font-bold text-txt-primary"
-                  >
-                    {initials(client.username)}
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <button
-                      type="button"
-                      onClick={() => void openArtifacts(client)}
-                      className="block max-w-full truncate text-[14px] font-medium text-txt hover:text-txt-primary"
-                    >
-                      {client.username}
-                    </button>
-                    <p className="truncate text-[12px] text-txt-muted">{client.note || "-"}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface-3/40 px-2 py-1 text-[11px] font-medium text-txt-secondary">
-                      <span
-                        className={cn(
-                          "h-2 w-2 rounded-full",
-                          statusOnline && "bg-status-success shadow-[0_0_8px_var(--status-success-soft)]",
-                          !statusOnline && status !== "disabled" && "bg-status-warning",
-                          status === "disabled" && "bg-txt-muted",
-                        )}
-                      />
-                      {status}
-                    </span>
-                    <MobileActions client={client} onArtifacts={openArtifacts} onEdit={openEdit} onDelete={(c) => void removeClient(c.id)} />
-                  </div>
-                </div>
-
-                {/* Traffic bar */}
-                <div className="mt-3 space-y-1.5">
-                  <GradientProgress ratio={ratioWidth} isHigh={ratio > 90} />
-                  <div className="flex items-center justify-between text-[11px] font-medium text-txt-tertiary">
-                    <span>{formatBytes(traffic)}</span>
-                    <div className="flex items-center gap-3">
-                      <span className="inline-flex items-center gap-1">
-                        <ArrowDownToLine size={10} strokeWidth={1.8} className="text-status-success" />
-                        {formatRate(downBps)}
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <ArrowUpFromLine size={10} strokeWidth={1.8} className="text-status-warning" />
-                        {formatRate(upBps)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer */}
-                <div className="mt-2.5 flex items-center justify-between border-t border-border/20 pt-2.5">
-                  <Toggle className="shrink-0" checked={client.enabled} onCheckedChange={() => void toggleEnabled(client)} />
-                  <span className="text-[11px] text-txt-muted">
-                    {formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}
-                  </span>
-                </div>
-              </div>
-            );
-          })
-        ) : (
-          <StateBlock
-            tone="empty"
-            title={clients.length ? "No matching users" : "No users"}
-            description={clients.length ? undefined : "Create your first user"}
-            actionLabel={clients.length ? undefined : "Add user"}
-            onAction={clients.length ? undefined : openCreate}
-            minHeightClassName="min-h-[180px]"
-          />
-        )}
-
-        {/* Mobile pagination */}
-        {!loading && pagedClients.length > 0 && (
-          <div className="flex items-center justify-between pt-2">
-            <div className="space-y-0.5">
-              <p className="text-[13px] text-txt-secondary">
-                {Math.min(page + 1, pageCount)}/{pageCount}
-              </p>
-              <p className="text-[11px] text-txt-muted">
-                {pageStart}-{pageEnd} of {filteredClients.length} users
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button size="sm" disabled={page <= 0} onClick={() => setPage((v) => Math.max(0, v - 1))}>Prev</Button>
-              <Button size="sm" disabled={page + 1 >= pageCount} onClick={() => setPage((v) => Math.min(pageCount - 1, v + 1))}>Next</Button>
-            </div>
-          </div>
-        )}
-      </div>
+      <UsersCards
+        loading={loading}
+        clients={clients}
+        pagedClients={pagedClients}
+        page={page}
+        pageCount={pageCount}
+        pageStart={pageStart}
+        pageEnd={pageEnd}
+        filteredClientsCount={filteredClients.length}
+        selectedSet={selectedSet}
+        maxTraffic={maxTraffic}
+        onCreate={openCreate}
+        onToggleClientSelection={toggleClientSelection}
+        onOpenArtifacts={openArtifacts}
+        onOpenEdit={openEdit}
+        onRemoveClient={(clientID) => void removeClient(clientID)}
+        onToggleEnabled={(client) => void toggleEnabled(client)}
+        onPageChange={setPage}
+      />
 
       <ClientFormDialog
         open={formOpen}
@@ -1136,7 +617,6 @@ export default function UsersPage() {
         onClose={() => setArtifactOpen(false)}
         onCopy={(value) => void copy(value)}
       />
-
     </div>
   );
 }

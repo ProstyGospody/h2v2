@@ -166,8 +166,8 @@ html.dark {
   --color-status-danger: var(--status-danger);
   --color-status-info: var(--status-info);
 
-  --font-sans: "Almost Mono", "JetBrains Mono", "Fira Code", system-ui, -apple-system, sans-serif;
-  --font-mono: "Almost Mono", "JetBrains Mono", "Fira Code", monospace;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --radius-card: 14px;
   --radius-btn: 10px;
@@ -303,6 +303,16 @@ html.dark {
   to { transform: translateX(0); opacity: 1; }
 }
 
+@keyframes tooltip-in {
+  from { opacity: 0; transform: translateY(2px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes tooltip-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(2px) scale(0.96); }
+}
+
 @layer utilities {
   .panel-card {
     @apply rounded-2xl bg-surface-2 p-5;
@@ -391,6 +401,22 @@ html.dark {
   .card-hover:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 24px var(--shell-shadow), inset 0 1px 0 var(--shell-highlight);
+  }
+
+  .tooltip-content {
+    transform-origin: var(--radix-tooltip-content-transform-origin);
+    animation: tooltip-in 0.14s ease-out;
+  }
+
+  .tooltip-content[data-state="closed"] {
+    animation: tooltip-out 0.1s ease-in;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tooltip-content,
+    .tooltip-content[data-state="closed"] {
+      animation: none;
+    }
   }
 
 }
