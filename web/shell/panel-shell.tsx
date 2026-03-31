@@ -12,7 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { type ReactNode, type TouchEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, type TouchEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Badge, Tooltip, cn } from "@/src/components/ui";
@@ -111,7 +111,6 @@ export function PanelShell({ children }: { children: ReactNode }) {
 
   const sectionMain = navItems.filter((item) => item.section === "MAIN");
   const sectionSystem = navItems.filter((item) => item.section === "SYSTEM");
-  const pageContent = useMemo(() => children, [children]);
   function resetSwipeTrack() {
     swipeStartXRef.current = null;
     swipeStartYRef.current = null;
@@ -333,7 +332,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
         )}
 
         <main className="p-4 pt-16 sm:p-5 sm:pt-20 md:p-8 md:pt-20 lg:pt-8">
-          <AnimatePresence mode="popLayout" initial={false}>
+          <AnimatePresence mode="sync" initial={false}>
             <motion.div
               key={pathname}
               initial={{ opacity: 0, y: 8 }}
@@ -341,7 +340,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             >
-              {pageContent}
+              {children}
             </motion.div>
           </AnimatePresence>
         </main>

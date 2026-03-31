@@ -1,6 +1,5 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, ChevronUp, FilterX, RefreshCw, Shield } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
@@ -73,7 +72,6 @@ function ExpandablePayload({ json }: { json: string }) {
 
 export default function AuditPage() {
   const { items, loading, error, refresh, clearError, markSeen } = useAuditFeed();
-  const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const [actionFilter, setActionFilter] = useState<"all" | "create" | "update" | "delete">("all");
   const [actorFilter, setActorFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -109,19 +107,6 @@ export default function AuditPage() {
       return true;
     });
   }, [actionFilter, actorFilter, dateFrom, dateTo, items]);
-  const rowVirtualizer = useVirtualizer({
-    count: filteredItems.length,
-    getScrollElement: () => tableScrollRef.current,
-    estimateSize: () => 58,
-    overscan: 12,
-  });
-  const virtualRows = rowVirtualizer.getVirtualItems();
-  const virtualTopPadding = virtualRows.length > 0 ? virtualRows[0].start : 0;
-  const virtualBottomPadding =
-    virtualRows.length > 0
-      ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
-      : 0;
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -201,7 +186,7 @@ export default function AuditPage() {
         )}
       </div>
 
-      <TableContainer ref={tableScrollRef} className="hidden max-h-[72vh] overflow-auto sm:block">
+      <TableContainer className="hidden max-h-[72vh] overflow-auto sm:block">
         {loading ? (
           <StateBlock tone="loading" title="Loading audit log" minHeightClassName="min-h-[280px]" />
         ) : items.length === 0 ? (
@@ -220,19 +205,12 @@ export default function AuditPage() {
             <TableBody>
               {filteredItems.length ? (
                 <>
-                  {virtualTopPadding > 0 ? (
-                    <TableRow className="border-0 hover:bg-transparent" aria-hidden="true">
-                      <TableCell colSpan={5} style={{ height: virtualTopPadding, padding: 0 }} />
-                    </TableRow>
-                  ) : null}
-                  {virtualRows.map((virtualRow) => {
-                    const item = filteredItems[virtualRow.index];
-                    if (!item) return null;
+                  {filteredItems.map((item, index) => {
                     return (
                       <TableRow
                         key={item.id}
-                        aria-rowindex={virtualRow.index + 2}
-                        style={{ animationDelay: `${virtualRow.index * 0.02}s` }}
+                        aria-rowindex={index + 2}
+                        style={{ animationDelay: `${index * 0.02}s` }}
                         className="animate-[fadein_0.2s_ease_forwards] opacity-0"
                       >
                         <TableCell className="whitespace-nowrap text-[12px] text-txt-secondary sm:text-[14px]">{formatDateTime(item.created_at)}</TableCell>
@@ -245,11 +223,6 @@ export default function AuditPage() {
                       </TableRow>
                     );
                   })}
-                  {virtualBottomPadding > 0 ? (
-                    <TableRow className="border-0 hover:bg-transparent" aria-hidden="true">
-                      <TableCell colSpan={5} style={{ height: virtualBottomPadding, padding: 0 }} />
-                    </TableRow>
-                  ) : null}
                 </>
               ) : (
                 <TableRow>

@@ -1,6 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -232,7 +231,6 @@ export default function UsersPage() {
   const [artifactClient, setArtifactClient] = useState<HysteriaClient | null>(null);
   const [artifactPayload, setArtifactPayload] = useState<HysteriaUserPayload | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const desktopScrollRef = useRef<HTMLDivElement | null>(null);
   const hasSelectedRef = useRef(selectedClientIDs.length > 0);
   hasSelectedRef.current = selectedClientIDs.length > 0;
 
@@ -342,18 +340,6 @@ export default function UsersPage() {
     const start = page * rowsPerPage;
     return filteredClients.slice(start, start + rowsPerPage);
   }, [filteredClients, page, rowsPerPage]);
-  const rowVirtualizer = useVirtualizer({
-    count: pagedClients.length,
-    getScrollElement: () => desktopScrollRef.current,
-    estimateSize: () => 66,
-    overscan: 10,
-  });
-  const virtualRows = rowVirtualizer.getVirtualItems();
-  const virtualTopPadding = virtualRows.length > 0 ? virtualRows[0].start : 0;
-  const virtualBottomPadding =
-    virtualRows.length > 0
-      ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
-      : 0;
 
   const maxTraffic = useMemo(() => {
     return filteredClients.reduce((max, client) => Math.max(max, client.last_tx_bytes + client.last_rx_bytes), 0);
@@ -789,7 +775,7 @@ export default function UsersPage() {
       {limitWarning && <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">Showing first 500 users. Some users may not be displayed.</div>}
 
       {/* ── Desktop table ── */}
-      <TableContainer ref={desktopScrollRef} className="hidden max-h-[72vh] overflow-auto sm:block">
+      <TableContainer className="hidden max-h-[72vh] overflow-auto sm:block">
         {loading ? (
           <Table>
             <TableHeader>
@@ -852,15 +838,7 @@ export default function UsersPage() {
               <TableBody>
                 {pagedClients.length ? (
                   <>
-                    {virtualTopPadding > 0 ? (
-                      <TableRow className="border-0 hover:bg-transparent" aria-hidden="true">
-                        <TableCell colSpan={11} style={{ height: virtualTopPadding, padding: 0 }} />
-                      </TableRow>
-                    ) : null}
-                    {virtualRows.map((virtualRow) => {
-                      const client = pagedClients[virtualRow.index];
-                      const index = virtualRow.index;
-                      if (!client) return null;
+                    {pagedClients.map((client, index) => {
                       const traffic = client.last_tx_bytes + client.last_rx_bytes;
                       const ratio = maxTraffic > 0 ? Math.min(100, (traffic / maxTraffic) * 100) : 0;
                       const ratioWidth = traffic > 0 ? Math.max(ratio, 4) : 0;
@@ -983,11 +961,6 @@ export default function UsersPage() {
                         </TableRow>
                       );
                     })}
-                    {virtualBottomPadding > 0 ? (
-                      <TableRow className="border-0 hover:bg-transparent" aria-hidden="true">
-                        <TableCell colSpan={11} style={{ height: virtualBottomPadding, padding: 0 }} />
-                      </TableRow>
-                    ) : null}
                   </>
                 ) : (
                   <TableRow>
