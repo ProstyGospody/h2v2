@@ -741,7 +741,7 @@ export default function DashboardPage() {
             <p className="text-[13px] text-txt-muted">Checked: {formatDateTime(serviceDetails.checked_at)}</p>
             <div>
               <p className="mb-2 text-[14px] font-semibold text-txt">Recent logs</p>
-              <pre className="m-0 max-h-[320px] overflow-auto rounded-xl bg-surface-0 p-4 font-mono text-[13px] leading-6 text-txt-secondary">
+              <pre className="m-0 max-h-[320px] overflow-auto rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] p-4 font-mono text-[13px] leading-6 text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)]">
                 {serviceDetails.last_logs?.length ? serviceDetails.last_logs.join("\n") : "No logs available"}
               </pre>
             </div>

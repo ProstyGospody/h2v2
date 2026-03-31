@@ -72,7 +72,7 @@ function escapeHtml(str: string): string {
 function YamlHighlight({ value }: { value: string }) {
   return (
     <pre
-      className="max-h-[480px] overflow-auto rounded-xl bg-surface-0/80 px-5 py-4 font-mono text-[13px] leading-6 text-txt-secondary"
+      className="max-h-[480px] overflow-auto rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] px-5 py-4 font-mono text-[13px] leading-6 text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)]"
       dangerouslySetInnerHTML={{ __html: highlightYaml(value) }}
     />
   );

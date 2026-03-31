@@ -44,7 +44,7 @@ export function ClientFormDialog({
       }
     >
       <form id={formID} className="space-y-5" onSubmit={submit}>
-        <p className="rounded-xl border border-border/50 bg-surface-0/45 px-4 py-3 text-[13px] text-txt-secondary">
+        <p className="rounded-xl border border-border/50 bg-surface-2/65 px-4 py-3 text-[13px] text-txt-secondary">
           Inherited: {defaultsSummary(defaults)}
         </p>
 
@@ -60,16 +60,16 @@ export function ClientFormDialog({
 
         <Input label="Auth Secret" value={values.authSecret} onChange={(e) => setValues((p) => ({ ...p, authSecret: e.target.value }))} />
 
-        <div className="overflow-hidden rounded-xl border border-border/50 bg-surface-0/45">
+        <div className="overflow-hidden rounded-xl border border-border/50 bg-surface-2/65">
           <button type="button" className="flex w-full items-center justify-between px-4 py-3 text-left text-[14px] font-semibold text-txt-primary transition-colors hover:bg-[var(--control-bg-hover)]"
             onClick={() => setPreviewOpen((p) => !p)}>
             <span>Advanced YAML</span>
             <ChevronDown size={16} strokeWidth={1.6} className={cn("text-txt-tertiary transition-transform duration-200", previewOpen && "rotate-180")} />
           </button>
           {previewOpen && (
-            <div className="border-t border-border/40 p-4">
+            <div className="border-t border-border/40 bg-surface-1/30 p-4">
               <textarea readOnly value={previewConfig} rows={12}
-                className="w-full rounded-lg border border-border/50 bg-surface-0 px-4 py-2.5 font-mono text-[13px] leading-6 text-txt-primary outline-none" />
+                className="w-full rounded-lg border border-[var(--control-border)] bg-[var(--control-bg)] px-4 py-2.5 font-mono text-[13px] leading-6 text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)] outline-none" />
             </div>
           )}
         </div>
