@@ -7,6 +7,7 @@ import { AuditLogItem } from "@/types/common";
 
 const AUDIT_POLL_MS = 10000;
 const AUDIT_QUERY_KEY = ["audit", "feed"] as const;
+const EMPTY_AUDIT_ITEMS: AuditLogItem[] = [];
 type UnknownRecord = Record<string, unknown>;
 
 function asRecord(value: unknown): UnknownRecord | null {
@@ -93,7 +94,7 @@ export function AuditFeedProvider({ children }: { children: ReactNode }) {
     refetchInterval: (query) => queryRefetchInterval(AUDIT_POLL_MS, query),
   });
 
-  const items = auditQuery.data || [];
+  const items = auditQuery.data ?? EMPTY_AUDIT_ITEMS;
   const loading = auditQuery.isPending;
   const error = dismissedError ? "" : (auditQuery.error ? getAPIErrorMessage(auditQuery.error, "Failed to load audit log") : "");
 
@@ -114,7 +115,10 @@ export function AuditFeedProvider({ children }: { children: ReactNode }) {
 
   const markSeen = useCallback(() => {
     setSeenAtMs((current) => {
-      const latest = items.length ? itemTimestampMs(items[0]) : Date.now();
+      if (items.length === 0) {
+        return current;
+      }
+      const latest = itemTimestampMs(items[0]);
       return Math.max(current, latest);
     });
   }, [items]);

@@ -87,7 +87,7 @@ export default function AuditPage() {
 
   useEffect(() => {
     markSeen();
-  }, [markSeen, items]);
+  }, [markSeen]);
 
   const filteredItems = useMemo(() => {
     const actorNeedle = actorFilter.trim().toLowerCase();

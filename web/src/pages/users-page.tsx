@@ -72,6 +72,7 @@ type SortState = { field: SortField; dir: SortDir };
 const rowsPerPageOptions = [25, 50, 100, 250, 500];
 const SKELETON_ROWS = 8;
 const SEARCH_DEBOUNCE_MS = 250;
+const EMPTY_CLIENTS: HysteriaClient[] = [];
 
 function asText(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
@@ -254,7 +255,7 @@ export default function UsersPage() {
     refetchOnWindowFocus: true,
     refetchInterval: (query) => queryRefetchInterval(5_000, query, { enabled: !hasSelectedRef.current }),
   });
-  const clients = usersQuery.data?.clients || [];
+  const clients = usersQuery.data?.clients ?? EMPTY_CLIENTS;
   const defaults: HysteriaClientDefaults | null = usersQuery.data?.defaults || null;
   const limitWarning = usersQuery.data?.limited ?? false;
   const loading = usersQuery.isPending;
