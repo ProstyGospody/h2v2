@@ -477,7 +477,7 @@ export default function UsersPage() {
   }, [usersQuery]);
 
   return (
-    <div className={cn("space-y-6", hasSelectedClients ? "pb-40 sm:pb-24" : "pb-20 sm:pb-12")}>
+    <div className="space-y-6 pb-40 sm:pb-24">
       <UsersToolbar
         searchInput={searchInput}
         searchQuery={searchQuery}

@@ -117,41 +117,37 @@ export function UsersToolbar({
                 </button>
               ))}
             </div>
+
+            <div className="w-full sm:w-[170px]">
+              <Select value={sortValue(sort)} onValueChange={onSortChange}>
+                <SelectTrigger className="header-btn rounded-2xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_OPTIONS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-full sm:w-[100px]">
+              <Select value={String(rowsPerPage)} onValueChange={onRowsPerPageChange}>
+                <SelectTrigger className="header-btn rounded-2xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {rowsPerPageOptions.map((value) => (
+                    <SelectItem key={value} value={String(value)}>{value}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </>
         }
       />
 
-      <div className="panel-card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <span className="text-[13px] text-txt-secondary">{filteredClientsCount} users</span>
-
-        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-          <div className="min-w-[170px] flex-1 sm:flex-none">
-            <Select value={sortValue(sort)} onValueChange={onSortChange}>
-              <SelectTrigger className="h-10 rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SORT_OPTIONS.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="min-w-[100px]">
-            <Select value={String(rowsPerPage)} onValueChange={onRowsPerPageChange}>
-              <SelectTrigger className="h-10 rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {rowsPerPageOptions.map((value) => (
-                  <SelectItem key={value} value={String(value)}>{value}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </div>
+      <div className="text-[13px] text-txt-secondary">{filteredClientsCount} users</div>
     </>
   );
 }
