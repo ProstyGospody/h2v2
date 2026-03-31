@@ -1,42 +1,98 @@
-import { Code, Globe, Shield, SlidersHorizontal, Wrench } from "lucide-react";
-import { ReactNode, useEffect } from "react";
+import { Code, Gauge, Globe, Lock, Shield, SlidersHorizontal } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { Hy2Settings } from "@/domain/settings/types";
 import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Toggle, cn } from "@/src/components/ui";
 
-function SectionTitle({ icon, title, description }: { icon: ReactNode; title: string; description?: string }) {
+type SectionId = "general" | "tls" | "network" | "masking" | "performance";
+
+const sectionItems: { id: SectionId; label: string }[] = [
+  { id: "general", label: "General" },
+  { id: "tls", label: "TLS" },
+  { id: "network", label: "Network" },
+  { id: "masking", label: "Masking" },
+  { id: "performance", label: "Performance" },
+];
+
+function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-3/60">
-        <span className="text-txt-secondary">{icon}</span>
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-surface-3/55 text-txt-secondary">
+        {icon}
       </div>
-      <div>
-        <h3 className="text-[15px] font-bold text-txt-primary">{title}</h3>
-        {description && <p className="text-[13px] text-txt-muted">{description}</p>}
-      </div>
+      <h3 className="text-[15px] font-semibold text-txt-primary">{title}</h3>
     </div>
   );
 }
 
-function LabeledToggle({ label, checked, onCheckedChange }: { label: string; checked: boolean; onCheckedChange: (v: boolean) => void }) {
+function SectionCard({
+  title,
+  icon,
+  children,
+  sectionRef,
+}: {
+  title: string;
+  icon: ReactNode;
+  children: ReactNode;
+  sectionRef?: (node: HTMLElement | null) => void;
+}) {
   return (
-    <div className="flex min-h-[52px] items-center justify-between rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] px-4 py-3 transition-colors hover:border-[var(--control-border-strong)] hover:bg-[var(--control-bg-hover)]">
-      <p className="text-[14px] font-medium text-txt-primary">{label}</p>
+    <section ref={sectionRef} className="panel-card space-y-4">
+      <SectionTitle icon={icon} title={title} />
+      {children}
+    </section>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onValueChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onValueChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-[13px] font-medium text-txt-secondary">{label}</label>
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((item) => (
+            <SelectItem key={item.value} value={item.value}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function ToggleField({
+  label,
+  checked,
+  onCheckedChange,
+}: {
+  label: string;
+  checked: boolean;
+  onCheckedChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-xl bg-[var(--control-bg)] px-4 py-3 shadow-[inset_0_0_0_1px_var(--control-border)]">
+      <span className="text-[14px] font-medium text-txt-primary">{label}</span>
       <Toggle checked={checked} onCheckedChange={onCheckedChange} />
     </div>
   );
 }
 
-function SelectField({ label, value, onValueChange, options }: { label: string; value: string; onValueChange: (v: string) => void; options: { value: string; label: string }[] }) {
-  return (
-    <div>
-      <label className="mb-2 block text-[13px] font-medium text-txt-secondary">{label}</label>
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger><SelectValue /></SelectTrigger>
-        <SelectContent>{options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-      </Select>
-    </div>
-  );
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 function highlightYaml(yaml: string): string {
@@ -49,16 +105,16 @@ function highlightYaml(yaml: string): string {
       const matched = line.replace(
         /^(\s*)([\w./-]+)(:)(.*)/,
         (_match, indent, key, colon, rest) => {
-          const restStr = rest.trim();
-          let valueHtml = escapeHtml(rest);
+          const restTrim = rest.trim();
+          let value = escapeHtml(rest);
           if (/^\s*(true|false)$/i.test(rest)) {
-            valueHtml = ` <span class="text-status-warning">${escapeHtml(restStr)}</span>`;
+            value = ` <span class="text-status-warning">${escapeHtml(restTrim)}</span>`;
           } else if (/^\s*\d+(\.\d+)?$/.test(rest)) {
-            valueHtml = ` <span class="text-status-info">${escapeHtml(restStr)}</span>`;
-          } else if (/^\s*["']/.test(rest) || restStr.length > 0) {
-            valueHtml = ` <span class="text-status-success">${escapeHtml(restStr)}</span>`;
+            value = ` <span class="text-status-info">${escapeHtml(restTrim)}</span>`;
+          } else if (restTrim.length > 0) {
+            value = ` <span class="text-status-success">${escapeHtml(restTrim)}</span>`;
           }
-          return `${escapeHtml(indent)}<span class="text-accent">${escapeHtml(key)}</span><span class="text-txt-muted">${escapeHtml(colon)}</span>${valueHtml}`;
+          return `${escapeHtml(indent)}<span class="text-accent">${escapeHtml(key)}</span><span class="text-txt-muted">${escapeHtml(colon)}</span>${value}`;
         },
       );
       return matched === line ? escapeHtml(line) : matched;
@@ -66,113 +122,453 @@ function highlightYaml(yaml: string): string {
     .join("\n");
 }
 
-function escapeHtml(str: string): string {
-  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function YamlHighlight({ value }: { value: string }) {
+function YamlPreview({ value }: { value: string }) {
   return (
     <pre
-      className="max-h-[480px] overflow-auto rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] px-5 py-4 font-mono text-[13px] leading-6 text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)]"
+      className="max-h-[58vh] overflow-auto rounded-xl bg-[var(--control-bg)] px-4 py-3 font-mono text-[12px] leading-6 text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)]"
       dangerouslySetInnerHTML={{ __html: highlightYaml(value) }}
     />
   );
 }
 
-export function ServerSettingsForm({ draft, rawYaml, onDraftChange }: { draft: Hy2Settings; rawYaml: string; onDraftChange: (n: Hy2Settings) => void }) {
-  const acmeDomains = (draft.acme?.domains || []).join(", ");
+export function ServerSettingsForm({
+  draft,
+  rawYaml,
+  onDraftChange,
+}: {
+  draft: Hy2Settings;
+  rawYaml: string;
+  onDraftChange: (next: Hy2Settings) => void;
+}) {
+  const [activeSection, setActiveSection] = useState<SectionId>("general");
+  const sectionRefs = useRef<Record<SectionId, HTMLElement | null>>({
+    general: null,
+    tls: null,
+    network: null,
+    masking: null,
+    performance: null,
+  });
+
   const tlsMode = draft.tlsMode === "tls" ? "tls" : "acme";
   const obfsType = draft.obfs?.type === "salamander" ? "salamander" : "none";
   const masqueradeType = draft.masquerade?.type || "none";
+  const acmeDomains = (draft.acme?.domains || []).join(", ");
 
-  useEffect(() => { if (obfsType !== "none" && masqueradeType !== "none") onDraftChange({ ...draft, masquerade: undefined }); // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to obfs/masquerade type changes, not every draft mutation
-  }, [obfsType, masqueradeType, onDraftChange]);
+  useEffect(() => {
+    if (obfsType !== "none" && masqueradeType !== "none") {
+      onDraftChange({ ...draft, masquerade: undefined });
+    }
+  }, [draft, masqueradeType, obfsType, onDraftChange]);
+
+  const bindSectionRef = useCallback(
+    (id: SectionId) => (node: HTMLElement | null) => {
+      sectionRefs.current[id] = node;
+    },
+    [],
+  );
+
+  const jumpToSection = useCallback((id: SectionId) => {
+    setActiveSection(id);
+    sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  const snapshotItems = useMemo(
+    () => [
+      { label: "Listen", value: draft.listen || "-" },
+      { label: "TLS", value: tlsMode.toUpperCase() },
+      { label: "Masking", value: obfsType !== "none" ? "OBFS" : masqueradeType !== "none" ? masqueradeType : "None" },
+      { label: "QUIC", value: draft.quicEnabled ? "On" : "Off" },
+    ],
+    [draft.listen, draft.quicEnabled, masqueradeType, obfsType, tlsMode],
+  );
 
   return (
-    <div className="grid gap-5 xl:grid-cols-12">
-      <section className="space-y-5 rounded-2xl bg-surface-2 p-6 xl:col-span-7">
-        <SectionTitle icon={<Globe size={18} strokeWidth={1.6} />} title="Connection Profile" />
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Input label="Listen" value={draft.listen} onChange={(e) => onDraftChange({ ...draft, listen: e.target.value.replace(/^:/, "") })} />
-          <SelectField label="TLS Mode" value={tlsMode} onValueChange={(v) => onDraftChange({ ...draft, tlsMode: v, tlsEnabled: true })} options={[{ value: "acme", label: "ACME" }, { value: "tls", label: "Manual TLS" }]} />
-          <SelectField label="OBFS" value={obfsType} onValueChange={(v) => { if (v === "salamander") { onDraftChange({ ...draft, obfs: { type: "salamander", salamander: { password: draft.obfs?.salamander?.password || "" } }, masquerade: undefined }); return; } onDraftChange({ ...draft, obfs: undefined }); }} options={[{ value: "none", label: "Disabled" }, { value: "salamander", label: "Salamander" }]} />
-          <SelectField label="Masquerade" value={masqueradeType} onValueChange={(v) => { if (v === "none") { onDraftChange({ ...draft, masquerade: undefined }); return; } onDraftChange({ ...draft, obfs: undefined, masquerade: { ...(draft.masquerade || {}), type: v } }); }} options={[{ value: "none", label: "Disabled" }, { value: "proxy", label: "Proxy" }, { value: "file", label: "File" }, { value: "string", label: "String" }]} />
-        </div>
-        {tlsMode === "acme" ? (
-          <div className="grid gap-4 md:grid-cols-12">
-            <div className="md:col-span-8"><Input label="ACME Domains" value={acmeDomains} onChange={(e) => onDraftChange({ ...draft, acme: { domains: e.target.value.split(",").map((s) => s.trim()).filter(Boolean), email: draft.acme?.email || "" } })} placeholder="example.com, api.example.com" /></div>
-            <div className="md:col-span-4"><Input label="ACME Email" value={draft.acme?.email || ""} onChange={(e) => onDraftChange({ ...draft, acme: { domains: draft.acme?.domains || [], email: e.target.value } })} /></div>
+    <div className="grid gap-4 xl:grid-cols-12">
+      <div className="space-y-4 xl:col-span-8">
+        <section className="panel-card-compact overflow-x-auto">
+          <div className="flex min-w-max items-center gap-2">
+            {sectionItems.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => jumpToSection(item.id)}
+                className={cn(
+                  "rounded-xl px-3 py-2 text-[13px] font-semibold transition-colors",
+                  activeSection === item.id
+                    ? "bg-surface-4 text-txt-primary"
+                    : "bg-surface-1 text-txt-secondary hover:text-txt-primary",
+                )}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input label="TLS Cert Path" value={draft.tls?.cert || ""} onChange={(e) => onDraftChange({ ...draft, tls: { cert: e.target.value, key: draft.tls?.key || "" } })} />
-            <Input label="TLS Key Path" value={draft.tls?.key || ""} onChange={(e) => onDraftChange({ ...draft, tls: { cert: draft.tls?.cert || "", key: e.target.value } })} />
-          </div>
-        )}
-        {obfsType === "salamander" && <Input label="OBFS Password" value={draft.obfs?.salamander?.password || ""} onChange={(e) => onDraftChange({ ...draft, obfs: { type: "salamander", salamander: { password: e.target.value } } })} />}
-      </section>
-
-      <section className="space-y-5 rounded-2xl bg-surface-2 p-6 xl:col-span-5">
-        <SectionTitle icon={<Wrench size={18} strokeWidth={1.6} />} title="Runtime Defaults" />
-        <div className="grid gap-4 md:grid-cols-2">
-          <LabeledToggle label="TLS Insecure" checked={Boolean(draft.clientTLSInsecure)} onCheckedChange={(v) => onDraftChange({ ...draft, clientTLSInsecure: v })} />
-          <LabeledToggle label="Ignore Client Bandwidth" checked={Boolean(draft.ignoreClientBandwidth)} onCheckedChange={(v) => onDraftChange({ ...draft, ignoreClientBandwidth: v })} />
-          <LabeledToggle label="Disable UDP" checked={Boolean(draft.disableUDP)} onCheckedChange={(v) => onDraftChange({ ...draft, disableUDP: v })} />
-          <LabeledToggle label="Speed Test" checked={Boolean(draft.speedTest)} onCheckedChange={(v) => onDraftChange({ ...draft, speedTest: v })} />
-          <Input label="Bandwidth Up" value={draft.bandwidth?.up || ""} onChange={(e) => onDraftChange({ ...draft, bandwidth: { up: e.target.value, down: draft.bandwidth?.down || "" } })} placeholder="100 mbps" />
-          <Input label="Bandwidth Down" value={draft.bandwidth?.down || ""} onChange={(e) => onDraftChange({ ...draft, bandwidth: { up: draft.bandwidth?.up || "", down: e.target.value } })} placeholder="200 mbps" />
-        </div>
-        <Input label="UDP Idle Timeout" value={draft.udpIdleTimeout || ""} onChange={(e) => onDraftChange({ ...draft, udpIdleTimeout: e.target.value })} placeholder="90s" />
-      </section>
-
-      {masqueradeType !== "none" && (
-        <section className="space-y-5 rounded-2xl bg-surface-2 p-6 xl:col-span-7">
-          <SectionTitle icon={<Shield size={18} strokeWidth={1.6} />} title="Masquerade Details" />
-          {masqueradeType === "proxy" && (
-            <div className="space-y-4">
-              <Input label="Masquerade Proxy URL" value={draft.masquerade?.proxy?.url || ""} onChange={(e) => onDraftChange({ ...draft, masquerade: { type: "proxy", proxy: { url: e.target.value, rewriteHost: draft.masquerade?.proxy?.rewriteHost || false, insecure: draft.masquerade?.proxy?.insecure || false } } })} />
-              <div className="grid gap-4 md:grid-cols-2">
-                <LabeledToggle label="Rewrite Host Header" checked={Boolean(draft.masquerade?.proxy?.rewriteHost)} onCheckedChange={(v) => onDraftChange({ ...draft, masquerade: { type: "proxy", proxy: { url: draft.masquerade?.proxy?.url || "", rewriteHost: v, insecure: draft.masquerade?.proxy?.insecure || false } } })} />
-                <LabeledToggle label="Allow Insecure TLS" checked={Boolean(draft.masquerade?.proxy?.insecure)} onCheckedChange={(v) => onDraftChange({ ...draft, masquerade: { type: "proxy", proxy: { url: draft.masquerade?.proxy?.url || "", rewriteHost: draft.masquerade?.proxy?.rewriteHost || false, insecure: v } } })} />
-              </div>
-            </div>
-          )}
-          {masqueradeType === "file" && <Input label="Masquerade File Dir" value={draft.masquerade?.file?.dir || ""} onChange={(e) => onDraftChange({ ...draft, masquerade: { type: "file", file: { dir: e.target.value } } })} />}
-          {masqueradeType === "string" && (
-            <div className="grid gap-4 md:grid-cols-12">
-              <div className="md:col-span-9">
-                <label className="mb-2 block text-[13px] font-medium text-txt-secondary">Masquerade String Content</label>
-                <textarea value={draft.masquerade?.string?.content || ""} onChange={(e) => onDraftChange({ ...draft, masquerade: { type: "string", string: { content: e.target.value, statusCode: draft.masquerade?.string?.statusCode || 200 } } })} rows={3}
-                  className="w-full rounded-lg border border-[var(--control-border)] bg-[var(--control-bg)] px-4 py-2.5 text-[14px] font-medium text-txt-primary outline-none transition-colors focus:border-accent-secondary/50 focus:bg-[var(--control-bg-hover)] focus:shadow-[0_0_0_3px_var(--accent-soft)]" />
-              </div>
-              <div className="md:col-span-3">
-                <Input label="Status Code" type="number" value={String(draft.masquerade?.string?.statusCode ?? 200)} onChange={(e) => { const p = Number.parseInt(e.target.value, 10); onDraftChange({ ...draft, masquerade: { type: "string", string: { content: draft.masquerade?.string?.content || "", statusCode: Number.isFinite(p) ? p : 200 } } }); }} min={100} max={599} />
-              </div>
-            </div>
-          )}
         </section>
-      )}
 
-      <section className={cn("space-y-5 rounded-2xl bg-surface-2 p-6", masqueradeType !== "none" ? "xl:col-span-5" : "xl:col-span-12")}>
-        <SectionTitle icon={<SlidersHorizontal size={18} strokeWidth={1.6} />} title="QUIC Tuning" />
-        <LabeledToggle label="Enable Custom QUIC" checked={draft.quicEnabled} onCheckedChange={(v) => onDraftChange({ ...draft, quicEnabled: v })} />
-        {draft.quicEnabled && (
-          <div className="grid gap-4 md:grid-cols-2">
-            <Input className="h-10" label="QUIC Max Idle" value={draft.quic?.maxIdleTimeout || ""} onChange={(e) => onDraftChange({ ...draft, quic: { ...(draft.quic || {}), maxIdleTimeout: e.target.value } })} placeholder="30s" />
-            <div>
-              <label className="mb-2 block text-[13px] font-medium text-txt-secondary">Disable Path MTU Discovery</label>
-              <div className="flex h-10 items-center justify-end rounded-lg border border-[var(--control-border)] bg-[var(--control-bg)] px-3 transition-colors hover:border-[var(--control-border-strong)] hover:bg-[var(--control-bg-hover)]">
-                <Toggle checked={Boolean(draft.quic?.disablePathMTUDiscovery)} onCheckedChange={(v) => onDraftChange({ ...draft, quic: { ...(draft.quic || {}), disablePathMTUDiscovery: v } })} />
+        <SectionCard title="General" icon={<Globe size={17} strokeWidth={1.7} />} sectionRef={bindSectionRef("general")}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="Listen"
+              value={draft.listen}
+              onChange={(event) => onDraftChange({ ...draft, listen: event.target.value.replace(/^:/, "") })}
+            />
+            <SelectField
+              label="TLS Mode"
+              value={tlsMode}
+              onValueChange={(value) => onDraftChange({ ...draft, tlsMode: value, tlsEnabled: true })}
+              options={[
+                { value: "acme", label: "ACME" },
+                { value: "tls", label: "Manual" },
+              ]}
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ToggleField
+              label="Speed Test"
+              checked={Boolean(draft.speedTest)}
+              onCheckedChange={(value) => onDraftChange({ ...draft, speedTest: value })}
+            />
+            <ToggleField
+              label="Ignore Client Bandwidth"
+              checked={Boolean(draft.ignoreClientBandwidth)}
+              onCheckedChange={(value) => onDraftChange({ ...draft, ignoreClientBandwidth: value })}
+            />
+          </div>
+        </SectionCard>
+
+        <SectionCard title="TLS" icon={<Lock size={17} strokeWidth={1.7} />} sectionRef={bindSectionRef("tls")}>
+          {tlsMode === "acme" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                label="ACME Domains"
+                value={acmeDomains}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    acme: {
+                      domains: event.target.value
+                        .split(",")
+                        .map((item) => item.trim())
+                        .filter(Boolean),
+                      email: draft.acme?.email || "",
+                    },
+                  })
+                }
+                placeholder="example.com, api.example.com"
+              />
+              <Input
+                label="ACME Email"
+                value={draft.acme?.email || ""}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    acme: { domains: draft.acme?.domains || [], email: event.target.value },
+                  })
+                }
+              />
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                label="Cert Path"
+                value={draft.tls?.cert || ""}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    tls: { cert: event.target.value, key: draft.tls?.key || "" },
+                  })
+                }
+              />
+              <Input
+                label="Key Path"
+                value={draft.tls?.key || ""}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    tls: { cert: draft.tls?.cert || "", key: event.target.value },
+                  })
+                }
+              />
+            </div>
+          )}
+          <ToggleField
+            label="TLS Insecure"
+            checked={Boolean(draft.clientTLSInsecure)}
+            onCheckedChange={(value) => onDraftChange({ ...draft, clientTLSInsecure: value })}
+          />
+        </SectionCard>
+
+        <SectionCard title="Network" icon={<Shield size={17} strokeWidth={1.7} />} sectionRef={bindSectionRef("network")}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="Bandwidth Up"
+              value={draft.bandwidth?.up || ""}
+              onChange={(event) =>
+                onDraftChange({
+                  ...draft,
+                  bandwidth: { up: event.target.value, down: draft.bandwidth?.down || "" },
+                })
+              }
+              placeholder="100 mbps"
+            />
+            <Input
+              label="Bandwidth Down"
+              value={draft.bandwidth?.down || ""}
+              onChange={(event) =>
+                onDraftChange({
+                  ...draft,
+                  bandwidth: { up: draft.bandwidth?.up || "", down: event.target.value },
+                })
+              }
+              placeholder="200 mbps"
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ToggleField
+              label="Disable UDP"
+              checked={Boolean(draft.disableUDP)}
+              onCheckedChange={(value) => onDraftChange({ ...draft, disableUDP: value })}
+            />
+            <Input
+              label="UDP Idle Timeout"
+              value={draft.udpIdleTimeout || ""}
+              onChange={(event) => onDraftChange({ ...draft, udpIdleTimeout: event.target.value })}
+              placeholder="90s"
+            />
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Masking" icon={<Lock size={17} strokeWidth={1.7} />} sectionRef={bindSectionRef("masking")}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SelectField
+              label="OBFS"
+              value={obfsType}
+              onValueChange={(value) => {
+                if (value === "salamander") {
+                  onDraftChange({
+                    ...draft,
+                    obfs: {
+                      type: "salamander",
+                      salamander: { password: draft.obfs?.salamander?.password || "" },
+                    },
+                    masquerade: undefined,
+                  });
+                  return;
+                }
+                onDraftChange({ ...draft, obfs: undefined });
+              }}
+              options={[
+                { value: "none", label: "Disabled" },
+                { value: "salamander", label: "Salamander" },
+              ]}
+            />
+            <SelectField
+              label="Masquerade"
+              value={masqueradeType}
+              onValueChange={(value) => {
+                if (value === "none") {
+                  onDraftChange({ ...draft, masquerade: undefined });
+                  return;
+                }
+                onDraftChange({
+                  ...draft,
+                  obfs: undefined,
+                  masquerade: { ...(draft.masquerade || {}), type: value },
+                });
+              }}
+              options={[
+                { value: "none", label: "Disabled" },
+                { value: "proxy", label: "Proxy" },
+                { value: "file", label: "File" },
+                { value: "string", label: "String" },
+              ]}
+            />
+          </div>
+
+          {obfsType === "salamander" && (
+            <Input
+              label="OBFS Password"
+              value={draft.obfs?.salamander?.password || ""}
+              onChange={(event) =>
+                onDraftChange({
+                  ...draft,
+                  obfs: { type: "salamander", salamander: { password: event.target.value } },
+                })
+              }
+            />
+          )}
+
+          {masqueradeType === "proxy" && (
+            <div className="space-y-3">
+              <Input
+                label="Proxy URL"
+                value={draft.masquerade?.proxy?.url || ""}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    masquerade: {
+                      type: "proxy",
+                      proxy: {
+                        url: event.target.value,
+                        rewriteHost: draft.masquerade?.proxy?.rewriteHost || false,
+                        insecure: draft.masquerade?.proxy?.insecure || false,
+                      },
+                    },
+                  })
+                }
+              />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ToggleField
+                  label="Rewrite Host"
+                  checked={Boolean(draft.masquerade?.proxy?.rewriteHost)}
+                  onCheckedChange={(value) =>
+                    onDraftChange({
+                      ...draft,
+                      masquerade: {
+                        type: "proxy",
+                        proxy: {
+                          url: draft.masquerade?.proxy?.url || "",
+                          rewriteHost: value,
+                          insecure: draft.masquerade?.proxy?.insecure || false,
+                        },
+                      },
+                    })
+                  }
+                />
+                <ToggleField
+                  label="Proxy Insecure"
+                  checked={Boolean(draft.masquerade?.proxy?.insecure)}
+                  onCheckedChange={(value) =>
+                    onDraftChange({
+                      ...draft,
+                      masquerade: {
+                        type: "proxy",
+                        proxy: {
+                          url: draft.masquerade?.proxy?.url || "",
+                          rewriteHost: draft.masquerade?.proxy?.rewriteHost || false,
+                          insecure: value,
+                        },
+                      },
+                    })
+                  }
+                />
               </div>
             </div>
-          </div>
-        )}
-      </section>
+          )}
 
-      <section className="space-y-5 rounded-2xl bg-surface-2 p-6 xl:col-span-12">
-        <SectionTitle icon={<Code size={18} strokeWidth={1.6} />} title="Generated YAML" />
-        <YamlHighlight value={rawYaml} />
-      </section>
+          {masqueradeType === "file" && (
+            <Input
+              label="File Dir"
+              value={draft.masquerade?.file?.dir || ""}
+              onChange={(event) =>
+                onDraftChange({
+                  ...draft,
+                  masquerade: { type: "file", file: { dir: event.target.value } },
+                })
+              }
+            />
+          )}
+
+          {masqueradeType === "string" && (
+            <div className="grid gap-3 sm:grid-cols-12">
+              <div className="sm:col-span-9">
+                <label className="mb-2 block text-[13px] font-medium text-txt-secondary">String Content</label>
+                <textarea
+                  value={draft.masquerade?.string?.content || ""}
+                  onChange={(event) =>
+                    onDraftChange({
+                      ...draft,
+                      masquerade: {
+                        type: "string",
+                        string: {
+                          content: event.target.value,
+                          statusCode: draft.masquerade?.string?.statusCode || 200,
+                        },
+                      },
+                    })
+                  }
+                  rows={4}
+                  className="w-full rounded-xl bg-[var(--control-bg)] px-4 py-3 text-[14px] text-txt-primary shadow-[inset_0_0_0_1px_var(--control-border)] outline-none transition-colors focus:bg-[var(--control-bg-hover)] focus:shadow-[inset_0_0_0_1px_var(--accent),0_0_0_3px_var(--accent-soft)]"
+                />
+              </div>
+              <div className="sm:col-span-3">
+                <Input
+                  label="Status"
+                  type="number"
+                  value={String(draft.masquerade?.string?.statusCode ?? 200)}
+                  onChange={(event) => {
+                    const parsed = Number.parseInt(event.target.value, 10);
+                    onDraftChange({
+                      ...draft,
+                      masquerade: {
+                        type: "string",
+                        string: {
+                          content: draft.masquerade?.string?.content || "",
+                          statusCode: Number.isFinite(parsed) ? parsed : 200,
+                        },
+                      },
+                    });
+                  }}
+                  min={100}
+                  max={599}
+                />
+              </div>
+            </div>
+          )}
+        </SectionCard>
+
+        <SectionCard title="Performance" icon={<SlidersHorizontal size={17} strokeWidth={1.7} />} sectionRef={bindSectionRef("performance")}>
+          <ToggleField
+            label="Custom QUIC"
+            checked={draft.quicEnabled}
+            onCheckedChange={(value) => onDraftChange({ ...draft, quicEnabled: value })}
+          />
+          {draft.quicEnabled && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                label="QUIC Max Idle"
+                value={draft.quic?.maxIdleTimeout || ""}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    quic: { ...(draft.quic || {}), maxIdleTimeout: event.target.value },
+                  })
+                }
+                placeholder="30s"
+              />
+              <ToggleField
+                label="Disable Path MTU"
+                checked={Boolean(draft.quic?.disablePathMTUDiscovery)}
+                onCheckedChange={(value) =>
+                  onDraftChange({
+                    ...draft,
+                    quic: { ...(draft.quic || {}), disablePathMTUDiscovery: value },
+                  })
+                }
+              />
+            </div>
+          )}
+        </SectionCard>
+      </div>
+
+      <aside className="space-y-4 xl:sticky xl:top-6 xl:col-span-4 xl:self-start">
+        <section className="panel-card-compact space-y-3">
+          <SectionTitle icon={<Gauge size={16} strokeWidth={1.7} />} title="Snapshot" />
+          <div className="grid gap-2">
+            {snapshotItems.map((item) => (
+              <div key={item.label} className="flex items-center justify-between rounded-lg bg-surface-3/35 px-3 py-2 text-[13px]">
+                <span className="text-txt-secondary">{item.label}</span>
+                <span className="font-medium text-txt-primary">{item.value || "-"}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="panel-card-compact space-y-3">
+          <SectionTitle icon={<Code size={16} strokeWidth={1.7} />} title="YAML" />
+          <YamlPreview value={rawYaml} />
+        </section>
+      </aside>
     </div>
   );
 }

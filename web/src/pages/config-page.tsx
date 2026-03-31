@@ -1,9 +1,20 @@
-import { Download, Play, Save, Upload } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  Database,
+  Download,
+  Play,
+  RefreshCw,
+  RotateCcw,
+  Save,
+  Upload,
+} from "lucide-react";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
-import { ErrorBanner } from "@/components/ui/error-banner";
 import { ServerSettingsForm } from "@/components/forms/server-settings-form";
+import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
 import { normalizeSettingsDraft, toSettingsDraft } from "@/domain/settings/adapters";
 import {
@@ -12,12 +23,13 @@ import {
   getHysteriaSettings,
   restoreSQLiteBackup,
   saveHysteriaSettings,
+  validateHysteriaSettings,
 } from "@/domain/settings/services";
 import { Hy2ConfigValidation, Hy2Settings } from "@/domain/settings/types";
 import { APIError } from "@/services/api";
-import { Button } from "@/src/components/ui";
-import { setUnsavedChangesGuard } from "@/src/state/navigation-guard";
+import { Button, cn } from "@/src/components/ui";
 import { useToast } from "@/src/components/ui/Toast";
+import { setUnsavedChangesGuard } from "@/src/state/navigation-guard";
 
 const SETTINGS_CACHE_KEY = "h2v2.settings.cache.v1";
 
@@ -69,51 +81,86 @@ function draftSnapshot(settings: Hy2Settings): string {
   return JSON.stringify(normalizeSettingsDraft(settings));
 }
 
+function formatSavedAt(value: number | null): string {
+  if (!value) return "--";
+  return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function ConfigPage() {
   const cached = readSettingsCache();
-  const initialDraft = toSettingsDraft(cached?.settings || { listen: ":443", tlsEnabled: true, tlsMode: "acme", quicEnabled: false } as Hy2Settings);
+  const initialDraft = toSettingsDraft(
+    cached?.settings || ({ listen: ":443", tlsEnabled: true, tlsMode: "acme", quicEnabled: false } as Hy2Settings),
+  );
+
   const [loading, setLoading] = useState(!cached);
-  const [busy, setBusy] = useState(false);
+  const [reloading, setReloading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [validating, setValidating] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [storageBusy, setStorageBusy] = useState(false);
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [error, setError] = useState("");
-  const toast = useToast();
   const [rawYaml, setRawYaml] = useState(cached?.raw_yaml || "");
-  const [storageBusy, setStorageBusy] = useState(false);
+  const [savedRawYaml, setSavedRawYaml] = useState(cached?.raw_yaml || "");
   const [draft, setDraft] = useState<Hy2Settings>(initialDraft);
-  const [savedDraftSnapshot, setSavedDraftSnapshot] = useState(() => draftSnapshot(initialDraft));
+  const [savedDraft, setSavedDraft] = useState<Hy2Settings>(initialDraft);
   const [validation, setValidation] = useState<Hy2ConfigValidation | null>(cached?.config_validation || null);
-  const restoreInputRef = useRef<HTMLInputElement | null>(null);
-  const isDirty = useMemo(() => draftSnapshot(draft) !== savedDraftSnapshot, [draft, savedDraftSnapshot]);
+  const [savedValidation, setSavedValidation] = useState<Hy2ConfigValidation | null>(cached?.config_validation || null);
+  const [savedAt, setSavedAt] = useState<number | null>(cached ? Date.now() : null);
 
-  const load = useCallback(async () => {
+  const restoreInputRef = useRef<HTMLInputElement | null>(null);
+  const toast = useToast();
+
+  const isDirty = useMemo(() => draftSnapshot(draft) !== draftSnapshot(savedDraft), [draft, savedDraft]);
+  const validationErrors = validation?.errors || [];
+  const validationWarnings = validation?.warnings || [];
+  const isBusy = loading || reloading || saving || validating || applying || storageBusy;
+
+  const load = useCallback(async (showSkeleton = false) => {
+    if (showSkeleton) {
+      setLoading(true);
+    } else {
+      setReloading(true);
+    }
     setError("");
     try {
-      const p = await getHysteriaSettings();
-      setRawYaml(p.raw_yaml || "");
-      const nextDraft = toSettingsDraft(p.settings);
+      const payload = await getHysteriaSettings();
+      const nextDraft = toSettingsDraft(payload.settings);
+      const nextValidation = payload.config_validation || null;
+      const nextYaml = payload.raw_yaml || "";
+
+      setRawYaml(nextYaml);
+      setSavedRawYaml(nextYaml);
       setDraft(nextDraft);
-      setSavedDraftSnapshot(draftSnapshot(nextDraft));
-      setValidation(p.config_validation || null);
+      setSavedDraft(nextDraft);
+      setValidation(nextValidation);
+      setSavedValidation(nextValidation);
+      setSavedAt(Date.now());
+
       writeSettingsCache({
-        raw_yaml: p.raw_yaml || "",
-        settings: p.settings,
-        config_validation: p.config_validation || null,
+        raw_yaml: nextYaml,
+        settings: payload.settings,
+        config_validation: nextValidation,
       });
     } catch (err) {
-      setError(err instanceof APIError ? err.message : "Failed to load server settings");
+      setError(err instanceof APIError ? err.message : "Failed to load settings");
     } finally {
       setLoading(false);
+      setReloading(false);
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   useEffect(() => {
     setUnsavedChangesGuard(isDirty);
     return () => {
       setUnsavedChangesGuard(false);
     };
   }, [isDirty]);
+
   useEffect(() => {
     if (!isDirty) return;
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -126,34 +173,83 @@ export default function ConfigPage() {
     };
   }, [isDirty]);
 
-  async function saveDraft() {
-    setBusy(true); setError("");
+  async function validateDraft() {
+    setValidating(true);
+    setError("");
     try {
-      const p = await saveHysteriaSettings(normalizeSettingsDraft(draft));
-      const nextDraft = toSettingsDraft(p.settings);
-      setDraft(nextDraft); setSavedDraftSnapshot(draftSnapshot(nextDraft)); setRawYaml(p.raw_yaml || rawYaml); setValidation(p.config_validation || null);
+      const payload = await validateHysteriaSettings(normalizeSettingsDraft(draft));
+      setValidation(payload.config_validation || null);
+      setRawYaml(payload.raw_yaml || rawYaml);
+      if (payload.config_validation?.valid) {
+        toast.notify("Valid");
+      } else {
+        toast.notify("Validation issues", "error");
+      }
+    } catch (err) {
+      setError(extractValidationError(err, "Validate failed"));
+    } finally {
+      setValidating(false);
+    }
+  }
+
+  async function saveDraft() {
+    setSaving(true);
+    setError("");
+    try {
+      const payload = await saveHysteriaSettings(normalizeSettingsDraft(draft));
+      const nextDraft = toSettingsDraft(payload.settings);
+      const nextValidation = payload.config_validation || null;
+      const nextYaml = payload.raw_yaml || rawYaml;
+
+      setDraft(nextDraft);
+      setSavedDraft(nextDraft);
+      setRawYaml(nextYaml);
+      setSavedRawYaml(nextYaml);
+      setValidation(nextValidation);
+      setSavedValidation(nextValidation);
+      setSavedAt(Date.now());
+
       writeSettingsCache({
-        raw_yaml: p.raw_yaml || rawYaml,
-        settings: p.settings,
-        config_validation: p.config_validation || null,
+        raw_yaml: nextYaml,
+        settings: payload.settings,
+        config_validation: nextValidation,
       });
-      toast.notify(p.backup_path ? `Saved. Backup: ${p.backup_path}` : "Settings saved");
-    } catch (err) { setError(extractValidationError(err, "Save failed")); }
-    finally { setBusy(false); }
+
+      toast.notify(payload.backup_path ? `Saved: ${payload.backup_path}` : "Saved");
+    } catch (err) {
+      setError(extractValidationError(err, "Save failed"));
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function applyConfig() {
-    setApplying(true); setError("");
-    try { await applyHysteriaSettings(); toast.notify("Hysteria restarted"); await load(); }
-    catch (err) { setError(extractValidationError(err, "Apply failed")); }
-    finally { setApplying(false); }
+    setApplying(true);
+    setError("");
+    try {
+      await applyHysteriaSettings();
+      toast.notify("Applied");
+      await load();
+    } catch (err) {
+      setError(extractValidationError(err, "Apply failed"));
+    } finally {
+      setApplying(false);
+    }
+  }
+
+  function discardChanges() {
+    setDraft(toSettingsDraft(savedDraft));
+    setRawYaml(savedRawYaml);
+    setValidation(savedValidation);
+    setError("");
   }
 
   async function backupSQLite() {
-    setStorageBusy(true); setError("");
+    setStorageBusy(true);
+    setError("");
     try {
       const fileName = await downloadSQLiteBackup();
-      toast.notify(`Backup downloaded: ${fileName}`);
+      toast.notify(`Backup: ${fileName}`);
     } catch (err) {
       setError(extractValidationError(err, "Backup failed"));
     } finally {
@@ -162,7 +258,7 @@ export default function ConfigPage() {
   }
 
   function triggerRestorePicker() {
-    if (busy || applying || storageBusy) return;
+    if (isBusy) return;
     restoreInputRef.current?.click();
   }
 
@@ -175,11 +271,13 @@ export default function ConfigPage() {
 
   async function restoreSQLite() {
     if (!restoreFile) return;
-    setStorageBusy(true); setError("");
+    setStorageBusy(true);
+    setError("");
     try {
       await restoreSQLiteBackup(restoreFile);
       setRestoreFile(null);
-      toast.notify("Database restored");
+      toast.notify("Restored");
+      await load();
     } catch (err) {
       setError(extractValidationError(err, "Restore failed"));
     } finally {
@@ -187,56 +285,118 @@ export default function ConfigPage() {
     }
   }
 
+  const statusLabel = applying
+    ? "Applying"
+    : reloading
+      ? "Reloading"
+    : saving
+      ? "Saving"
+      : validating
+        ? "Validating"
+        : isDirty
+          ? "Unsaved"
+          : "Saved";
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Settings"
-        actions={
-          <>
-            <Button onClick={() => void backupSQLite()} disabled={loading || busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Download size={18} strokeWidth={1.6} />Backup</Button>
+    <div className="space-y-5 pb-28 sm:pb-24">
+      <PageHeader title="Settings" />
+      <input ref={restoreInputRef} type="file" accept=".db,application/octet-stream" className="hidden" onChange={onRestoreFileSelected} />
+
+      <section className="panel-card-compact flex flex-wrap items-center gap-3">
+        <span
+          className={cn(
+            "inline-flex items-center rounded-lg px-2.5 py-1 text-[12px] font-semibold",
+            statusLabel === "Saved" && "bg-status-success/12 text-status-success",
+            statusLabel === "Unsaved" && "bg-status-warning/12 text-status-warning",
+            statusLabel !== "Saved" && statusLabel !== "Unsaved" && "bg-status-info/12 text-status-info",
+          )}
+        >
+          {statusLabel}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-[13px] text-txt-secondary">
+          <Clock3 size={14} strokeWidth={1.7} />
+          {formatSavedAt(savedAt)}
+        </span>
+        <span className="ml-auto inline-flex items-center gap-2 rounded-lg bg-surface-3/40 px-2.5 py-1 text-[12px] text-txt-secondary">
+          <AlertTriangle size={13} strokeWidth={1.8} />
+          {validationErrors.length}
+          <span className="text-txt-muted">/</span>
+          {validationWarnings.length}
+        </span>
+      </section>
+
+      <ErrorBanner message={error} onDismiss={() => setError("")} />
+
+      <div className="grid gap-4 xl:grid-cols-12">
+        <section className="panel-card-compact space-y-3 xl:col-span-4">
+          <div className="flex items-center gap-2 text-[14px] font-semibold text-txt-primary">
+            <Database size={16} strokeWidth={1.8} />
+            Storage
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => void backupSQLite()} disabled={isBusy}>
+              <Download size={16} strokeWidth={1.7} />
+              Backup
+            </Button>
             {restoreFile ? (
               <>
-                <Button onClick={triggerRestorePicker} disabled={loading || busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Upload size={18} strokeWidth={1.6} />Select DB</Button>
+                <Button onClick={triggerRestorePicker} disabled={isBusy}>
+                  <Upload size={16} strokeWidth={1.7} />
+                  Select DB
+                </Button>
                 <ConfirmPopover
                   title="Restore database"
-                  description={`Restore from ${restoreFile.name}?`}
+                  description={`Restore ${restoreFile.name}?`}
                   confirmText="Restore"
                   onConfirm={() => void restoreSQLite()}
                 >
-                  <Button variant="danger" disabled={loading || busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Upload size={18} strokeWidth={1.6} />Restore</Button>
+                  <Button variant="danger" disabled={isBusy}>
+                    <Upload size={16} strokeWidth={1.7} />
+                    Restore
+                  </Button>
                 </ConfirmPopover>
               </>
             ) : (
-              <Button variant="danger" onClick={triggerRestorePicker} disabled={loading || busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Upload size={18} strokeWidth={1.6} />Restore</Button>
+              <Button variant="danger" onClick={triggerRestorePicker} disabled={isBusy}>
+                <Upload size={16} strokeWidth={1.7} />
+                Restore
+              </Button>
             )}
-            <Button variant="primary" onClick={() => void saveDraft()} disabled={loading || busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Save size={18} strokeWidth={1.6} />Save</Button>
-            <ConfirmPopover
-              title="Apply configuration"
-              description="Restart hysteria-server?"
-              confirmText="Apply"
-              onConfirm={() => void applyConfig()}
-            >
-              <Button variant="primary" disabled={loading || busy || applying || storageBusy} className="h-12 w-full rounded-2xl px-5 sm:w-auto"><Play size={18} strokeWidth={1.6} />Apply</Button>
-            </ConfirmPopover>
-          </>
-        }
-      />
-      <input ref={restoreInputRef} type="file" accept=".db,application/octet-stream" className="hidden" onChange={onRestoreFileSelected} />
+          </div>
+          {restoreFile ? (
+            <div className="rounded-lg bg-surface-3/35 px-3 py-2 text-[12px] text-txt-secondary">
+              {restoreFile.name}
+            </div>
+          ) : null}
+        </section>
 
-      <ErrorBanner message={error} onDismiss={() => setError("")} />
-      {validation?.errors?.length ? <div className="rounded-xl border border-status-danger/20 bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{validation.errors.join(" | ")}</div> : null}
-      {validation?.warnings?.length ? <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">{validation.warnings.join(" | ")}</div> : null}
+        <section className="panel-card-compact space-y-2.5 xl:col-span-8">
+          <div className="flex items-center gap-2 text-[14px] font-semibold text-txt-primary">
+            <CheckCircle2 size={16} strokeWidth={1.8} />
+            Validation
+          </div>
+          {validationErrors.length ? (
+            <div className="rounded-lg bg-status-danger/10 px-3 py-2 text-[13px] text-status-danger">
+              {validationErrors.slice(0, 3).join(" | ")}
+            </div>
+          ) : (
+            <div className="rounded-lg bg-status-success/10 px-3 py-2 text-[13px] text-status-success">No errors</div>
+          )}
+          {validationWarnings.length ? (
+            <div className="rounded-lg bg-status-warning/10 px-3 py-2 text-[13px] text-status-warning">
+              {validationWarnings.slice(0, 3).join(" | ")}
+            </div>
+          ) : null}
+        </section>
+      </div>
 
       {loading ? (
-        <div className="grid gap-5 xl:grid-cols-12">
-          {Array.from({ length: 4 }, (_, i) => (
-            <section key={i} className="animate-pulse rounded-2xl bg-surface-2 p-6 xl:col-span-6">
-              <div className="h-5 w-36 rounded bg-surface-3/55" />
-              <div className="mt-5 space-y-3">
-                <div className="h-10 rounded bg-surface-3/45" />
-                <div className="h-10 rounded bg-surface-3/45" />
-                <div className="h-10 rounded bg-surface-3/45" />
-              </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {Array.from({ length: 4 }, (_, index) => (
+            <section key={index} className="panel-card min-h-[168px] animate-pulse space-y-3">
+              <div className="h-4 w-28 rounded bg-surface-3/55" />
+              <div className="h-10 rounded bg-surface-3/45" />
+              <div className="h-10 rounded bg-surface-3/45" />
             </section>
           ))}
         </div>
@@ -244,6 +404,42 @@ export default function ConfigPage() {
         <ServerSettingsForm draft={draft} rawYaml={rawYaml} onDraftChange={setDraft} />
       )}
 
+      <div className="fixed bottom-4 left-1/2 z-40 w-[min(980px,calc(100vw-14px))] -translate-x-1/2">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-surface-2/95 px-3 py-2.5 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl">
+          <span className="inline-flex items-center rounded-lg bg-surface-3/45 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
+            {isDirty ? "Unsaved changes" : "Up to date"}
+          </span>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <Button onClick={() => void load(false)} disabled={isBusy}>
+              <RefreshCw size={15} strokeWidth={1.8} />
+              Reload
+            </Button>
+            <Button onClick={() => void validateDraft()} disabled={isBusy}>
+              <CheckCircle2 size={15} strokeWidth={1.8} />
+              Validate
+            </Button>
+            <Button onClick={discardChanges} disabled={isBusy || !isDirty}>
+              <RotateCcw size={15} strokeWidth={1.8} />
+              Discard
+            </Button>
+            <Button variant="primary" onClick={() => void saveDraft()} disabled={isBusy}>
+              <Save size={15} strokeWidth={1.8} />
+              Save
+            </Button>
+            <ConfirmPopover
+              title="Apply config"
+              description="Restart hysteria-server?"
+              confirmText="Apply"
+              onConfirm={() => void applyConfig()}
+            >
+              <Button variant="primary" disabled={isBusy || Boolean(validationErrors.length)}>
+                <Play size={15} strokeWidth={1.8} />
+                Apply
+              </Button>
+            </ConfirmPopover>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
