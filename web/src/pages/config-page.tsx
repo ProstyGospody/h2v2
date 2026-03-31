@@ -298,7 +298,7 @@ export default function ConfigPage() {
           : "Saved";
 
   return (
-    <div className="space-y-5 pb-28 sm:pb-24">
+    <div className="space-y-5 pb-40 sm:pb-24">
       <PageHeader title="Settings" />
       <input ref={restoreInputRef} type="file" accept=".db,application/octet-stream" className="hidden" onChange={onRestoreFileSelected} />
 
@@ -317,7 +317,7 @@ export default function ConfigPage() {
           <Clock3 size={14} strokeWidth={1.7} />
           {formatSavedAt(savedAt)}
         </span>
-        <span className="ml-auto inline-flex items-center gap-2 rounded-lg bg-surface-3/40 px-2.5 py-1 text-[12px] text-txt-secondary">
+        <span className="inline-flex w-full items-center gap-2 rounded-lg bg-surface-3/40 px-2.5 py-1 text-[12px] text-txt-secondary sm:ml-auto sm:w-auto">
           <AlertTriangle size={13} strokeWidth={1.8} />
           {validationErrors.length}
           <span className="text-txt-muted">/</span>
@@ -364,7 +364,7 @@ export default function ConfigPage() {
             )}
           </div>
           {restoreFile ? (
-            <div className="rounded-lg bg-surface-3/35 px-3 py-2 text-[12px] text-txt-secondary">
+            <div className="break-all rounded-lg bg-surface-3/35 px-3 py-2 text-[12px] text-txt-secondary">
               {restoreFile.name}
             </div>
           ) : null}
@@ -376,14 +376,14 @@ export default function ConfigPage() {
             Validation
           </div>
           {validationErrors.length ? (
-            <div className="rounded-lg bg-status-danger/10 px-3 py-2 text-[13px] text-status-danger">
+            <div className="break-words rounded-lg bg-status-danger/10 px-3 py-2 text-[13px] text-status-danger">
               {validationErrors.slice(0, 3).join(" | ")}
             </div>
           ) : (
             <div className="rounded-lg bg-status-success/10 px-3 py-2 text-[13px] text-status-success">No errors</div>
           )}
           {validationWarnings.length ? (
-            <div className="rounded-lg bg-status-warning/10 px-3 py-2 text-[13px] text-status-warning">
+            <div className="break-words rounded-lg bg-status-warning/10 px-3 py-2 text-[13px] text-status-warning">
               {validationWarnings.slice(0, 3).join(" | ")}
             </div>
           ) : null}
@@ -404,21 +404,21 @@ export default function ConfigPage() {
         <ServerSettingsForm draft={draft} rawYaml={rawYaml} onDraftChange={setDraft} />
       )}
 
-      <div className="fixed bottom-4 left-1/2 z-40 w-[min(980px,calc(100vw-14px))] -translate-x-1/2">
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-surface-2/95 px-3 py-2.5 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl">
-          <span className="inline-flex items-center rounded-lg bg-surface-3/45 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
+      <div className="fixed inset-x-2 bottom-3 z-40 sm:bottom-4 sm:left-1/2 sm:w-[min(980px,calc(100vw-14px))] sm:-translate-x-1/2 sm:inset-x-auto">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-surface-2/95 p-2 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl sm:px-3 sm:py-2.5">
+          <span className="inline-flex w-full items-center justify-center rounded-lg bg-surface-3/45 px-2.5 py-1 text-[12px] font-medium text-txt-secondary sm:w-auto sm:justify-start">
             {isDirty ? "Unsaved changes" : "Up to date"}
           </span>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <Button onClick={() => void load(false)} disabled={isBusy}>
+          <div className="grid w-full grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:gap-2">
+            <Button onClick={() => void load(false)} disabled={isBusy} className="h-9 w-full justify-center sm:h-10 sm:w-auto">
               <RefreshCw size={15} strokeWidth={1.8} />
               Reload
             </Button>
-            <Button onClick={discardChanges} disabled={isBusy || !isDirty}>
+            <Button onClick={discardChanges} disabled={isBusy || !isDirty} className="h-9 w-full justify-center sm:h-10 sm:w-auto">
               <RotateCcw size={15} strokeWidth={1.8} />
               Discard
             </Button>
-            <Button variant="primary" onClick={() => void saveDraft()} disabled={isBusy}>
+            <Button variant="primary" onClick={() => void saveDraft()} disabled={isBusy} className="h-9 w-full justify-center sm:h-10 sm:w-auto">
               <Save size={15} strokeWidth={1.8} />
               Save
             </Button>
@@ -428,7 +428,7 @@ export default function ConfigPage() {
               confirmText="Apply"
               onConfirm={() => void applyConfig()}
             >
-              <Button variant="primary" disabled={isBusy || Boolean(validationErrors.length)}>
+              <Button variant="primary" disabled={isBusy || Boolean(validationErrors.length)} className="h-9 w-full justify-center sm:h-10 sm:w-auto">
                 <Play size={15} strokeWidth={1.8} />
                 Apply
               </Button>

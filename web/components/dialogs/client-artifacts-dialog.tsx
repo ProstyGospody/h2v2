@@ -38,26 +38,26 @@ export function ClientArtifactsDialog({
         </div>
       ) : artifacts && currentClient ? (
         <div className="grid gap-6 sm:grid-cols-2">
-          <div className="space-y-4 rounded-xl border border-border/50 bg-surface-0/35 p-4">
+          <div className="space-y-4 rounded-xl border border-border/50 bg-surface-0/35 p-3 sm:p-4">
             <div className="flex items-center gap-2 text-[13px] font-semibold text-txt-secondary">
               <QrCode size={16} strokeWidth={1.6} />Config
             </div>
-            <div className="flex justify-center rounded-2xl bg-surface-3/35 p-4">
-              <div className="rounded-xl bg-white p-2.5">
-                <img alt="Configuration QR" src={shareQRSrc} className="h-[220px] w-[220px] rounded-md" />
+            <div className="flex justify-center rounded-2xl bg-surface-3/35 p-3 sm:p-4">
+              <div className="w-full max-w-[220px] rounded-xl bg-white p-2.5">
+                <img alt="Configuration QR" src={shareQRSrc} className="h-auto w-full rounded-md" />
               </div>
             </div>
             <Button className="w-full justify-center" onClick={() => onCopy(shareURI)} disabled={!shareURI}>
               <Copy size={16} strokeWidth={1.6} />Copy Config Link
             </Button>
           </div>
-          <div className="space-y-4 rounded-xl border border-border/50 bg-surface-0/35 p-4">
+          <div className="space-y-4 rounded-xl border border-border/50 bg-surface-0/35 p-3 sm:p-4">
             <div className="flex items-center gap-2 text-[13px] font-semibold text-txt-secondary">
               <Link2 size={16} strokeWidth={1.6} />Subscription
             </div>
-            <div className="flex justify-center rounded-2xl bg-surface-3/35 p-4">
-              <div className="rounded-xl bg-white p-2.5">
-                <img alt="Subscription QR" src={subscriptionQRSrc} className="h-[220px] w-[220px] rounded-md" />
+            <div className="flex justify-center rounded-2xl bg-surface-3/35 p-3 sm:p-4">
+              <div className="w-full max-w-[220px] rounded-xl bg-white p-2.5">
+                <img alt="Subscription QR" src={subscriptionQRSrc} className="h-auto w-full rounded-md" />
               </div>
             </div>
             <Button variant="ghost" className="w-full justify-center" onClick={() => onCopy(subscriptionURL)} disabled={!subscriptionURL}>

@@ -45,7 +45,7 @@ export function Dialog({
               <DialogPrimitive.Content asChild forceMount>
                 <motion.div
                   className={cn(
-                    "relative w-full max-w-md rounded-2xl bg-[var(--dialog-surface)] p-5 shadow-[0_24px_56px_-16px_var(--dialog-shadow)] outline-none backdrop-blur-xl sm:p-7",
+                    "relative w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-[var(--dialog-surface)] p-5 shadow-[0_24px_56px_-16px_var(--dialog-shadow)] outline-none backdrop-blur-xl sm:p-7",
                     contentClassName,
                   )}
                   initial={{ opacity: 0, scale: 0.95, y: 10 }}

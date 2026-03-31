@@ -37,7 +37,7 @@ export function ConfirmPopover({
         <Popover.Content
           sideOffset={8}
           align="end"
-          className="z-50 w-[260px] rounded-xl bg-surface-2/95 p-4 shadow-[0_18px_42px_-16px_var(--dialog-shadow)] backdrop-blur-xl"
+          className="z-50 w-[min(260px,calc(100vw-24px))] rounded-xl bg-surface-2/95 p-4 shadow-[0_18px_42px_-16px_var(--dialog-shadow)] backdrop-blur-xl"
         >
           <div className="flex items-start gap-3">
             <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-status-warning/10">
