@@ -1,8 +1,9 @@
-import { Code, Gauge, Globe, Lock, Shield, SlidersHorizontal } from "lucide-react";
+import { Code, Download, Gauge, Globe, Lock, Shield, SlidersHorizontal, Upload } from "lucide-react";
 import { useEffect, useMemo, type ReactNode } from "react";
 
+import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
 import { Hy2Settings } from "@/domain/settings/types";
-import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Toggle } from "@/src/components/ui";
+import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Toggle } from "@/src/components/ui";
 
 function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
   return (
@@ -123,10 +124,18 @@ export function ServerSettingsForm({
   draft,
   rawYaml,
   onDraftChange,
+  snapshotStorage,
 }: {
   draft: Hy2Settings;
   rawYaml: string;
   onDraftChange: (next: Hy2Settings) => void;
+  snapshotStorage?: {
+    busy: boolean;
+    restoreFileName: string;
+    onBackup: () => void;
+    onSelectRestore: () => void;
+    onRestore: () => void | Promise<void>;
+  };
 }) {
   const tlsMode = draft.tlsMode === "tls" ? "tls" : "acme";
   const obfsType = draft.obfs?.type === "salamander" ? "salamander" : "none";
@@ -246,7 +255,7 @@ export function ServerSettingsForm({
         </SectionCard>
 
         <SectionCard title="Network" icon={<Shield size={17} strokeWidth={1.7} />}>
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-3">
             <Input
               label="Bandwidth Up"
               value={draft.bandwidth?.up || ""}
@@ -269,13 +278,6 @@ export function ServerSettingsForm({
               }
               placeholder="200 mbps"
             />
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <ToggleField
-              label="Disable UDP"
-              checked={Boolean(draft.disableUDP)}
-              onCheckedChange={(value) => onDraftChange({ ...draft, disableUDP: value })}
-            />
             <Input
               label="UDP Idle Timeout"
               value={draft.udpIdleTimeout || ""}
@@ -283,6 +285,11 @@ export function ServerSettingsForm({
               placeholder="90s"
             />
           </div>
+          <ToggleField
+            label="Disable UDP"
+            checked={Boolean(draft.disableUDP)}
+            onCheckedChange={(value) => onDraftChange({ ...draft, disableUDP: value })}
+          />
         </SectionCard>
 
         <SectionCard title="Masking" icon={<Lock size={17} strokeWidth={1.7} />}>
@@ -509,6 +516,41 @@ export function ServerSettingsForm({
               </div>
             ))}
           </div>
+          {snapshotStorage ? (
+            <div className="space-y-2 pt-1">
+              <Button size="sm" onClick={snapshotStorage.onBackup} disabled={snapshotStorage.busy} className="h-9 w-full justify-center">
+                <Download size={14} strokeWidth={1.7} />
+                Backup
+              </Button>
+              {snapshotStorage.restoreFileName ? (
+                <>
+                  <div className="break-all rounded-lg bg-surface-3/35 px-3 py-2 text-[12px] text-txt-secondary">{snapshotStorage.restoreFileName}</div>
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                    <Button size="sm" onClick={snapshotStorage.onSelectRestore} disabled={snapshotStorage.busy} className="h-9 w-full justify-center">
+                      <Upload size={14} strokeWidth={1.7} />
+                      Select DB
+                    </Button>
+                    <ConfirmPopover
+                      title="Restore database"
+                      description={`Restore ${snapshotStorage.restoreFileName}?`}
+                      confirmText="Restore"
+                      onConfirm={snapshotStorage.onRestore}
+                    >
+                      <Button size="sm" variant="danger" disabled={snapshotStorage.busy} className="h-9 w-full justify-center">
+                        <Upload size={14} strokeWidth={1.7} />
+                        Restore
+                      </Button>
+                    </ConfirmPopover>
+                  </div>
+                </>
+              ) : (
+                <Button size="sm" variant="danger" onClick={snapshotStorage.onSelectRestore} disabled={snapshotStorage.busy} className="h-9 w-full justify-center">
+                  <Upload size={14} strokeWidth={1.7} />
+                  Restore
+                </Button>
+              )}
+            </div>
+          ) : null}
         </section>
 
         <section className="panel-card-compact space-y-3">

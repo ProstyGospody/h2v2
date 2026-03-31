@@ -1,14 +1,8 @@
 import {
-  AlertTriangle,
-  CheckCircle2,
-  Clock3,
-  Database,
-  Download,
   Play,
   RefreshCw,
   RotateCcw,
   Save,
-  Upload,
 } from "lucide-react";
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -27,7 +21,7 @@ import {
 } from "@/domain/settings/services";
 import { Hy2ConfigValidation, Hy2Settings } from "@/domain/settings/types";
 import { APIError } from "@/services/api";
-import { Button, cn } from "@/src/components/ui";
+import { Button } from "@/src/components/ui";
 import { useToast } from "@/src/components/ui/Toast";
 import { setUnsavedChangesGuard } from "@/src/state/navigation-guard";
 
@@ -81,11 +75,6 @@ function draftSnapshot(settings: Hy2Settings): string {
   return JSON.stringify(normalizeSettingsDraft(settings));
 }
 
-function formatSavedAt(value: number | null): string {
-  if (!value) return "--";
-  return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
 export default function ConfigPage() {
   const cached = readSettingsCache();
   const initialDraft = toSettingsDraft(
@@ -106,14 +95,12 @@ export default function ConfigPage() {
   const [savedDraft, setSavedDraft] = useState<Hy2Settings>(initialDraft);
   const [validation, setValidation] = useState<Hy2ConfigValidation | null>(cached?.config_validation || null);
   const [savedValidation, setSavedValidation] = useState<Hy2ConfigValidation | null>(cached?.config_validation || null);
-  const [savedAt, setSavedAt] = useState<number | null>(cached ? Date.now() : null);
 
   const restoreInputRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
 
   const isDirty = useMemo(() => draftSnapshot(draft) !== draftSnapshot(savedDraft), [draft, savedDraft]);
   const validationErrors = validation?.errors || [];
-  const validationWarnings = validation?.warnings || [];
   const isBusy = loading || reloading || saving || validating || applying || storageBusy;
 
   const load = useCallback(async (showSkeleton = false) => {
@@ -135,7 +122,6 @@ export default function ConfigPage() {
       setSavedDraft(nextDraft);
       setValidation(nextValidation);
       setSavedValidation(nextValidation);
-      setSavedAt(Date.now());
 
       writeSettingsCache({
         raw_yaml: nextYaml,
@@ -207,7 +193,6 @@ export default function ConfigPage() {
       setSavedRawYaml(nextYaml);
       setValidation(nextValidation);
       setSavedValidation(nextValidation);
-      setSavedAt(Date.now());
 
       writeSettingsCache({
         raw_yaml: nextYaml,
@@ -285,110 +270,12 @@ export default function ConfigPage() {
     }
   }
 
-  const statusLabel = applying
-    ? "Applying"
-    : reloading
-      ? "Reloading"
-    : saving
-      ? "Saving"
-      : validating
-        ? "Validating"
-        : isDirty
-          ? "Unsaved"
-          : "Saved";
-
   return (
     <div className="space-y-5 pb-40 sm:pb-24">
       <PageHeader title="Settings" />
       <input ref={restoreInputRef} type="file" accept=".db,application/octet-stream" className="hidden" onChange={onRestoreFileSelected} />
 
-      <section className="panel-card-compact grid gap-2.5 md:grid-cols-3 md:items-center">
-        <span
-          className={cn(
-            "inline-flex h-8 w-fit items-center rounded-lg px-2.5 py-1 text-[12px] font-semibold",
-            statusLabel === "Saved" && "bg-status-success/12 text-status-success",
-            statusLabel === "Unsaved" && "bg-status-warning/12 text-status-warning",
-            statusLabel !== "Saved" && statusLabel !== "Unsaved" && "bg-status-info/12 text-status-info",
-          )}
-        >
-          {statusLabel}
-        </span>
-        <span className="inline-flex h-8 items-center gap-1.5 text-[13px] text-txt-secondary">
-          <Clock3 size={14} strokeWidth={1.7} />
-          {formatSavedAt(savedAt)}
-        </span>
-        <span className="inline-flex h-8 w-fit items-center gap-2 rounded-lg bg-surface-3/40 px-2.5 py-1 text-[12px] text-txt-secondary md:ml-auto md:justify-self-end">
-          <AlertTriangle size={13} strokeWidth={1.8} />
-          {validationErrors.length}
-          <span className="text-txt-muted">/</span>
-          {validationWarnings.length}
-        </span>
-      </section>
-
       <ErrorBanner message={error} onDismiss={() => setError("")} />
-
-      <div className="grid items-stretch gap-4 xl:grid-cols-12">
-        <section className="panel-card-compact flex h-full flex-col gap-3 xl:col-span-4">
-          <div className="flex items-center gap-2 text-[14px] font-semibold text-txt-primary">
-            <Database size={16} strokeWidth={1.8} />
-            Storage
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={() => void backupSQLite()} disabled={isBusy}>
-              <Download size={16} strokeWidth={1.7} />
-              Backup
-            </Button>
-            {restoreFile ? (
-              <>
-                <Button onClick={triggerRestorePicker} disabled={isBusy}>
-                  <Upload size={16} strokeWidth={1.7} />
-                  Select DB
-                </Button>
-                <ConfirmPopover
-                  title="Restore database"
-                  description={`Restore ${restoreFile.name}?`}
-                  confirmText="Restore"
-                  onConfirm={() => void restoreSQLite()}
-                >
-                  <Button variant="danger" disabled={isBusy}>
-                    <Upload size={16} strokeWidth={1.7} />
-                    Restore
-                  </Button>
-                </ConfirmPopover>
-              </>
-            ) : (
-              <Button variant="danger" onClick={triggerRestorePicker} disabled={isBusy}>
-                <Upload size={16} strokeWidth={1.7} />
-                Restore
-              </Button>
-            )}
-          </div>
-          {restoreFile ? (
-            <div className="break-all rounded-lg bg-surface-3/35 px-3 py-2 text-[12px] text-txt-secondary">
-              {restoreFile.name}
-            </div>
-          ) : null}
-        </section>
-
-        <section className="panel-card-compact flex h-full flex-col gap-2.5 xl:col-span-8">
-          <div className="flex items-center gap-2 text-[14px] font-semibold text-txt-primary">
-            <CheckCircle2 size={16} strokeWidth={1.8} />
-            Validation
-          </div>
-          {validationErrors.length ? (
-            <div className="break-words rounded-lg bg-status-danger/10 px-3 py-2 text-[13px] text-status-danger">
-              {validationErrors.slice(0, 3).join(" | ")}
-            </div>
-          ) : (
-            <div className="rounded-lg bg-status-success/10 px-3 py-2 text-[13px] text-status-success">No errors</div>
-          )}
-          {validationWarnings.length ? (
-            <div className="break-words rounded-lg bg-status-warning/10 px-3 py-2 text-[13px] text-status-warning">
-              {validationWarnings.slice(0, 3).join(" | ")}
-            </div>
-          ) : null}
-        </section>
-      </div>
 
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2">
@@ -401,7 +288,18 @@ export default function ConfigPage() {
           ))}
         </div>
       ) : (
-        <ServerSettingsForm draft={draft} rawYaml={rawYaml} onDraftChange={setDraft} />
+        <ServerSettingsForm
+          draft={draft}
+          rawYaml={rawYaml}
+          onDraftChange={setDraft}
+          snapshotStorage={{
+            busy: isBusy,
+            restoreFileName: restoreFile?.name || "",
+            onBackup: () => void backupSQLite(),
+            onSelectRestore: triggerRestorePicker,
+            onRestore: () => restoreSQLite(),
+          }}
+        />
       )}
 
       <div className="fixed inset-x-0 bottom-0 z-40 px-2 pb-2 sm:bottom-4 sm:left-1/2 sm:w-[calc(100vw-16px)] sm:max-w-[980px] sm:-translate-x-1/2 sm:px-0 sm:pb-0">
