@@ -1,10 +1,13 @@
-import type { HTMLAttributes, TableHTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from "react";
+import { forwardRef, type HTMLAttributes, type TableHTMLAttributes, type TdHTMLAttributes, type ThHTMLAttributes } from "react";
 
 import { cn } from "./cn";
 
-export function TableContainer({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("overflow-hidden rounded-2xl bg-surface-2", className)} {...props} />;
-}
+export const TableContainer = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={cn("overflow-hidden rounded-2xl bg-surface-2", className)} {...props} />
+  ),
+);
+TableContainer.displayName = "TableContainer";
 
 export function Table({ className, ...props }: TableHTMLAttributes<HTMLTableElement>) {
   return <table className={cn("w-full border-collapse", className)} {...props} />;
@@ -23,9 +26,9 @@ export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowEle
 }
 
 export function TableHead({ className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
-  return <th className={cn("px-5 py-3.5 text-left text-[12px] font-semibold uppercase tracking-wider text-txt-muted", className)} {...props} />;
+  return <th className={cn("px-4 py-3 text-left text-[12px] font-semibold uppercase tracking-wide text-txt-muted", className)} {...props} />;
 }
 
 export function TableCell({ className, ...props }: TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn("px-5 py-3.5 text-[14px] text-txt", className)} {...props} />;
+  return <td className={cn("px-4 py-3 text-[13px] text-txt", className)} {...props} />;
 }

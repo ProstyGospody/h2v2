@@ -1,4 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -18,8 +20,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { usePolling } from "@/hooks/use-polling";
-
 import { ClientArtifactsDialog } from "@/components/dialogs/client-artifacts-dialog";
 import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -36,12 +36,14 @@ import {
   updateClient,
 } from "@/domain/clients/services";
 import { HysteriaClient, HysteriaClientDefaults, HysteriaUserPayload } from "@/domain/clients/types";
-import { APIError } from "@/services/api";
+import { APIError, getAPIErrorMessage } from "@/services/api";
+import { queryRefetchInterval } from "@/src/queries/polling";
 import {
   Badge,
   Button,
   Checkbox,
   Input,
+  StateBlock,
   Table,
   TableBody,
   TableCell,
@@ -60,7 +62,7 @@ type SortField = "username" | "traffic" | "last_seen";
 type SortDir = "asc" | "desc";
 type SortState = { field: SortField; dir: SortDir };
 
-const rowsPerPageOptions = [10, 25, 50, 100];
+const rowsPerPageOptions = [25, 50, 100, 250, 500];
 const SKELETON_ROWS = 8;
 const SEARCH_DEBOUNCE_MS = 250;
 
@@ -195,12 +197,6 @@ function MobileActions({
 }
 
 export default function UsersPage() {
-  const [clients, setClients] = useState<HysteriaClient[]>([]);
-  const [defaults, setDefaults] = useState<HysteriaClientDefaults | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [limitWarning, setLimitWarning] = useState(false);
-
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<ClientFilter>("all");
@@ -208,6 +204,8 @@ export default function UsersPage() {
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [selectedClientIDs, setSelectedClientIDs] = useState<string[]>([]);
   const [sort, setSort] = useState<SortState | null>(null);
+  const [actionError, setActionError] = useState("");
+  const [dismissedQueryError, setDismissedQueryError] = useState(false);
 
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
@@ -220,26 +218,32 @@ export default function UsersPage() {
   const [artifactClient, setArtifactClient] = useState<HysteriaClient | null>(null);
   const [artifactPayload, setArtifactPayload] = useState<HysteriaUserPayload | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const desktopScrollRef = useRef<HTMLDivElement | null>(null);
+  const hasSelectedRef = useRef(selectedClientIDs.length > 0);
+  hasSelectedRef.current = selectedClientIDs.length > 0;
 
   const toast = useToast();
-
-  const load = useCallback(async () => {
-    setError("");
-    try {
-      const [result, inherited] = await Promise.all([listClients(), getClientDefaults()]);
-      setClients(result.items);
-      setDefaults(inherited);
-      setLimitWarning(result.limited);
-    } catch (err) {
-      setError(err instanceof APIError ? err.message : "Failed to load users");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const queryClient = useQueryClient();
+  const usersQuery = useQuery({
+    queryKey: ["users", "page-data"],
+    queryFn: async () => {
+      const [clientsPayload, defaultsPayload] = await Promise.all([listClients(), getClientDefaults()]);
+      return {
+        clients: clientsPayload.items,
+        defaults: defaultsPayload,
+        limited: clientsPayload.limited,
+      };
+    },
+    staleTime: 3_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => queryRefetchInterval(5_000, query, { enabled: !hasSelectedRef.current }),
+  });
+  const clients = usersQuery.data?.clients || [];
+  const defaults: HysteriaClientDefaults | null = usersQuery.data?.defaults || null;
+  const limitWarning = usersQuery.data?.limited ?? false;
+  const loading = usersQuery.isPending;
+  const queryError = usersQuery.error ? getAPIErrorMessage(usersQuery.error, "Failed to load users") : "";
+  const error = actionError || (dismissedQueryError ? "" : queryError);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -256,6 +260,11 @@ export default function UsersPage() {
     const existing = new Set(clients.map((client) => client.id));
     setSelectedClientIDs((current) => current.filter((id) => existing.has(id)));
   }, [clients]);
+  useEffect(() => {
+    if (usersQuery.isSuccess) {
+      setDismissedQueryError(false);
+    }
+  }, [usersQuery.dataUpdatedAt, usersQuery.isSuccess]);
 
   const filteredClients = useMemo(() => {
     const needle = searchQuery.trim().toLowerCase();
@@ -292,6 +301,10 @@ export default function UsersPage() {
     return sorted;
   }, [clients, filter, searchQuery, sort]);
 
+  async function refreshUsers() {
+    await queryClient.invalidateQueries({ queryKey: ["users", "page-data"] });
+  }
+
   function toggleSort(field: SortField) {
     setSort((prev) => {
       if (prev?.field === field) {
@@ -315,6 +328,18 @@ export default function UsersPage() {
     const start = page * rowsPerPage;
     return filteredClients.slice(start, start + rowsPerPage);
   }, [filteredClients, page, rowsPerPage]);
+  const rowVirtualizer = useVirtualizer({
+    count: pagedClients.length,
+    getScrollElement: () => desktopScrollRef.current,
+    estimateSize: () => 66,
+    overscan: 10,
+  });
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const virtualTopPadding = virtualRows.length > 0 ? virtualRows[0].start : 0;
+  const virtualBottomPadding =
+    virtualRows.length > 0
+      ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
+      : 0;
 
   const maxTraffic = useMemo(() => {
     return filteredClients.reduce((max, client) => Math.max(max, client.last_tx_bytes + client.last_rx_bytes), 0);
@@ -378,7 +403,7 @@ export default function UsersPage() {
         toast.notify("User updated");
       }
       setFormOpen(false);
-      await load();
+      await refreshUsers();
     } catch (err) {
       setFormError(err instanceof APIError ? err.message : "Failed to save user");
     } finally {
@@ -390,9 +415,9 @@ export default function UsersPage() {
     try {
       await deleteClient(clientID);
       toast.notify("User deleted");
-      await load();
+      await refreshUsers();
     } catch (err) {
-      setError(err instanceof APIError ? err.message : "Failed to delete user");
+      setActionError(err instanceof APIError ? err.message : "Failed to delete user");
     }
   }
 
@@ -402,7 +427,7 @@ export default function UsersPage() {
     }
 
     const targetIDs = [...selectedClientIDs];
-    setError("");
+    setActionError("");
     try {
       const results = await Promise.allSettled(targetIDs.map((id) => deleteClient(id)));
       const failedIDs: string[] = [];
@@ -426,39 +451,35 @@ export default function UsersPage() {
 
       if (failedIDs.length > 0) {
         setSelectedClientIDs(failedIDs);
-        setError(firstError || `Deleted ${deletedCount} of ${targetIDs.length} users`);
+        setActionError(firstError || `Deleted ${deletedCount} of ${targetIDs.length} users`);
       } else {
         setSelectedClientIDs([]);
       }
     } finally {
-      await load();
+      await refreshUsers();
     }
   }
 
   async function toggleEnabled(client: HysteriaClient) {
-    const prev = clients;
-    setClients((list) => list.map((c) => c.id === client.id ? { ...c, enabled: !c.enabled } : c));
     try {
       await setClientEnabled(client.id, !client.enabled);
+      await refreshUsers();
     } catch (err) {
-      setClients(prev);
-      setError(err instanceof APIError ? err.message : "Failed to change state");
+      setActionError(err instanceof APIError ? err.message : "Failed to change state");
     }
   }
 
   async function bulkSetEnabled(enabled: boolean) {
     if (!selectedClientIDs.length) return;
     const targetIDs = [...selectedClientIDs];
-    const prev = clients;
-    setClients((list) => list.map((c) => targetIDs.includes(c.id) ? { ...c, enabled } : c));
     const results = await Promise.allSettled(targetIDs.map((id) => setClientEnabled(id, enabled)));
     const failCount = results.filter((r) => r.status === "rejected").length;
     if (failCount > 0) {
-      setClients(prev);
       toast.notify(`Failed to update ${failCount} users`, "error");
-      await load();
+      await refreshUsers();
     } else {
       toast.notify(`${targetIDs.length} users ${enabled ? "enabled" : "disabled"}`);
+      await refreshUsers();
     }
   }
 
@@ -470,7 +491,7 @@ export default function UsersPage() {
       setArtifactPayload(await getClientArtifacts(client.id));
     } catch (err) {
       setArtifactPayload(null);
-      setError(err instanceof APIError ? err.message : "Failed to load artifacts");
+      setActionError(err instanceof APIError ? err.message : "Failed to load artifacts");
     } finally {
       setArtifactLoading(false);
     }
@@ -481,7 +502,7 @@ export default function UsersPage() {
       await navigator.clipboard.writeText(value);
       toast.notify("Copied");
     } catch {
-      setError("Clipboard write failed");
+      setActionError("Clipboard write failed");
     }
   }
 
@@ -523,8 +544,6 @@ export default function UsersPage() {
 
   const pageCount = Math.max(1, Math.ceil(filteredClients.length / rowsPerPage));
   const hasSelectedClients = selectedClientIDs.length > 0;
-  const hasSelectedRef = useRef(hasSelectedClients);
-  hasSelectedRef.current = hasSelectedClients;
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const editable = isEditableTarget(event.target);
@@ -575,28 +594,10 @@ export default function UsersPage() {
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [artifactOpen, formOpen, hasSelectedClients, openCreate, searchInput]);
-
-  const pollingLoad = useCallback(async (signal: AbortSignal) => {
-    if (hasSelectedRef.current) return;
-    setError("");
-    try {
-      const [result, inherited] = await Promise.all([listClients(), getClientDefaults()]);
-      if (signal.aborted) return;
-      setClients(result.items);
-      setDefaults(inherited);
-      setLimitWarning(result.limited);
-      setLoading(false);
-    } catch (err) {
-      if (signal.aborted || (err instanceof DOMException && err.name === "AbortError")) {
-        return;
-      }
-      setError(err instanceof APIError ? err.message : "Failed to load users");
-      setLoading(false);
-      throw err;
-    }
-  }, []);
-
-  const retryUsers = usePolling(pollingLoad, 5000);
+  const retryUsers = useCallback(() => {
+    setDismissedQueryError(false);
+    void usersQuery.refetch();
+  }, [usersQuery]);
 
   return (
     <div className={cn("space-y-6", hasSelectedClients && "pb-28 sm:pb-24")}>
@@ -713,11 +714,22 @@ export default function UsersPage() {
         </div>
       ) : null}
 
-      <ErrorBanner message={error} onDismiss={() => setError("")} actionLabel="Retry" onAction={retryUsers} />
+      <ErrorBanner
+        message={error}
+        onDismiss={() => {
+          if (actionError) {
+            setActionError("");
+            return;
+          }
+          setDismissedQueryError(true);
+        }}
+        actionLabel={queryError ? "Retry" : undefined}
+        onAction={queryError ? retryUsers : undefined}
+      />
       {limitWarning && <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">Showing first 500 users. Some users may not be displayed.</div>}
 
       {/* ── Desktop table ── */}
-      <TableContainer className="hidden overflow-x-auto sm:block">
+      <TableContainer ref={desktopScrollRef} className="hidden max-h-[72vh] overflow-auto sm:block">
         {loading ? (
           <Table>
             <TableHeader>
@@ -779,128 +791,143 @@ export default function UsersPage() {
               </TableHeader>
               <TableBody>
                 {pagedClients.length ? (
-                  pagedClients.map((client, index) => {
-                    const traffic = client.last_tx_bytes + client.last_rx_bytes;
-                    const ratio = maxTraffic > 0 ? Math.min(100, (traffic / maxTraffic) * 100) : 0;
-                    const ratioWidth = traffic > 0 ? Math.max(ratio, 4) : 0;
-                    const status = resolveStatus(client);
-                    const statusOnline = status === "online";
-                    const downBps = Math.max(0, client.download_bps || 0);
-                    const upBps = Math.max(0, client.upload_bps || 0);
+                  <>
+                    {virtualTopPadding > 0 ? (
+                      <TableRow className="border-0 hover:bg-transparent">
+                        <TableCell colSpan={11} style={{ height: virtualTopPadding, padding: 0 }} />
+                      </TableRow>
+                    ) : null}
+                    {virtualRows.map((virtualRow) => {
+                      const client = pagedClients[virtualRow.index];
+                      const index = virtualRow.index;
+                      if (!client) return null;
+                      const traffic = client.last_tx_bytes + client.last_rx_bytes;
+                      const ratio = maxTraffic > 0 ? Math.min(100, (traffic / maxTraffic) * 100) : 0;
+                      const ratioWidth = traffic > 0 ? Math.max(ratio, 4) : 0;
+                      const status = resolveStatus(client);
+                      const statusOnline = status === "online";
+                      const downBps = Math.max(0, client.download_bps || 0);
+                      const upBps = Math.max(0, client.upload_bps || 0);
 
-                    return (
-                      <TableRow key={client.id}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedSet.has(client.id)}
-                            onCheckedChange={(value) => toggleClientSelection(client.id, value === true)}
-                            aria-label={`select ${client.username}`}
-                          />
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">{page * rowsPerPage + index + 1}</TableCell>
-                        <TableCell>
-                          <div className="flex min-w-0 items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => void openArtifacts(client)}
-                              className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-accent/15 to-accent-secondary/10 text-[13px] font-bold text-txt-primary"
-                            >
-                              {initials(client.username)}
-                            </button>
-                            <div className="min-w-0">
+                      return (
+                        <TableRow key={client.id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedSet.has(client.id)}
+                              onCheckedChange={(value) => toggleClientSelection(client.id, value === true)}
+                              aria-label={`select ${client.username}`}
+                            />
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">{page * rowsPerPage + index + 1}</TableCell>
+                          <TableCell>
+                            <div className="flex min-w-0 items-center gap-2">
                               <button
                                 type="button"
                                 onClick={() => void openArtifacts(client)}
-                                className="max-w-full truncate text-[14px] font-medium text-txt hover:text-txt-primary"
+                                className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-accent/15 to-accent-secondary/10 text-[13px] font-bold text-txt-primary"
                               >
-                                {client.username}
+                                {initials(client.username)}
                               </button>
-                              <p className="truncate text-[12px] text-txt-muted">{client.note || "-"}</p>
+                              <div className="min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={() => void openArtifacts(client)}
+                                  className="max-w-full truncate text-[14px] font-medium text-txt hover:text-txt-primary"
+                                >
+                                  {client.username}
+                                </button>
+                                <p className="truncate text-[12px] text-txt-muted">{client.note || "-"}</p>
+                              </div>
                             </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <Badge variant="protocol-hy2">HY2</Badge>
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <div className="flex min-w-[154px] items-center gap-3">
-                            <span className="inline-flex w-[76px] items-center gap-2">
-                              <span
-                                className={cn(
-                                  "h-[6px] w-[6px] rounded-full",
-                                  statusOnline && "bg-status-success shadow-[0_0_8px_var(--status-success-soft)]",
-                                  !statusOnline && status !== "disabled" && "bg-status-warning",
-                                  status === "disabled" && "bg-txt-muted",
-                                )}
-                              />
-                              <span className="w-[62px] text-[11px] text-txt-secondary">{status}</span>
-                            </span>
-                            <Toggle className="shrink-0" checked={client.enabled} onCheckedChange={() => void toggleEnabled(client)} />
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <div className="space-y-1.5">
-                            <GradientProgress ratio={ratioWidth} isHigh={ratio > 90} />
-                            <p className="text-[11px] font-medium text-txt-tertiary">{formatBytes(traffic)}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden text-right lg:table-cell">
-                          <div className="flex flex-col items-end gap-1 text-[11px] font-semibold tabular-nums text-txt-secondary">
-                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                              <ArrowDownToLine size={12} strokeWidth={1.8} className="text-status-success" />
-                              {formatRate(downBps)}
-                            </span>
-                            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                              <ArrowUpFromLine size={12} strokeWidth={1.8} className="text-status-warning" />
-                              {formatRate(upBps)}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden whitespace-nowrap text-right md:table-cell">
-                          {formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <button
-                            type="button"
-                            onClick={() => void openArtifacts(client)}
-                            title="QR"
-                            aria-label={`show qr for ${client.username}`}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
-                          >
-                            <QrCode size={18} strokeWidth={1.7} />
-                          </button>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <button
-                            type="button"
-                            onClick={() => openEdit(client)}
-                            title="Edit"
-                            aria-label={`edit ${client.username}`}
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
-                          >
-                            <Pencil size={18} strokeWidth={1.7} />
-                          </button>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <ConfirmPopover
-                            title="Delete user"
-                            description={`Remove ${client.username} and revoke access?`}
-                            confirmText="Delete"
-                            onConfirm={() => void removeClient(client.id)}
-                          >
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            <Badge variant="protocol-hy2">HY2</Badge>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            <div className="flex min-w-[154px] items-center gap-3">
+                              <span className="inline-flex w-[76px] items-center gap-2">
+                                <span
+                                  className={cn(
+                                    "h-[6px] w-[6px] rounded-full",
+                                    statusOnline && "bg-status-success shadow-[0_0_8px_var(--status-success-soft)]",
+                                    !statusOnline && status !== "disabled" && "bg-status-warning",
+                                    status === "disabled" && "bg-txt-muted",
+                                  )}
+                                />
+                                <span className="w-[62px] text-[11px] text-txt-secondary">{status}</span>
+                              </span>
+                              <Toggle className="shrink-0" checked={client.enabled} onCheckedChange={() => void toggleEnabled(client)} />
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            <div className="space-y-1.5">
+                              <GradientProgress ratio={ratioWidth} isHigh={ratio > 90} />
+                              <p className="text-[11px] font-medium text-txt-tertiary">{formatBytes(traffic)}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden text-right lg:table-cell">
+                            <div className="flex flex-col items-end gap-1 text-[11px] font-semibold tabular-nums text-txt-secondary">
+                              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                <ArrowDownToLine size={12} strokeWidth={1.8} className="text-status-success" />
+                                {formatRate(downBps)}
+                              </span>
+                              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                <ArrowUpFromLine size={12} strokeWidth={1.8} className="text-status-warning" />
+                                {formatRate(upBps)}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden whitespace-nowrap text-right md:table-cell">
+                            {formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}
+                          </TableCell>
+                          <TableCell className="text-center">
                             <button
                               type="button"
-                              title="Delete"
-                              aria-label={`delete ${client.username}`}
-                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-status-danger/10 hover:text-status-danger"
+                              onClick={() => void openArtifacts(client)}
+                              title="QR"
+                              aria-label={`show qr for ${client.username}`}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
                             >
-                              <Trash2 size={18} strokeWidth={1.7} />
+                              <QrCode size={18} strokeWidth={1.7} />
                             </button>
-                          </ConfirmPopover>
-                        </TableCell>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(client)}
+                              title="Edit"
+                              aria-label={`edit ${client.username}`}
+                              className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-surface-3 hover:text-txt"
+                            >
+                              <Pencil size={18} strokeWidth={1.7} />
+                            </button>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <ConfirmPopover
+                              title="Delete user"
+                              description={`Remove ${client.username} and revoke access?`}
+                              confirmText="Delete"
+                              onConfirm={() => void removeClient(client.id)}
+                            >
+                              <button
+                                type="button"
+                                title="Delete"
+                                aria-label={`delete ${client.username}`}
+                                className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-txt-tertiary transition-colors hover:bg-status-danger/10 hover:text-status-danger"
+                              >
+                                <Trash2 size={18} strokeWidth={1.7} />
+                              </button>
+                            </ConfirmPopover>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {virtualBottomPadding > 0 ? (
+                      <TableRow className="border-0 hover:bg-transparent">
+                        <TableCell colSpan={11} style={{ height: virtualBottomPadding, padding: 0 }} />
                       </TableRow>
-                    );
-                  })
+                    ) : null}
+                  </>
                 ) : (
                   <TableRow>
                     <TableCell colSpan={11}>{clients.length ? "No users match the current filters." : "No users yet."}</TableCell>
@@ -933,23 +960,7 @@ export default function UsersPage() {
       {/* ── Mobile card layout ── */}
       <div className="space-y-3 sm:hidden">
         {loading ? (
-          Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="animate-pulse rounded-2xl bg-surface-2 p-4 space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-surface-3/60" />
-                <div className="flex-1 space-y-1.5">
-                  <div className="h-4 w-28 rounded bg-surface-3/60" />
-                  <div className="h-3 w-16 rounded bg-surface-3/50" />
-                </div>
-                <div className="h-6 w-14 rounded-badge bg-surface-3/60" />
-              </div>
-              <div className="h-1.5 rounded-full bg-surface-3/60" />
-              <div className="flex justify-between">
-                <div className="h-3 w-20 rounded bg-surface-3/50" />
-                <div className="h-3 w-20 rounded bg-surface-3/50" />
-              </div>
-            </div>
-          ))
+          <StateBlock tone="loading" title="Loading users" minHeightClassName="min-h-[220px]" />
         ) : pagedClients.length ? (
           pagedClients.map((client) => {
             const traffic = client.last_tx_bytes + client.last_rx_bytes;
@@ -961,7 +972,7 @@ export default function UsersPage() {
             const upBps = Math.max(0, client.upload_bps || 0);
 
             return (
-              <div key={client.id} className="card-hover rounded-2xl bg-surface-2 p-4">
+              <div key={client.id} className="card-hover panel-card-compact">
                 {/* Header */}
                 <div className="flex items-center gap-3">
                   <Checkbox
@@ -1031,9 +1042,7 @@ export default function UsersPage() {
             );
           })
         ) : (
-          <div className="rounded-2xl bg-surface-2 p-6 text-center text-[14px] text-txt-secondary">
-            {clients.length ? "No users match the current filters." : "No users yet."}
-          </div>
+          <StateBlock tone="empty" title={clients.length ? "No matching users" : "No users"} minHeightClassName="min-h-[180px]" />
         )}
 
         {/* Mobile pagination */}

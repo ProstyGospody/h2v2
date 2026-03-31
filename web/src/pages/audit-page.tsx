@@ -1,9 +1,10 @@
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { RefreshCw, Shield } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
-import { Button, Input, Badge, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "@/src/components/ui";
+import { Badge, Button, Input, StateBlock, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow } from "@/src/components/ui";
 import { useAuditFeed } from "@/src/state/audit-feed";
 import { formatDateTime } from "@/utils/format";
 
@@ -25,6 +26,7 @@ function actionKind(action: string): "create" | "update" | "delete" | "other" {
 
 export default function AuditPage() {
   const { items, loading, error, refresh, clearError, markSeen } = useAuditFeed();
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
   const [actionFilter, setActionFilter] = useState<"all" | "create" | "update" | "delete">("all");
   const [actorFilter, setActorFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
@@ -52,6 +54,18 @@ export default function AuditPage() {
       return true;
     });
   }, [actionFilter, actorFilter, dateFrom, dateTo, items]);
+  const rowVirtualizer = useVirtualizer({
+    count: filteredItems.length,
+    getScrollElement: () => tableScrollRef.current,
+    estimateSize: () => 58,
+    overscan: 12,
+  });
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const virtualTopPadding = virtualRows.length > 0 ? virtualRows[0].start : 0;
+  const virtualBottomPadding =
+    virtualRows.length > 0
+      ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
+      : 0;
 
   return (
     <div className="space-y-6">
@@ -104,21 +118,11 @@ export default function AuditPage() {
 
       <ErrorBanner message={error} onDismiss={clearError} actionLabel="Retry" onAction={() => void refresh()} />
 
-      <TableContainer className="overflow-x-auto">
+      <TableContainer ref={tableScrollRef} className="max-h-[72vh] overflow-auto">
         {loading ? (
-          <div className="flex min-h-[280px] items-center justify-center">
-            <div className="flex flex-col items-center gap-3">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent/20 border-t-accent-light" />
-              <p className="text-[14px] text-txt-secondary">Loading audit records...</p>
-            </div>
-          </div>
+          <StateBlock tone="loading" title="Loading audit log" minHeightClassName="min-h-[280px]" />
         ) : items.length === 0 ? (
-          <div className="flex min-h-[240px] flex-col items-center justify-center gap-4 py-10">
-            <div className="grid h-14 w-14 place-items-center rounded-full bg-surface-3/50">
-              <Shield size={24} strokeWidth={1.6} className="text-txt-muted" />
-            </div>
-            <p className="text-[15px] text-txt-secondary">No audit records yet</p>
-          </div>
+          <StateBlock tone="empty" title="No audit records" icon={Shield} minHeightClassName="min-h-[240px]" />
         ) : (
           <Table>
             <TableHeader>
@@ -131,24 +135,41 @@ export default function AuditPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredItems.map((item, i) => (
-                <TableRow key={item.id} style={{ animationDelay: `${i * 0.03}s` }} className="animate-[fadein_0.2s_ease_forwards] opacity-0">
-                  <TableCell className="whitespace-nowrap text-[12px] text-txt-secondary sm:text-[14px]">{formatDateTime(item.created_at)}</TableCell>
-                  <TableCell><span className="font-medium">{item.admin_email || "system"}</span></TableCell>
-                  <TableCell><Badge variant={actionVariant(item.action)}>{item.action}</Badge></TableCell>
-                  <TableCell><span className="text-txt-secondary">{item.entity_type}{item.entity_id ? <span className="text-txt-muted">:{item.entity_id}</span> : ""}</span></TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    <pre className="m-0 max-w-[340px] truncate whitespace-pre-wrap break-words rounded-lg bg-surface-0/50 p-3 font-mono text-[13px] text-txt-secondary">
-                      {item.payload_json || "{}"}
-                    </pre>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!filteredItems.length ? (
+              {filteredItems.length ? (
+                <>
+                  {virtualTopPadding > 0 ? (
+                    <TableRow className="border-0 hover:bg-transparent">
+                      <TableCell colSpan={5} style={{ height: virtualTopPadding, padding: 0 }} />
+                    </TableRow>
+                  ) : null}
+                  {virtualRows.map((virtualRow) => {
+                    const item = filteredItems[virtualRow.index];
+                    if (!item) return null;
+                    return (
+                      <TableRow key={item.id} style={{ animationDelay: `${virtualRow.index * 0.02}s` }} className="animate-[fadein_0.2s_ease_forwards] opacity-0">
+                        <TableCell className="whitespace-nowrap text-[12px] text-txt-secondary sm:text-[14px]">{formatDateTime(item.created_at)}</TableCell>
+                        <TableCell><span className="font-medium">{item.admin_email || "system"}</span></TableCell>
+                        <TableCell><Badge variant={actionVariant(item.action)}>{item.action}</Badge></TableCell>
+                        <TableCell><span className="text-txt-secondary">{item.entity_type}{item.entity_id ? <span className="text-txt-muted">:{item.entity_id}</span> : ""}</span></TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          <pre className="m-0 max-w-[340px] truncate whitespace-pre-wrap break-words rounded-lg bg-surface-0/50 p-3 font-mono text-[13px] text-txt-secondary">
+                            {item.payload_json || "{}"}
+                          </pre>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {virtualBottomPadding > 0 ? (
+                    <TableRow className="border-0 hover:bg-transparent">
+                      <TableCell colSpan={5} style={{ height: virtualBottomPadding, padding: 0 }} />
+                    </TableRow>
+                  ) : null}
+                </>
+              ) : (
                 <TableRow>
                   <TableCell colSpan={5}>No audit records match filters.</TableCell>
                 </TableRow>
-              ) : null}
+              )}
             </TableBody>
           </Table>
         )}

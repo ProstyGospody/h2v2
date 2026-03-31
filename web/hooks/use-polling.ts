@@ -1,10 +1,24 @@
 import { useCallback, useEffect, useRef } from "react";
 
+type UsePollingOptions = {
+  maxIntervalMs?: number;
+  jitterRatio?: number;
+};
+
+function withJitter(baseMs: number, jitterRatio: number): number {
+  const spread = baseMs * jitterRatio;
+  const delta = (Math.random() * 2 - 1) * spread;
+  return Math.max(750, Math.round(baseMs + delta));
+}
+
 export function usePolling(
   callback: (signal: AbortSignal) => Promise<void>,
   intervalMs: number,
   deps: unknown[] = [],
+  options: UsePollingOptions = {},
 ) {
+  const maxIntervalMs = options.maxIntervalMs ?? 60_000;
+  const jitterRatio = options.jitterRatio ?? 0.2;
   const backoffRef = useRef(intervalMs);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -14,10 +28,11 @@ export function usePolling(
   }, [intervalMs]);
 
   const schedule = useCallback(() => {
+    const nextDelay = withJitter(backoffRef.current, jitterRatio);
     timerRef.current = setTimeout(() => {
       void tick();
-    }, backoffRef.current);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, nextDelay);
+  }, [jitterRatio]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const tick = useCallback(async () => {
     if (document.hidden) return;
@@ -34,12 +49,12 @@ export function usePolling(
       ) {
         return;
       }
-      backoffRef.current = Math.min(backoffRef.current * 2, 60_000);
+      backoffRef.current = Math.min(backoffRef.current * 2, maxIntervalMs);
     }
     if (!ac.signal.aborted) {
       schedule();
     }
-  }, [callback, intervalMs, schedule]);
+  }, [callback, intervalMs, maxIntervalMs, schedule]);
 
   const retryNow = useCallback(() => {
     if (timerRef.current) {

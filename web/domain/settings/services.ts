@@ -1,4 +1,4 @@
-import { APIError, apiFetch, getCSRFToken } from "@/services/api";
+import { APIError, apiFetch, getCSRFToken, toAPIError } from "@/services/api";
 
 import { HysteriaSettingsResponse, HysteriaSettingsSaveResponse, Hy2Settings } from "@/domain/settings/types";
 
@@ -69,23 +69,37 @@ export async function downloadSQLiteBackup(): Promise<string> {
     headers[csrfHeaderName] = csrfToken;
   }
 
-  const response = await fetch("/api/storage/sqlite/backup", {
-    method: "GET",
-    credentials: "include",
-    cache: "no-store",
-    headers,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  let response: Response;
+  try {
+    response = await fetch("/api/storage/sqlite/backup", {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      headers,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw new APIError("Request timed out after 30s", 408, null, "timeout", true);
+    }
+    if (err instanceof APIError) {
+      throw err;
+    }
+    if (err instanceof TypeError) {
+      throw new APIError("Network error", 0, null, "network_error", true);
+    }
+    if (err instanceof Error) {
+      throw new APIError(err.message || "Request failed", 0, null, "unknown_error", false);
+    }
+    throw new APIError("Request failed", 0, null, "unknown_error", false);
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
-    const raw = await response.text();
-    let message = `${response.status} ${response.statusText}`;
-    try {
-      const payload = raw ? JSON.parse(raw) : null;
-      if (typeof payload === "object" && payload !== null && "error" in payload) {
-        message = String(payload.error || message);
-      }
-    } catch { /* not JSON */ }
-    throw new APIError(message, response.status, null);
+    throw await toAPIError(response);
   }
 
   const blob = await response.blob();

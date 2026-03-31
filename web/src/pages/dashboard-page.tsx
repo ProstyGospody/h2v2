@@ -1,3 +1,4 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 import {
   ArrowDownToLine,
@@ -15,7 +16,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { usePolling } from "@/hooks/use-polling";
 import {
   Area,
   AreaChart,
@@ -33,9 +33,10 @@ import {
 import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
-import { APIError, apiFetch } from "@/services/api";
+import { apiFetch, getAPIErrorMessage } from "@/services/api";
+import { queryRefetchInterval } from "@/src/queries/polling";
 import { ServiceDetails, ServiceSummary, SystemHistoryResponse, SystemLiveResponse } from "@/types/common";
-import { Button, Dialog, cn } from "@/src/components/ui";
+import { Button, Dialog, StateBlock, cn } from "@/src/components/ui";
 import { formatBytes, formatDateTime, formatRate, formatUptime } from "@/utils/format";
 
 const LIVE_POLL_MS = 5000;
@@ -277,108 +278,119 @@ const tooltipStyle = {
 };
 
 export default function DashboardPage() {
-  const [live, setLive] = useState<SystemLiveResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [historyItems, setHistoryItems] = useState<SystemHistoryResponse["items"]>([]);
-  const [historyLoading, setHistoryLoading] = useState(true);
-  const [historyError, setHistoryError] = useState("");
   const [historyWindow, setHistoryWindow] = useState<HistoryWindow>("1h");
-  const [serviceItems, setServiceItems] = useState<ServiceSummary[]>([]);
-  const [servicesLoading, setServicesLoading] = useState(true);
   const [servicesBusy, setServicesBusy] = useState(false);
-  const [servicesError, setServicesError] = useState("");
+  const [servicesActionError, setServicesActionError] = useState("");
+  const [dismissedLiveError, setDismissedLiveError] = useState(false);
+  const [dismissedHistoryError, setDismissedHistoryError] = useState(false);
+  const [dismissedServicesError, setDismissedServicesError] = useState(false);
   const [serviceDetails, setServiceDetails] = useState<ServiceDetails | null>(null);
   const [serviceDetailsOpen, setServiceDetailsOpen] = useState(false);
-  const loadLive = useCallback(async (signal?: AbortSignal) => {
-    if (!signal?.aborted) {
-      setError("");
-    }
-    try {
-      const data = await apiFetch<SystemLiveResponse>("/api/system/live", { method: "GET", signal });
-      setLive(data);
-      setLoading(false);
-    } catch (err) {
-      if (signal?.aborted || (err instanceof DOMException && err.name === "AbortError")) {
-        return;
-      }
-      setError(err instanceof APIError ? err.message : "Failed to load dashboard data");
-      setLoading(false);
-      throw err;
-    }
-  }, []);
-
-  const loadServices = useCallback(async (signal?: AbortSignal) => {
-    if (!signal?.aborted) {
-      setServicesError("");
-    }
-    try {
-      const p = await apiFetch<{ items: ServiceSummary[] }>("/api/services", { method: "GET", signal });
-      setServiceItems(p.items || []);
-      setServicesLoading(false);
-    } catch (err) {
-      if (signal?.aborted || (err instanceof DOMException && err.name === "AbortError")) {
-        return;
-      }
-      setServicesError(err instanceof APIError ? err.message : "Failed to load services");
-      setServicesLoading(false);
-      throw err;
-    }
-  }, []);
-
-  const loadHistory = useCallback(async (signal?: AbortSignal) => {
-    if (!signal?.aborted) {
-      setHistoryError("");
-    }
-    try {
+  const queryClient = useQueryClient();
+  const liveQuery = useQuery({
+    queryKey: ["dashboard", "live"],
+    queryFn: ({ signal }) => apiFetch<SystemLiveResponse>("/api/system/live", { method: "GET", signal }),
+    staleTime: 3_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => queryRefetchInterval(LIVE_POLL_MS, query),
+  });
+  const servicesQuery = useQuery({
+    queryKey: ["dashboard", "services"],
+    queryFn: ({ signal }) => apiFetch<{ items: ServiceSummary[] }>("/api/services", { method: "GET", signal }),
+    staleTime: 10_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => queryRefetchInterval(15_000, query),
+  });
+  const historyQuery = useQuery({
+    queryKey: ["dashboard", "history", historyWindow],
+    queryFn: ({ signal }) => {
       const step = historyWindow === "24h" ? 60 : 5;
       const limit = historyWindow === "24h" ? HISTORY_LIMIT_24H : HISTORY_LIMIT_1H;
-      const p = await apiFetch<SystemHistoryResponse>(`/api/system/history?window=${historyWindow}&step=${step}&limit=${limit}`, { method: "GET", signal });
-      const next = Array.isArray(p.items) ? p.items : [];
-      setHistoryItems((prev) => {
-        if (
-          prev.length === next.length &&
-          prev[0]?.timestamp === next[0]?.timestamp &&
-          prev.at(-1)?.timestamp === next.at(-1)?.timestamp
-        ) {
-          return prev;
-        }
-        return next;
-      });
-      setHistoryLoading(false);
-    } catch (err) {
-      if (signal?.aborted || (err instanceof DOMException && err.name === "AbortError")) {
-        return;
-      }
-      setHistoryError(err instanceof APIError ? err.message : "Failed to load history");
-      setHistoryLoading(false);
-      throw err;
-    }
-  }, [historyWindow]);
+      return apiFetch<SystemHistoryResponse>(`/api/system/history?window=${historyWindow}&step=${step}&limit=${limit}`, { method: "GET", signal });
+    },
+    staleTime: 10_000,
+    refetchOnWindowFocus: true,
+    refetchInterval: (query) => queryRefetchInterval(HISTORY_POLL_MS, query),
+  });
 
-  const retryLive = usePolling(loadLive, LIVE_POLL_MS);
-  const retryServices = usePolling(loadServices, 15_000);
-  const retryHistory = usePolling(loadHistory, HISTORY_POLL_MS, [historyWindow]);
+  useEffect(() => {
+    if (liveQuery.isSuccess) {
+      setDismissedLiveError(false);
+    }
+  }, [liveQuery.dataUpdatedAt, liveQuery.isSuccess]);
+
+  useEffect(() => {
+    if (historyQuery.isSuccess) {
+      setDismissedHistoryError(false);
+    }
+  }, [historyQuery.dataUpdatedAt, historyQuery.isSuccess]);
+
+  useEffect(() => {
+    if (servicesQuery.isSuccess) {
+      setDismissedServicesError(false);
+    }
+  }, [servicesQuery.dataUpdatedAt, servicesQuery.isSuccess]);
+
+  const live = liveQuery.data || null;
+  const historyItems = historyQuery.data?.items || [];
+  const serviceItems = servicesQuery.data?.items || [];
+  const loading = liveQuery.isPending;
+  const historyLoading = historyQuery.isPending;
+  const servicesLoading = servicesQuery.isPending;
+  const liveError = dismissedLiveError ? "" : (liveQuery.error ? getAPIErrorMessage(liveQuery.error, "Failed to load dashboard data") : "");
+  const historyError = dismissedHistoryError ? "" : (historyQuery.error ? getAPIErrorMessage(historyQuery.error, "Failed to load history") : "");
+  const servicesQueryError =
+    dismissedServicesError ? "" : (servicesQuery.error ? getAPIErrorMessage(servicesQuery.error, "Failed to load services") : "");
+  const servicesError = servicesActionError || servicesQueryError;
+
+  const retryLive = useCallback(() => {
+    setDismissedLiveError(false);
+    void liveQuery.refetch();
+  }, [liveQuery]);
+  const retryHistory = useCallback(() => {
+    setDismissedHistoryError(false);
+    void historyQuery.refetch();
+  }, [historyQuery]);
+  const retryServices = useCallback(() => {
+    setDismissedServicesError(false);
+    setServicesActionError("");
+    void servicesQuery.refetch();
+  }, [servicesQuery]);
   const retryAll = useCallback(() => {
     retryLive();
     retryServices();
     retryHistory();
-  }, [retryLive, retryServices, retryHistory]);
+  }, [retryHistory, retryLive, retryServices]);
 
   const warningMessages = useMemo(() => live?.errors || [], [live]);
 
   async function openServiceDetails(name: string) {
     setServicesBusy(true);
-    try { setServiceDetails(await apiFetch<ServiceDetails>(`/api/services/${name}?lines=60`, { method: "GET" })); setServiceDetailsOpen(true); }
-    catch (err) { setServicesError(err instanceof APIError ? err.message : "Failed to load service details"); }
-    finally { setServicesBusy(false); }
+    setServicesActionError("");
+    try {
+      setServiceDetails(await apiFetch<ServiceDetails>(`/api/services/${name}?lines=60`, { method: "GET" }));
+      setServiceDetailsOpen(true);
+    } catch (err) {
+      setServicesActionError(getAPIErrorMessage(err, "Failed to load service details"));
+    } finally {
+      setServicesBusy(false);
+    }
   }
 
   async function runServiceAction(name: string, action: "restart" | "reload") {
     setServicesBusy(true);
-    try { await apiFetch<{ ok: boolean }>(`/api/services/${name}/${action}`, { method: "POST", body: JSON.stringify({}) }); await loadServices(); }
-    catch (err) { setServicesError(err instanceof APIError ? err.message : "Failed to run action"); }
-    finally { setServicesBusy(false); }
+    setServicesActionError("");
+    try {
+      await apiFetch<{ ok: boolean }>(`/api/services/${name}/${action}`, { method: "POST", body: JSON.stringify({}) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "services"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "live"] }),
+      ]);
+    } catch (err) {
+      setServicesActionError(getAPIErrorMessage(err, "Failed to run action"));
+    } finally {
+      setServicesBusy(false);
+    }
   }
 
   const showInitialLoading = loading && !live;
@@ -498,7 +510,7 @@ export default function DashboardPage() {
       {showInitialLoading && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="min-h-[108px] animate-pulse rounded-2xl bg-surface-2 p-5">
+            <div key={i} className="panel-card min-h-[108px] animate-pulse">
               <div className="flex h-full items-center justify-between gap-4">
                 <div className="space-y-3">
                   <div className="h-3 w-12 rounded bg-surface-3/60" />
@@ -510,7 +522,12 @@ export default function DashboardPage() {
           ))}
         </div>
       )}
-      <ErrorBanner message={error} onDismiss={() => setError("")} actionLabel="Retry" onAction={retryAll} />
+      <ErrorBanner
+        message={liveError}
+        onDismiss={() => setDismissedLiveError(true)}
+        actionLabel="Retry"
+        onAction={retryAll}
+      />
       {warningMessages.length > 0 && (
         <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">{warningMessages.join(" | ")}</div>
       )}
@@ -518,7 +535,7 @@ export default function DashboardPage() {
       {/* ── Primary metrics ── */}
       <MetricsCarousel>
         {/* CPU */}
-        <div className="card-hover min-h-[108px] rounded-2xl bg-surface-2 p-5">
+        <div className="card-hover panel-card min-h-[108px]">
           <div className="flex h-full items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">CPU</p>
@@ -534,7 +551,7 @@ export default function DashboardPage() {
         </div>
 
         {/* RAM */}
-        <div className="card-hover min-h-[108px] rounded-2xl bg-surface-2 p-5">
+        <div className="card-hover panel-card min-h-[108px]">
           <div className="flex h-full items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">RAM</p>
@@ -550,7 +567,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Online */}
-        <div className="card-hover min-h-[108px] rounded-2xl bg-surface-2 p-5">
+        <div className="card-hover panel-card min-h-[108px]">
           <div className="flex h-full items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Online</p>
@@ -563,7 +580,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Uptime */}
-        <div className="card-hover min-h-[108px] rounded-2xl bg-surface-2 p-5">
+        <div className="card-hover panel-card min-h-[108px]">
           <div className="flex h-full items-center justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Uptime</p>
@@ -578,7 +595,7 @@ export default function DashboardPage() {
 
       {/* ── Secondary stats ── */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl bg-surface-2 p-5">
+        <div className="card-hover panel-card flex min-h-[102px] items-center gap-4">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/35">
             <Network size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
@@ -592,7 +609,7 @@ export default function DashboardPage() {
           <div className="shrink-0"><MiniSparkline data={networkSparkline} color="var(--data-2)" gradientId="spark-network" /></div>
         </div>
 
-        <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl bg-surface-2 p-5">
+        <div className="card-hover panel-card flex min-h-[102px] items-center gap-4">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/35">
             <Globe size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
@@ -603,7 +620,7 @@ export default function DashboardPage() {
           <div className="shrink-0"><MiniSparkline data={trafficSparkline} color="var(--data-1)" gradientId="spark-traffic" /></div>
         </div>
 
-        <div className="card-hover flex min-h-[102px] items-center gap-4 rounded-2xl bg-surface-2 p-5">
+        <div className="card-hover panel-card flex min-h-[102px] items-center gap-4">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-3/35">
             <Zap size={22} strokeWidth={1.6} className="text-txt-secondary" />
           </div>
@@ -632,9 +649,14 @@ export default function DashboardPage() {
           </div>
         </SectionHeader>
 
-        <ErrorBanner message={historyError} onDismiss={() => setHistoryError("")} actionLabel="Retry" onAction={retryHistory} />
+        <ErrorBanner
+          message={historyError}
+          onDismiss={() => setDismissedHistoryError(true)}
+          actionLabel="Retry"
+          onAction={retryHistory}
+        />
 
-        <div className="rounded-2xl bg-surface-2 p-4 sm:p-6">
+        <div className="panel-card p-4 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-[13px]">
             <div className="flex flex-wrap items-center gap-4">
               <span className="inline-flex items-center gap-2 text-txt-secondary">
@@ -652,7 +674,7 @@ export default function DashboardPage() {
             </div>
           </div>
           {showHistorySkeleton ? (
-            <div className="h-[300px] animate-pulse rounded-xl bg-surface-3/40" />
+            <StateBlock tone="loading" title="Loading chart" minHeightClassName="h-[300px]" className="rounded-xl bg-surface-3/28" />
           ) : (
             <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -705,18 +727,24 @@ export default function DashboardPage() {
       {/* ── Managed services ── */}
       <div className="space-y-2.5">
         <SectionHeader icon={<Cpu size={18} strokeWidth={1.6} />} title="Managed Services" />
-        <ErrorBanner message={servicesError} onDismiss={() => setServicesError("")} actionLabel="Retry" onAction={retryServices} />
+        <ErrorBanner
+          message={servicesError}
+          onDismiss={() => {
+            if (servicesActionError) {
+              setServicesActionError("");
+              return;
+            }
+            setDismissedServicesError(true);
+          }}
+          actionLabel={servicesQueryError || servicesActionError ? "Retry" : undefined}
+          onAction={servicesQueryError || servicesActionError ? retryServices : undefined}
+        />
         {servicesLoading ? (
-          <div className="flex min-h-[120px] items-center justify-center rounded-2xl bg-surface-2">
-            <div className="flex flex-col items-center gap-3">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent/20 border-t-accent-light" />
-              <p className="text-[14px] text-txt-secondary">Loading services...</p>
-            </div>
-          </div>
+          <StateBlock tone="loading" title="Loading services" minHeightClassName="min-h-[120px]" />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {serviceItems.length ? serviceItems.map((item) => (
-              <div key={item.service_name} className="card-hover relative overflow-hidden rounded-2xl bg-surface-2 p-4">
+              <div key={item.service_name} className="card-hover panel-card-compact relative overflow-hidden">
                 <div className="mb-2.5 flex items-center justify-between gap-3">
                   <h4 className="min-w-0 flex-1 truncate text-[15px] font-bold text-txt-primary">{item.service_name}</h4>
                   <span className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-surface-3/40 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
@@ -747,7 +775,7 @@ export default function DashboardPage() {
                   </ConfirmPopover>
                 </div>
               </div>
-            )) : <div className="rounded-2xl bg-surface-2 p-6 text-[14px] text-txt-secondary">Service activity is not available yet.</div>}
+            )) : <StateBlock tone="empty" title="No services" minHeightClassName="min-h-[120px]" />}
           </div>
         )}
       </div>
