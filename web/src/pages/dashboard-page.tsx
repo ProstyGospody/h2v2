@@ -9,7 +9,6 @@ import {
   Network,
   RefreshCw,
   RotateCcw,
-  TrendingDown,
   TrendingUp,
   Users2,
   Zap,
@@ -162,42 +161,6 @@ function statusColor(status: string): string {
   if (n.includes("failed") || n.includes("error")) return "bg-status-danger";
   if (n.includes("inactive") || n.includes("stopped")) return "bg-status-warning";
   return "bg-txt-muted";
-}
-
-type MetricTrend = {
-  direction: "up" | "down" | "flat";
-  delta: number;
-};
-
-function trendByDelta(delta: number): MetricTrend {
-  if (!Number.isFinite(delta) || Math.abs(delta) < 0.5) {
-    return { direction: "flat", delta: 0 };
-  }
-  if (delta > 0) {
-    return { direction: "up", delta };
-  }
-  return { direction: "down", delta };
-}
-
-function MetricTrendBadge({ trend }: { trend: MetricTrend }) {
-  const absDelta = Math.abs(trend.delta).toFixed(1);
-  if (trend.direction === "up") {
-    return (
-      <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-status-warning">
-        <TrendingUp size={12} strokeWidth={1.8} />
-        +{absDelta}
-      </span>
-    );
-  }
-  if (trend.direction === "down") {
-    return (
-      <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-status-success">
-        <TrendingDown size={12} strokeWidth={1.8} />
-        -{absDelta}
-      </span>
-    );
-  }
-  return <span className="mt-1 inline-flex items-center text-[11px] font-semibold text-txt-muted">0.0</span>;
 }
 
 function SectionHeader({ icon, title, children }: { icon: ReactNode; title: string; children?: ReactNode }) {
@@ -526,18 +489,6 @@ export default function DashboardPage() {
       { download: 0, upload: 0 },
     );
   }, [trafficUsageBars]);
-  const cpuTrend = useMemo<MetricTrend>(() => {
-    if (historyPoints.length < 2) return { direction: "flat", delta: 0 };
-    const current = historyPoints.at(-1)?.cpu ?? cpuPercent;
-    const previous = historyPoints.at(-2)?.cpu ?? current;
-    return trendByDelta(current - previous);
-  }, [historyPoints, cpuPercent]);
-  const ramTrend = useMemo<MetricTrend>(() => {
-    if (historyPoints.length < 2) return { direction: "flat", delta: 0 };
-    const current = historyPoints.at(-1)?.ram ?? ramPercent;
-    const previous = historyPoints.at(-2)?.ram ?? current;
-    return trendByDelta(current - previous);
-  }, [historyPoints, ramPercent]);
   const showHistorySkeleton = historyLoading && !historyPoints.length;
 
   return (
@@ -575,7 +526,6 @@ export default function DashboardPage() {
                 <AnimatedNumber value={cpuPercent} />
                 <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
               </p>
-              <MetricTrendBadge trend={cpuTrend} />
             </div>
             <div className="shrink-0">
               <RadialGauge value={cpuPercent} size={56} autoColor />
@@ -592,7 +542,6 @@ export default function DashboardPage() {
                 <AnimatedNumber value={ramPercent} />
                 <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
               </p>
-              <MetricTrendBadge trend={ramTrend} />
             </div>
             <div className="shrink-0">
               <RadialGauge value={ramPercent} size={56} autoColor />
