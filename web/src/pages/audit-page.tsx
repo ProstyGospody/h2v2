@@ -1,21 +1,14 @@
-import { FilterX, RefreshCw } from "lucide-react";
+import { FilterX, RefreshCw, Search, User } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
-import {
-  Button,
-  DateField,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/src/components/ui";
+import { Button, DateField, Input, cn } from "@/src/components/ui";
 import { AuditTable } from "@/src/features/audit/audit-table";
 import { actionKind, rowSearchText, type AuditActionFilter } from "@/src/features/audit/audit-utils";
 import { useAuditFeed } from "@/src/state/audit-feed";
+
+const ACTION_OPTIONS: AuditActionFilter[] = ["all", "create", "update", "delete"];
 
 function parseBoundary(value: string, endOfDay: boolean): number | null {
   if (!value) return null;
@@ -74,63 +67,78 @@ export default function AuditPage() {
       <PageHeader
         title="Audit Log"
         actions={
-          <Button variant="primary" onClick={() => void refresh()} className="header-btn w-full rounded-2xl px-4 sm:w-auto">
-            <RefreshCw size={17} strokeWidth={1.7} />
-            Refresh
-          </Button>
+          <>
+            <Button variant="primary" onClick={() => void refresh()} className="header-btn w-full rounded-2xl px-4 sm:w-auto">
+              <RefreshCw size={17} strokeWidth={1.7} />
+              Refresh
+            </Button>
+
+            <div className="flex w-full items-center gap-1 rounded-2xl bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)] sm:w-auto">
+              {ACTION_OPTIONS.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setActionFilter(item)}
+                  className={cn(
+                    "flex-1 rounded-xl px-3 py-2 text-center text-[13px] font-semibold capitalize transition-colors sm:flex-none sm:px-4",
+                    actionFilter === item ? "bg-surface-4 text-txt-primary" : "text-txt-secondary hover:text-txt-primary",
+                  )}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative w-full sm:w-[220px]">
+              <User size={15} strokeWidth={1.8} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
+              <Input
+                value={actorFilter}
+                onChange={(event) => setActorFilter(event.target.value)}
+                placeholder="Actor"
+                className="header-btn rounded-2xl border-border/80 bg-surface-2/70 pl-11 shadow-[inset_0_1px_0_var(--shell-highlight)]"
+              />
+            </div>
+
+            <div className="relative w-full sm:w-[280px]">
+              <Search size={16} strokeWidth={1.7} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
+              <Input
+                value={queryFilter}
+                onChange={(event) => setQueryFilter(event.target.value)}
+                placeholder="Search"
+                className="header-btn rounded-2xl border-border/80 bg-surface-2/70 pl-11 shadow-[inset_0_1px_0_var(--shell-highlight)]"
+              />
+            </div>
+
+            <div className="w-full sm:w-[150px]">
+              <DateField
+                value={dateFrom}
+                onValueChange={setDateFrom}
+                placeholder="From"
+                className="header-btn rounded-2xl border-border/80 bg-surface-2/70 shadow-[inset_0_1px_0_var(--shell-highlight)]"
+              />
+            </div>
+
+            <div className="w-full sm:w-[150px]">
+              <DateField
+                value={dateTo}
+                onValueChange={setDateTo}
+                placeholder="To"
+                className="header-btn rounded-2xl border-border/80 bg-surface-2/70 shadow-[inset_0_1px_0_var(--shell-highlight)]"
+              />
+            </div>
+
+            {hasActiveFilters ? (
+              <Button onClick={clearFilters} className="header-btn w-full rounded-2xl px-4 sm:w-auto">
+                <FilterX size={16} strokeWidth={1.8} />
+                Clear
+              </Button>
+            ) : null}
+          </>
         }
       />
 
-      <div className="panel-card space-y-3">
-        <div className="grid gap-3 lg:grid-cols-[150px,minmax(0,1fr),minmax(0,1fr),150px,150px] lg:items-end">
-          <div>
-            <label className="mb-2 block text-[12px] font-semibold uppercase tracking-wide text-txt-muted">Action</label>
-            <Select value={actionFilter} onValueChange={(value) => setActionFilter(value as AuditActionFilter)}>
-              <SelectTrigger className="h-11 rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="create">Create</SelectItem>
-                <SelectItem value="update">Update</SelectItem>
-                <SelectItem value="delete">Delete</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Input
-            label="Actor"
-            value={actorFilter}
-            onChange={(event) => setActorFilter(event.target.value)}
-            placeholder="Actor"
-            className="h-11 rounded-xl"
-          />
-
-          <Input
-            label="Search"
-            value={queryFilter}
-            onChange={(event) => setQueryFilter(event.target.value)}
-            placeholder="Search"
-            className="h-11 rounded-xl"
-          />
-
-          <DateField label="From" value={dateFrom} onValueChange={setDateFrom} className="h-11 rounded-xl" />
-          <DateField label="To" value={dateTo} onValueChange={setDateTo} className="h-11 rounded-xl" />
-        </div>
-
-        <div className="flex items-center justify-between gap-3 text-[12px] text-txt-secondary">
-          <span>{filteredItems.length} records{hasActiveFilters ? ` / ${items.length}` : ""}</span>
-          {hasActiveFilters ? (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-colors hover:bg-surface-3/50 hover:text-txt"
-            >
-              <FilterX size={14} strokeWidth={1.7} />
-              Clear
-            </button>
-          ) : null}
-        </div>
+      <div className="text-[13px] text-txt-secondary">
+        {filteredItems.length} records{hasActiveFilters ? ` / ${items.length}` : ""}
       </div>
 
       <ErrorBanner message={error} onDismiss={clearError} actionLabel="Retry" onAction={() => void refresh()} />
