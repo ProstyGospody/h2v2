@@ -600,7 +600,7 @@ export default function UsersPage() {
   }, [usersQuery]);
 
   return (
-    <div className={cn("space-y-6", hasSelectedClients && "pb-28 sm:pb-24")}>
+    <div className="space-y-6 pb-28 sm:pb-24">
       <PageHeader
         title="Users"
         actions={
@@ -660,59 +660,62 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {hasSelectedClients ? (
-        <div className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2">
-          <div className="flex items-center gap-2 rounded-2xl bg-surface-2/95 px-4 py-2.5 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl">
-            <span className="mr-1 inline-flex h-7 min-w-[28px] items-center justify-center rounded-lg bg-accent/15 px-2 text-[13px] font-bold tabular-nums text-accent">
-              {selectedClientIDs.length}
-            </span>
-            <span className="mr-2 text-[13px] font-medium text-txt-secondary">selected</span>
+      <div
+        className={cn(
+          "fixed bottom-6 left-1/2 z-40 -translate-x-1/2 transition-all duration-180",
+          hasSelectedClients ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0",
+        )}
+      >
+        <div className="flex items-center gap-2 rounded-2xl bg-surface-2/95 px-4 py-2.5 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl">
+          <span className="mr-1 inline-flex h-7 min-w-[28px] items-center justify-center rounded-lg bg-accent/15 px-2 text-[13px] font-bold tabular-nums text-accent">
+            {selectedClientIDs.length}
+          </span>
+          <span className="mr-2 text-[13px] font-medium text-txt-secondary">selected</span>
 
-            <div className="h-5 w-px bg-border/50" />
+          <div className="h-5 w-px bg-border/50" />
 
+          <button
+            type="button"
+            onClick={() => void bulkSetEnabled(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-success transition-colors hover:bg-status-success/10"
+          >
+            <Power size={14} strokeWidth={1.8} />
+            Enable
+          </button>
+          <button
+            type="button"
+            onClick={() => void bulkSetEnabled(false)}
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-warning transition-colors hover:bg-status-warning/10"
+          >
+            <PowerOff size={14} strokeWidth={1.8} />
+            Disable
+          </button>
+          <ConfirmPopover
+            title="Delete selected users"
+            description={`Delete ${selectedClientIDs.length} users?`}
+            confirmText="Delete"
+            onConfirm={() => void deleteSelectedClients()}
+          >
             <button
               type="button"
-              onClick={() => void bulkSetEnabled(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-success transition-colors hover:bg-status-success/10"
+              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10"
             >
-              <Power size={14} strokeWidth={1.8} />
-              Enable
+              <Trash2 size={14} strokeWidth={1.8} />
+              Delete
             </button>
-            <button
-              type="button"
-              onClick={() => void bulkSetEnabled(false)}
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-warning transition-colors hover:bg-status-warning/10"
-            >
-              <PowerOff size={14} strokeWidth={1.8} />
-              Disable
-            </button>
-            <ConfirmPopover
-              title="Delete selected users"
-              description={`Delete ${selectedClientIDs.length} users?`}
-              confirmText="Delete"
-              onConfirm={() => void deleteSelectedClients()}
-            >
-              <button
-                type="button"
-                className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10"
-              >
-                <Trash2 size={14} strokeWidth={1.8} />
-                Delete
-              </button>
-            </ConfirmPopover>
+          </ConfirmPopover>
 
-            <div className="h-5 w-px bg-border/50" />
+          <div className="h-5 w-px bg-border/50" />
 
-            <button
-              type="button"
-              onClick={() => setSelectedClientIDs([])}
-              className="inline-flex items-center justify-center rounded-lg p-1.5 text-txt-muted transition-colors hover:bg-surface-3 hover:text-txt"
-            >
-              <X size={14} strokeWidth={1.8} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedClientIDs([])}
+            className="inline-flex items-center justify-center rounded-lg p-1.5 text-txt-muted transition-colors hover:bg-surface-3 hover:text-txt"
+          >
+            <X size={14} strokeWidth={1.8} />
+          </button>
         </div>
-      ) : null}
+      </div>
 
       <ErrorBanner
         message={error}
