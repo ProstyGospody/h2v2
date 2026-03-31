@@ -85,45 +85,49 @@ export function UsersToolbar({
                 </Button>
               </span>
             </Tooltip>
+
+            <Tooltip content="Search">
+              <div className="relative w-full sm:w-[300px] lg:w-[340px]">
+                <Search size={16} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
+                {searchInput !== searchQuery && (
+                  <Loader2 size={14} strokeWidth={2} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-txt-muted" />
+                )}
+                <Input
+                  ref={searchInputRef}
+                  value={searchInput}
+                  onChange={(event) => onSearchInputChange(event.target.value)}
+                  placeholder="Search users"
+                  className="header-btn rounded-2xl border-border/80 bg-surface-2/70 pl-11 shadow-[inset_0_1px_0_var(--shell-highlight)]"
+                />
+              </div>
+            </Tooltip>
+
+            <div className="flex w-full items-center gap-1 rounded-2xl bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)] sm:w-auto">
+              {(["all", "online", "enabled", "disabled"] as ClientFilter[]).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => onFilterChange(item)}
+                  className={cn(
+                    "flex-1 rounded-xl px-3 py-2 text-center text-[13px] font-semibold capitalize transition-colors sm:flex-none sm:px-4",
+                    filter === item ? "bg-surface-4 text-txt-primary" : "text-txt-secondary hover:text-txt-primary",
+                  )}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
           </>
         }
       />
 
-      <div className="panel-card space-y-3">
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr),auto,auto,auto] lg:items-center">
-          <div className="relative">
-            <Search size={16} strokeWidth={1.7} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-tertiary" />
-            {searchInput !== searchQuery && (
-              <Loader2 size={13} strokeWidth={2} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 animate-spin text-txt-muted" />
-            )}
-            <Input
-              ref={searchInputRef}
-              value={searchInput}
-              onChange={(event) => onSearchInputChange(event.target.value)}
-              placeholder="Search users"
-              className="h-11 rounded-xl pl-11"
-            />
-          </div>
+      <div className="panel-card flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <span className="text-[13px] text-txt-secondary">{filteredClientsCount} users</span>
 
-          <div className="inline-flex items-center rounded-xl bg-surface-3/30 p-1">
-            {(["all", "online", "enabled", "disabled"] as ClientFilter[]).map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => onFilterChange(item)}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 text-[12px] font-semibold capitalize transition-colors",
-                  filter === item ? "bg-surface-4 text-txt-primary" : "text-txt-secondary hover:text-txt",
-                )}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-
-          <div className="w-[170px]">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+          <div className="min-w-[170px] flex-1 sm:flex-none">
             <Select value={sortValue(sort)} onValueChange={onSortChange}>
-              <SelectTrigger className="h-11 rounded-xl">
+              <SelectTrigger className="h-10 rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -134,9 +138,9 @@ export function UsersToolbar({
             </Select>
           </div>
 
-          <div className="w-[110px]">
+          <div className="min-w-[100px]">
             <Select value={String(rowsPerPage)} onValueChange={onRowsPerPageChange}>
-              <SelectTrigger className="h-11 rounded-xl">
+              <SelectTrigger className="h-10 rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -146,11 +150,6 @@ export function UsersToolbar({
               </SelectContent>
             </Select>
           </div>
-        </div>
-
-        <div className="flex items-center justify-between text-[12px] text-txt-secondary">
-          <span>{filteredClientsCount} users</span>
-          {searchInput !== searchQuery ? <span>Updating</span> : null}
         </div>
       </div>
     </>
