@@ -79,11 +79,8 @@ function formatTooltipDate(value: unknown): string {
   return `${date.toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" })} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 }
 
-function formatTrafficTick(value: Date, window: HistoryWindow): string {
+function formatTrafficTick(value: Date, _window: HistoryWindow): string {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) return "--:--";
-  if (window === "24h") {
-    return `${value.toLocaleDateString([], { day: "2-digit", month: "short" })} ${value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
-  }
   return value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
