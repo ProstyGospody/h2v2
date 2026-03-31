@@ -2,7 +2,7 @@ import type { Config } from "tailwindcss";
 
 export default {
   darkMode: "class",
-  content: ["./index.html", "./src/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
+  content: ["./index.html", "./src/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./shell/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
@@ -43,15 +43,15 @@ export default {
         mono: ["Almost Mono", "JetBrains Mono", "Fira Code", "monospace"],
       },
       borderRadius: {
-        card: "12px",
-        btn: "8px",
-        badge: "6px",
-        pill: "20px",
+        card: "14px",
+        btn: "10px",
+        badge: "8px",
+        pill: "24px",
       },
       fontSize: {
-        metric: ["28px", { fontWeight: "700", letterSpacing: "-1px" }],
-        "metric-unit": ["13px", { fontWeight: "500" }],
-        "section-label": ["10px", { fontWeight: "500", letterSpacing: "0.8px" }],
+        metric: ["34px", { fontWeight: "700", lineHeight: "1", letterSpacing: "-1px" }],
+        "metric-unit": ["15px", { fontWeight: "500", lineHeight: "1" }],
+        "section-label": ["11px", { fontWeight: "600", lineHeight: "1", letterSpacing: "0.6px" }],
       },
     },
   },

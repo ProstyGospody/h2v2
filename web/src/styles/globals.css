@@ -285,36 +285,9 @@ html.dark {
   to { opacity: 1; }
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  33% { transform: translateY(-8px) rotate(1deg); }
-  66% { transform: translateY(4px) rotate(-1deg); }
-}
-
-@keyframes pulse-glow {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-}
-
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-@keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
 @keyframes slide-in-left {
   from { transform: translateX(-100%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
-}
-
-@keyframes subtle-pulse {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
 }
 
 @layer utilities {
@@ -349,32 +322,6 @@ html.dark {
     pointer-events: none;
   }
 
-  .text-gradient {
-    background: linear-gradient(135deg, var(--primary), var(--accent), var(--primary));
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .animate-float {
-    animation: float 6s ease-in-out infinite;
-  }
-
-  .animate-pulse-glow {
-    animation: pulse-glow 3s ease-in-out infinite;
-  }
-
-  .animate-shimmer {
-    background-size: 200% 100%;
-    animation: shimmer 2s linear infinite;
-  }
-
-  .animate-gradient {
-    background-size: 200% 200%;
-    animation: gradient-shift 8s ease infinite;
-  }
-
   .sidebar-glass {
     background: color-mix(in srgb, var(--surface-0) 82%, transparent);
     backdrop-filter: blur(24px) saturate(1.3);
@@ -390,22 +337,4 @@ html.dark {
     box-shadow: 0 8px 24px var(--shell-shadow), inset 0 1px 0 var(--shell-highlight);
   }
 
-  .metric-glow {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .metric-glow::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 120px;
-    height: 120px;
-    border-radius: 999px;
-    opacity: 0.06;
-    pointer-events: none;
-    filter: blur(40px);
-    background: var(--metric-glow-color, var(--data-2));
-  }
 }

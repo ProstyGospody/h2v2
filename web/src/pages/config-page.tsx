@@ -14,7 +14,8 @@ import {
 } from "@/domain/settings/services";
 import { Hy2ConfigValidation, Hy2Settings } from "@/domain/settings/types";
 import { APIError } from "@/services/api";
-import { Button, Toast } from "@/src/components/ui";
+import { Button } from "@/src/components/ui";
+import { useToast } from "@/src/components/ui/Toast";
 
 const SETTINGS_CACHE_KEY = "h2v2.settings.cache.v1";
 
@@ -69,7 +70,7 @@ export default function ConfigPage() {
   const [applying, setApplying] = useState(false);
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [error, setError] = useState("");
-  const [snack, setSnack] = useState("");
+  const toast = useToast();
   const [rawYaml, setRawYaml] = useState(cached?.raw_yaml || "");
   const [storageBusy, setStorageBusy] = useState(false);
   const [draft, setDraft] = useState<Hy2Settings>(() => toSettingsDraft(cached?.settings || { listen: ":443", tlsEnabled: true, tlsMode: "acme", quicEnabled: false } as Hy2Settings));
@@ -107,14 +108,14 @@ export default function ConfigPage() {
         settings: p.settings,
         config_validation: p.config_validation || null,
       });
-      setSnack(p.backup_path ? `Saved. Backup: ${p.backup_path}` : "Settings saved");
+      toast.notify(p.backup_path ? `Saved. Backup: ${p.backup_path}` : "Settings saved");
     } catch (err) { setError(extractValidationError(err, "Save failed")); }
     finally { setBusy(false); }
   }
 
   async function applyConfig() {
     setApplying(true); setError("");
-    try { await applyHysteriaSettings(); setSnack("Hysteria restarted"); await load(); }
+    try { await applyHysteriaSettings(); toast.notify("Hysteria restarted"); await load(); }
     catch (err) { setError(extractValidationError(err, "Apply failed")); }
     finally { setApplying(false); }
   }
@@ -123,7 +124,7 @@ export default function ConfigPage() {
     setStorageBusy(true); setError("");
     try {
       const fileName = await downloadSQLiteBackup();
-      setSnack(`Backup downloaded: ${fileName}`);
+      toast.notify(`Backup downloaded: ${fileName}`);
     } catch (err) {
       setError(extractValidationError(err, "Backup failed"));
     } finally {
@@ -149,7 +150,7 @@ export default function ConfigPage() {
     try {
       await restoreSQLiteBackup(restoreFile);
       setRestoreFile(null);
-      setSnack("Database restored");
+      toast.notify("Database restored");
     } catch (err) {
       setError(extractValidationError(err, "Restore failed"));
     } finally {
@@ -214,7 +215,6 @@ export default function ConfigPage() {
         <ServerSettingsForm draft={draft} rawYaml={rawYaml} onDraftChange={setDraft} />
       )}
 
-      <Toast open={Boolean(snack)} onOpenChange={(open) => !open && setSnack("")} message={snack} variant="success" />
     </div>
   );
 }

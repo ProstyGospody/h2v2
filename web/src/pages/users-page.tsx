@@ -380,23 +380,23 @@ export default function UsersPage() {
     }
 
     const targetIDs = [...selectedClientIDs];
-    const failedIDs: string[] = [];
-    let firstError = "";
-    let deletedCount = 0;
-
     setError("");
     try {
-      for (const id of targetIDs) {
-        try {
-          await deleteClient(id);
+      const results = await Promise.allSettled(targetIDs.map((id) => deleteClient(id)));
+      const failedIDs: string[] = [];
+      let firstError = "";
+      let deletedCount = 0;
+
+      results.forEach((result, i) => {
+        if (result.status === "fulfilled") {
           deletedCount += 1;
-        } catch (err) {
-          failedIDs.push(id);
+        } else {
+          failedIDs.push(targetIDs[i]);
           if (!firstError) {
-            firstError = err instanceof APIError ? err.message : "Failed to delete selected users";
+            firstError = result.reason instanceof APIError ? result.reason.message : "Failed to delete selected users";
           }
         }
-      }
+      });
 
       if (deletedCount > 0) {
         toast.notify(deletedCount === 1 ? "1 user deleted" : `${deletedCount} users deleted`);
@@ -429,14 +429,8 @@ export default function UsersPage() {
     const targetIDs = [...selectedClientIDs];
     const prev = clients;
     setClients((list) => list.map((c) => targetIDs.includes(c.id) ? { ...c, enabled } : c));
-    let failCount = 0;
-    for (const id of targetIDs) {
-      try {
-        await setClientEnabled(id, enabled);
-      } catch {
-        failCount++;
-      }
-    }
+    const results = await Promise.allSettled(targetIDs.map((id) => setClientEnabled(id, enabled)));
+    const failCount = results.filter((r) => r.status === "rejected").length;
     if (failCount > 0) {
       setClients(prev);
       toast.notify(`Failed to update ${failCount} users`, "error");

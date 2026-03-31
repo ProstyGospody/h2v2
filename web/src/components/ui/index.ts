@@ -4,7 +4,6 @@ export * from "./Checkbox";
 export * from "./Dialog";
 export * from "./Input";
 export * from "./Select";
-export * from "./Separator";
 export * from "./Table";
 export * from "./Toast";
 export * from "./Toggle";

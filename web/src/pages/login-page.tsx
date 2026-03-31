@@ -13,11 +13,12 @@ type LoginFormValues = { email: string; password: string };
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [error, setError] = useState("");
+  const locationState = location.state as { from?: string; error?: string } | null;
+  const [error, setError] = useState(locationState?.error || "");
   const [checking, setChecking] = useState(true);
   const [theme, setTheme] = useState<ThemeMode>(() => resolveTheme());
   const { register, handleSubmit, formState: { isSubmitting } } = useForm<LoginFormValues>({ defaultValues: { email: "", password: "" } });
-  const redirectTo = (location.state as { from?: string } | null)?.from || "/";
+  const redirectTo = locationState?.from || "/";
 
   function toggleTheme() {
     const next: ThemeMode = theme === "dark" ? "light" : "dark";
