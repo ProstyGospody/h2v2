@@ -22,7 +22,6 @@ import { cn } from "@/src/components/ui";
 import { useToast } from "@/src/components/ui/Toast";
 import { queryRefetchInterval } from "@/src/queries/polling";
 
-import { UsersCards } from "@/src/features/users/users-cards";
 import { UsersTable } from "@/src/features/users/users-table";
 import { UsersToolbar } from "@/src/features/users/users-toolbar";
 import {
@@ -39,6 +38,20 @@ const ROWS_PER_PAGE_OPTIONS = [25, 50, 100, 250, 500];
 const SEARCH_DEBOUNCE_MS = 250;
 const EMPTY_CLIENTS: HysteriaClient[] = [];
 
+function parseSortValue(value: string): SortState | null {
+  if (value === "username_asc") return { field: "username", dir: "asc" };
+  if (value === "username_desc") return { field: "username", dir: "desc" };
+  if (value === "traffic_asc") return { field: "traffic", dir: "asc" };
+  if (value === "traffic_desc") return { field: "traffic", dir: "desc" };
+  if (value === "last_seen_asc") return { field: "last_seen", dir: "asc" };
+  if (value === "last_seen_desc") return { field: "last_seen", dir: "desc" };
+  return null;
+}
+
+function defaultSortDir(field: SortField): "asc" | "desc" {
+  return field === "username" ? "asc" : "desc";
+}
+
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
@@ -53,7 +66,7 @@ export default function UsersPage() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [selectedClientIDs, setSelectedClientIDs] = useState<string[]>([]);
-  const [sort, setSort] = useState<SortState | null>(null);
+  const [sort, setSort] = useState<SortState>({ field: "last_seen", dir: "desc" });
   const [actionError, setActionError] = useState("");
   const [dismissedQueryError, setDismissedQueryError] = useState(false);
 
@@ -105,7 +118,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, filter]);
+  }, [searchQuery, filter, rowsPerPage, sort]);
 
   useEffect(() => {
     const existing = new Set(clients.map((client) => client.id));
@@ -130,26 +143,22 @@ export default function UsersPage() {
     });
 
     const sorted = [...filtered];
-    if (sort) {
-      const dir = sort.dir === "asc" ? 1 : -1;
-      sorted.sort((a, b) => {
-        switch (sort.field) {
-          case "username":
-            return dir * asText(a.username).localeCompare(asText(b.username), undefined, { sensitivity: "base" });
-          case "traffic":
-            return dir * ((a.last_tx_bytes + a.last_rx_bytes) - (b.last_tx_bytes + b.last_rx_bytes));
-          case "last_seen": {
-            const ta = new Date(a.last_seen_at || a.updated_at).getTime();
-            const tb = new Date(b.last_seen_at || b.updated_at).getTime();
-            return dir * (ta - tb);
-          }
-          default:
-            return 0;
+    const dir = sort.dir === "asc" ? 1 : -1;
+    sorted.sort((a, b) => {
+      switch (sort.field) {
+        case "username":
+          return dir * asText(a.username).localeCompare(asText(b.username), undefined, { sensitivity: "base" });
+        case "traffic":
+          return dir * ((a.last_tx_bytes + a.last_rx_bytes) - (b.last_tx_bytes + b.last_rx_bytes));
+        case "last_seen": {
+          const ta = new Date(a.last_seen_at || a.updated_at).getTime();
+          const tb = new Date(b.last_seen_at || b.updated_at).getTime();
+          return dir * (ta - tb);
         }
-      });
-    } else {
-      sorted.sort((a, b) => asText(a.username).localeCompare(asText(b.username), undefined, { sensitivity: "base" }));
-    }
+        default:
+          return 0;
+      }
+    });
     return sorted;
   }, [clients, filter, searchQuery, sort]);
 
@@ -190,11 +199,17 @@ export default function UsersPage() {
 
   function toggleSort(field: SortField) {
     setSort((prev) => {
-      if (prev?.field === field) {
-        return prev.dir === "asc" ? { field, dir: "desc" } : null;
+      if (prev.field === field) {
+        return { field, dir: prev.dir === "asc" ? "desc" : "asc" };
       }
-      return { field, dir: "asc" };
+      return { field, dir: defaultSortDir(field) };
     });
+  }
+
+  function handleSortChange(value: string) {
+    const parsed = parseSortValue(value);
+    if (!parsed) return;
+    setSort(parsed);
   }
 
   function exportCSV() {
@@ -470,6 +485,7 @@ export default function UsersPage() {
         filteredClientsCount={filteredClients.length}
         rowsPerPage={rowsPerPage}
         rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
+        sort={sort}
         searchInputRef={searchInputRef}
         hasUsersToExport={filteredClients.length > 0}
         onCreate={openCreate}
@@ -477,6 +493,7 @@ export default function UsersPage() {
         onSearchInputChange={setSearchInput}
         onFilterChange={setFilter}
         onRowsPerPageChange={handleRowsPerPageChange}
+        onSortChange={handleSortChange}
       />
 
       <div
@@ -570,26 +587,6 @@ export default function UsersPage() {
         maxTraffic={maxTraffic}
         onToggleSort={toggleSort}
         onToggleSelectFiltered={toggleSelectFiltered}
-        onToggleClientSelection={toggleClientSelection}
-        onOpenArtifacts={openArtifacts}
-        onOpenEdit={openEdit}
-        onRemoveClient={(clientID) => void removeClient(clientID)}
-        onToggleEnabled={(client) => void toggleEnabled(client)}
-        onPageChange={setPage}
-      />
-
-      <UsersCards
-        loading={loading}
-        clients={clients}
-        pagedClients={pagedClients}
-        page={page}
-        pageCount={pageCount}
-        pageStart={pageStart}
-        pageEnd={pageEnd}
-        filteredClientsCount={filteredClients.length}
-        selectedSet={selectedSet}
-        maxTraffic={maxTraffic}
-        onCreate={openCreate}
         onToggleClientSelection={toggleClientSelection}
         onOpenArtifacts={openArtifacts}
         onOpenEdit={openEdit}
