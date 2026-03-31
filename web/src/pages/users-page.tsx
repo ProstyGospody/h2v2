@@ -1,9 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Power, PowerOff, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ClientArtifactsDialog } from "@/components/dialogs/client-artifacts-dialog";
-import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { ClientFormDialog } from "@/components/forms/client-form-dialog";
 import { toCreateRequest, toUpdateRequest, type ClientFormValues } from "@/domain/clients/adapters";
@@ -18,7 +16,6 @@ import {
 } from "@/domain/clients/services";
 import { type HysteriaClient, type HysteriaClientDefaults, type HysteriaUserPayload } from "@/domain/clients/types";
 import { APIError, getAPIErrorMessage } from "@/services/api";
-import { cn } from "@/src/components/ui";
 import { useToast } from "@/src/components/ui/Toast";
 import { queryRefetchInterval } from "@/src/queries/polling";
 
@@ -477,7 +474,7 @@ export default function UsersPage() {
   }, [usersQuery]);
 
   return (
-    <div className="space-y-6 pb-40 sm:pb-24">
+    <div className="space-y-6 pb-20 sm:pb-12">
       <UsersToolbar
         searchInput={searchInput}
         searchQuery={searchQuery}
@@ -494,62 +491,13 @@ export default function UsersPage() {
         onFilterChange={setFilter}
         onRowsPerPageChange={handleRowsPerPageChange}
         onSortChange={handleSortChange}
+        selectedCount={selectedClientIDs.length}
+        selectedDeleteDescription={selectedDeleteDescription(selectedClientIDs, clients)}
+        onClearSelection={() => setSelectedClientIDs([])}
+        onEnableSelected={() => void bulkSetEnabled(true)}
+        onDisableSelected={() => void bulkSetEnabled(false)}
+        onDeleteSelected={() => void deleteSelectedClients()}
       />
-
-      <div
-        className={cn(
-          "fixed bottom-4 left-1/2 z-40 w-[min(calc(100vw-14px),760px)] -translate-x-1/2 transition-all duration-180",
-          hasSelectedClients ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0",
-        )}
-      >
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-surface-2/95 px-3 py-2.5 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl sm:px-4">
-          <span className="mr-1 inline-flex h-7 min-w-[28px] items-center justify-center rounded-lg bg-accent/15 px-2 text-[13px] font-bold tabular-nums text-accent">
-            {selectedClientIDs.length}
-          </span>
-          <span className="mr-2 text-[13px] font-medium text-txt-secondary">selected</span>
-
-          <button
-            type="button"
-            onClick={() => setSelectedClientIDs([])}
-            className="ml-auto inline-flex items-center justify-center rounded-lg p-1.5 text-txt-muted transition-colors hover:bg-surface-3 hover:text-txt"
-          >
-            <X size={14} strokeWidth={1.8} />
-          </button>
-
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-            <button
-              type="button"
-              onClick={() => void bulkSetEnabled(true)}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-success transition-colors hover:bg-status-success/10 sm:flex-none"
-            >
-              <Power size={14} strokeWidth={1.8} />
-              Enable
-            </button>
-            <button
-              type="button"
-              onClick={() => void bulkSetEnabled(false)}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-warning transition-colors hover:bg-status-warning/10 sm:flex-none"
-            >
-              <PowerOff size={14} strokeWidth={1.8} />
-              Disable
-            </button>
-            <ConfirmPopover
-              title="Delete selected users"
-              description={selectedDeleteDescription(selectedClientIDs, clients)}
-              confirmText="Delete"
-              onConfirm={() => void deleteSelectedClients()}
-            >
-              <button
-                type="button"
-                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10 sm:flex-none"
-              >
-                <Trash2 size={14} strokeWidth={1.8} />
-                Delete
-              </button>
-            </ConfirmPopover>
-          </div>
-        </div>
-      </div>
 
       <ErrorBanner
         message={error}

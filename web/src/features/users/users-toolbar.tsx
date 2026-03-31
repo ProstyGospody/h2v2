@@ -1,6 +1,7 @@
-import { Download, Loader2, Plus, Search } from "lucide-react";
+import { Download, Loader2, Plus, Power, PowerOff, Search, Trash2, X } from "lucide-react";
 import { type RefObject } from "react";
 
+import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
 import { PageHeader } from "@/components/ui/page-header";
 import {
   Button,
@@ -32,6 +33,12 @@ type UsersToolbarProps = {
   onFilterChange: (value: ClientFilter) => void;
   onRowsPerPageChange: (value: string) => void;
   onSortChange: (value: string) => void;
+  selectedCount: number;
+  selectedDeleteDescription: string;
+  onClearSelection: () => void;
+  onEnableSelected: () => void;
+  onDisableSelected: () => void;
+  onDeleteSelected: () => void;
 };
 
 const SORT_OPTIONS: Array<{ value: string; label: string }> = [
@@ -61,6 +68,12 @@ export function UsersToolbar({
   onFilterChange,
   onRowsPerPageChange,
   onSortChange,
+  selectedCount,
+  selectedDeleteDescription,
+  onClearSelection,
+  onEnableSelected,
+  onDisableSelected,
+  onDeleteSelected,
 }: UsersToolbarProps) {
   return (
     <>
@@ -143,6 +156,56 @@ export function UsersToolbar({
                 </SelectContent>
               </Select>
             </div>
+
+            {selectedCount > 0 ? (
+              <div className="flex w-full items-center gap-1 rounded-2xl bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)] sm:w-auto">
+                <span className="inline-flex h-9 min-w-[36px] items-center justify-center rounded-xl bg-accent/15 px-2 text-[13px] font-bold tabular-nums text-accent">
+                  {selectedCount}
+                </span>
+                <span className="px-2 text-[13px] font-medium text-txt-secondary">selected</span>
+
+                <button
+                  type="button"
+                  onClick={onClearSelection}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-txt-muted transition-colors hover:bg-surface-3/55 hover:text-txt"
+                >
+                  <X size={14} strokeWidth={1.9} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onEnableSelected}
+                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-semibold text-status-success transition-colors hover:bg-status-success/10"
+                >
+                  <Power size={14} strokeWidth={1.8} />
+                  Enable
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onDisableSelected}
+                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-semibold text-status-warning transition-colors hover:bg-status-warning/10"
+                >
+                  <PowerOff size={14} strokeWidth={1.8} />
+                  Disable
+                </button>
+
+                <ConfirmPopover
+                  title="Delete selected users"
+                  description={selectedDeleteDescription}
+                  confirmText="Delete"
+                  onConfirm={() => void onDeleteSelected()}
+                >
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10"
+                  >
+                    <Trash2 size={14} strokeWidth={1.8} />
+                    Delete
+                  </button>
+                </ConfirmPopover>
+              </div>
+            ) : null}
           </>
         }
       />
