@@ -25,7 +25,7 @@ function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <section className="panel-card space-y-4">
+    <section className="panel-card min-w-0 space-y-4">
       <SectionTitle icon={icon} title={title} />
       {children}
     </section>
@@ -113,7 +113,7 @@ function highlightYaml(yaml: string): string {
 function YamlPreview({ value }: { value: string }) {
   return (
     <pre
-      className="max-h-[58vh] overflow-auto rounded-xl bg-[var(--control-bg)] px-4 py-3 font-mono text-[12px] leading-6 text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)]"
+      className="w-full max-h-[58vh] overflow-auto rounded-xl bg-[var(--control-bg)] px-4 py-3 font-mono text-[12px] leading-6 text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)]"
       dangerouslySetInnerHTML={{ __html: highlightYaml(value) }}
     />
   );
@@ -151,9 +151,9 @@ export function ServerSettingsForm({
 
   return (
     <div className="grid gap-4 xl:grid-cols-12">
-      <div className="space-y-4 xl:col-span-8">
+      <div className="min-w-0 space-y-4 xl:col-span-8">
         <SectionCard title="General" icon={<Globe size={17} strokeWidth={1.7} />}>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <Input
               label="Listen"
               value={draft.listen}
@@ -169,7 +169,7 @@ export function ServerSettingsForm({
               ]}
             />
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <ToggleField
               label="Speed Test"
               checked={Boolean(draft.speedTest)}
@@ -185,7 +185,7 @@ export function ServerSettingsForm({
 
         <SectionCard title="TLS" icon={<Lock size={17} strokeWidth={1.7} />}>
           {tlsMode === "acme" ? (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               <Input
                 label="ACME Domains"
                 value={acmeDomains}
@@ -215,7 +215,7 @@ export function ServerSettingsForm({
               />
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               <Input
                 label="Cert Path"
                 value={draft.tls?.cert || ""}
@@ -246,7 +246,7 @@ export function ServerSettingsForm({
         </SectionCard>
 
         <SectionCard title="Network" icon={<Shield size={17} strokeWidth={1.7} />}>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <Input
               label="Bandwidth Up"
               value={draft.bandwidth?.up || ""}
@@ -270,7 +270,7 @@ export function ServerSettingsForm({
               placeholder="200 mbps"
             />
           </div>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <ToggleField
               label="Disable UDP"
               checked={Boolean(draft.disableUDP)}
@@ -286,7 +286,7 @@ export function ServerSettingsForm({
         </SectionCard>
 
         <SectionCard title="Masking" icon={<Lock size={17} strokeWidth={1.7} />}>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <SelectField
               label="OBFS"
               value={obfsType}
@@ -364,7 +364,7 @@ export function ServerSettingsForm({
                   })
                 }
               />
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2">
                 <ToggleField
                   label="Rewrite Host"
                   checked={Boolean(draft.masquerade?.proxy?.rewriteHost)}
@@ -417,8 +417,8 @@ export function ServerSettingsForm({
           )}
 
           {masqueradeType === "string" && (
-            <div className="grid gap-3 sm:grid-cols-12">
-              <div className="sm:col-span-9">
+            <div className="grid gap-3 md:grid-cols-12">
+              <div className="md:col-span-9">
                 <label className="mb-2 block text-[13px] font-medium text-txt-secondary">String Content</label>
                 <textarea
                   value={draft.masquerade?.string?.content || ""}
@@ -438,7 +438,7 @@ export function ServerSettingsForm({
                   className="w-full rounded-xl bg-[var(--control-bg)] px-4 py-3 text-[14px] text-txt-primary shadow-[inset_0_0_0_1px_var(--control-border)] outline-none transition-colors focus:bg-[var(--control-bg-hover)] focus:shadow-[inset_0_0_0_1px_var(--accent),0_0_0_3px_var(--accent-soft)]"
                 />
               </div>
-              <div className="sm:col-span-3">
+              <div className="md:col-span-3">
                 <Input
                   label="Status"
                   type="number"
@@ -471,7 +471,7 @@ export function ServerSettingsForm({
             onCheckedChange={(value) => onDraftChange({ ...draft, quicEnabled: value })}
           />
           {draft.quicEnabled && (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               <Input
                 label="QUIC Max Idle"
                 value={draft.quic?.maxIdleTimeout || ""}
@@ -498,14 +498,14 @@ export function ServerSettingsForm({
         </SectionCard>
       </div>
 
-      <aside className="space-y-4 xl:sticky xl:top-6 xl:col-span-4 xl:self-start">
+      <aside className="min-w-0 space-y-4 xl:sticky xl:top-6 xl:col-span-4 xl:self-start">
         <section className="panel-card-compact space-y-3">
           <SectionTitle icon={<Gauge size={16} strokeWidth={1.7} />} title="Snapshot" />
           <div className="grid gap-2">
             {snapshotItems.map((item) => (
-              <div key={item.label} className="flex items-center justify-between rounded-lg bg-surface-3/35 px-3 py-2 text-[13px]">
+              <div key={item.label} className="grid grid-cols-[88px,minmax(0,1fr)] items-center gap-2 rounded-lg bg-surface-3/35 px-3 py-2 text-[13px]">
                 <span className="text-txt-secondary">{item.label}</span>
-                <span className="max-w-[62%] truncate text-right font-medium text-txt-primary">{item.value || "-"}</span>
+                <span className="truncate text-right font-medium text-txt-primary">{item.value || "-"}</span>
               </div>
             ))}
           </div>

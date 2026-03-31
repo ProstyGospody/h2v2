@@ -302,10 +302,10 @@ export default function ConfigPage() {
       <PageHeader title="Settings" />
       <input ref={restoreInputRef} type="file" accept=".db,application/octet-stream" className="hidden" onChange={onRestoreFileSelected} />
 
-      <section className="panel-card-compact flex flex-wrap items-center gap-3">
+      <section className="panel-card-compact grid gap-2.5 md:grid-cols-3 md:items-center">
         <span
           className={cn(
-            "inline-flex items-center rounded-lg px-2.5 py-1 text-[12px] font-semibold",
+            "inline-flex h-8 w-fit items-center rounded-lg px-2.5 py-1 text-[12px] font-semibold",
             statusLabel === "Saved" && "bg-status-success/12 text-status-success",
             statusLabel === "Unsaved" && "bg-status-warning/12 text-status-warning",
             statusLabel !== "Saved" && statusLabel !== "Unsaved" && "bg-status-info/12 text-status-info",
@@ -313,11 +313,11 @@ export default function ConfigPage() {
         >
           {statusLabel}
         </span>
-        <span className="inline-flex items-center gap-1.5 text-[13px] text-txt-secondary">
+        <span className="inline-flex h-8 items-center gap-1.5 text-[13px] text-txt-secondary">
           <Clock3 size={14} strokeWidth={1.7} />
           {formatSavedAt(savedAt)}
         </span>
-        <span className="inline-flex w-full items-center gap-2 rounded-lg bg-surface-3/40 px-2.5 py-1 text-[12px] text-txt-secondary sm:ml-auto sm:w-auto">
+        <span className="inline-flex h-8 w-fit items-center gap-2 rounded-lg bg-surface-3/40 px-2.5 py-1 text-[12px] text-txt-secondary md:ml-auto md:justify-self-end">
           <AlertTriangle size={13} strokeWidth={1.8} />
           {validationErrors.length}
           <span className="text-txt-muted">/</span>
@@ -327,8 +327,8 @@ export default function ConfigPage() {
 
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
-      <div className="grid gap-4 xl:grid-cols-12">
-        <section className="panel-card-compact space-y-3 xl:col-span-4">
+      <div className="grid items-stretch gap-4 xl:grid-cols-12">
+        <section className="panel-card-compact flex h-full flex-col gap-3 xl:col-span-4">
           <div className="flex items-center gap-2 text-[14px] font-semibold text-txt-primary">
             <Database size={16} strokeWidth={1.8} />
             Storage
@@ -370,7 +370,7 @@ export default function ConfigPage() {
           ) : null}
         </section>
 
-        <section className="panel-card-compact space-y-2.5 xl:col-span-8">
+        <section className="panel-card-compact flex h-full flex-col gap-2.5 xl:col-span-8">
           <div className="flex items-center gap-2 text-[14px] font-semibold text-txt-primary">
             <CheckCircle2 size={16} strokeWidth={1.8} />
             Validation
@@ -404,21 +404,21 @@ export default function ConfigPage() {
         <ServerSettingsForm draft={draft} rawYaml={rawYaml} onDraftChange={setDraft} />
       )}
 
-      <div className="fixed inset-x-2 bottom-3 z-40 sm:bottom-4 sm:left-1/2 sm:w-[min(980px,calc(100vw-14px))] sm:-translate-x-1/2 sm:inset-x-auto">
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-surface-2/95 p-2 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl sm:px-3 sm:py-2.5">
-          <span className="inline-flex w-full items-center justify-center rounded-lg bg-surface-3/45 px-2.5 py-1 text-[12px] font-medium text-txt-secondary sm:w-auto sm:justify-start">
+      <div className="fixed inset-x-0 bottom-0 z-40 px-2 pb-2 sm:bottom-4 sm:left-1/2 sm:w-[calc(100vw-16px)] sm:max-w-[980px] sm:-translate-x-1/2 sm:px-0 sm:pb-0">
+        <div className="flex flex-col gap-2 rounded-2xl bg-surface-2/95 p-2 shadow-[0_20px_46px_-12px_var(--dialog-shadow)] backdrop-blur-xl sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:px-3 sm:py-2.5">
+          <span className="inline-flex h-9 items-center justify-center rounded-lg bg-surface-3/45 px-2.5 py-1 text-[12px] font-medium text-txt-secondary sm:h-auto sm:w-auto sm:justify-start">
             {isDirty ? "Unsaved changes" : "Up to date"}
           </span>
           <div className="grid w-full grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:gap-2">
-            <Button onClick={() => void load(false)} disabled={isBusy} className="h-9 w-full justify-center sm:h-10 sm:w-auto">
+            <Button onClick={() => void load(false)} disabled={isBusy} className="h-10 w-full justify-center sm:h-10 sm:w-auto">
               <RefreshCw size={15} strokeWidth={1.8} />
               Reload
             </Button>
-            <Button onClick={discardChanges} disabled={isBusy || !isDirty} className="h-9 w-full justify-center sm:h-10 sm:w-auto">
+            <Button onClick={discardChanges} disabled={isBusy || !isDirty} className="h-10 w-full justify-center sm:h-10 sm:w-auto">
               <RotateCcw size={15} strokeWidth={1.8} />
               Discard
             </Button>
-            <Button variant="primary" onClick={() => void saveDraft()} disabled={isBusy} className="h-9 w-full justify-center sm:h-10 sm:w-auto">
+            <Button variant="primary" onClick={() => void saveDraft()} disabled={isBusy} className="h-10 w-full justify-center sm:h-10 sm:w-auto">
               <Save size={15} strokeWidth={1.8} />
               Save
             </Button>
@@ -428,7 +428,7 @@ export default function ConfigPage() {
               confirmText="Apply"
               onConfirm={() => void applyConfig()}
             >
-              <Button variant="primary" disabled={isBusy || Boolean(validationErrors.length)} className="h-9 w-full justify-center sm:h-10 sm:w-auto">
+              <Button variant="primary" disabled={isBusy || Boolean(validationErrors.length)} className="h-10 w-full justify-center sm:h-10 sm:w-auto">
                 <Play size={15} strokeWidth={1.8} />
                 Apply
               </Button>
