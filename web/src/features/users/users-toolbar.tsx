@@ -47,6 +47,7 @@ const SORT_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "username_asc", label: "Name A-Z" },
   { value: "username_desc", label: "Name Z-A" },
 ];
+const HEADER_SECONDARY_BTN = "header-btn w-full rounded-2xl px-5 sm:w-auto border-border/80 bg-surface-2/70 shadow-[inset_0_1px_0_var(--shell-highlight)] hover:bg-surface-3/60";
 
 function sortValue(sort: SortState): string {
   return `${sort.field}_${sort.dir}`;
@@ -91,7 +92,7 @@ export function UsersToolbar({
                 <Button
                   onClick={onExportCSV}
                   disabled={!hasUsersToExport}
-                  className={cn("header-btn w-full rounded-2xl px-5 sm:w-auto", !hasUsersToExport && "pointer-events-none")}
+                  className={cn(HEADER_SECONDARY_BTN, !hasUsersToExport && "pointer-events-none")}
                 >
                   <Download size={17} strokeWidth={1.8} />
                   Export
@@ -167,7 +168,7 @@ export function UsersToolbar({
                 <button
                   type="button"
                   onClick={onClearSelection}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-txt-muted transition-colors hover:bg-surface-3/55 hover:text-txt"
+                  className="header-btn inline-flex w-11 items-center justify-center rounded-2xl text-txt-muted transition-colors hover:bg-surface-3/60 hover:text-txt"
                 >
                   <X size={14} strokeWidth={1.9} />
                 </button>
@@ -175,7 +176,7 @@ export function UsersToolbar({
                 <button
                   type="button"
                   onClick={onEnableSelected}
-                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-semibold text-status-success transition-colors hover:bg-status-success/10"
+                  className="header-btn inline-flex items-center gap-1.5 rounded-2xl px-3 text-[13px] font-semibold text-status-success transition-colors hover:bg-status-success/10"
                 >
                   <Power size={14} strokeWidth={1.8} />
                   Enable
@@ -184,7 +185,7 @@ export function UsersToolbar({
                 <button
                   type="button"
                   onClick={onDisableSelected}
-                  className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-semibold text-status-warning transition-colors hover:bg-status-warning/10"
+                  className="header-btn inline-flex items-center gap-1.5 rounded-2xl px-3 text-[13px] font-semibold text-status-warning transition-colors hover:bg-status-warning/10"
                 >
                   <PowerOff size={14} strokeWidth={1.8} />
                   Disable
@@ -198,7 +199,7 @@ export function UsersToolbar({
                 >
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10"
+                    className="header-btn inline-flex items-center gap-1.5 rounded-2xl px-3 text-[13px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10"
                   >
                     <Trash2 size={14} strokeWidth={1.8} />
                     Delete

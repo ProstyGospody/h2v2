@@ -100,18 +100,20 @@ function ConfigHeaderActions({
   onSave,
   onApply,
 }: ConfigHeaderActionsProps) {
+  const secondaryBtnClassName = "header-btn w-full rounded-2xl px-4 sm:w-auto border-border/80 bg-surface-2/70 shadow-[inset_0_1px_0_var(--shell-highlight)] hover:bg-surface-3/60";
+
   return (
     <>
       <span className="header-btn inline-flex w-full items-center rounded-2xl bg-surface-2/70 px-3 text-[13px] font-medium text-txt-secondary shadow-[inset_0_1px_0_var(--shell-highlight)] sm:w-auto">
         {isDirty ? "Unsaved changes" : "Up to date"}
       </span>
 
-      <Button loading={reloading} onClick={onReload} disabled={isBusy} className="header-btn w-full rounded-2xl px-4 sm:w-auto">
+      <Button loading={reloading} onClick={onReload} disabled={isBusy} className={secondaryBtnClassName}>
         <RefreshCw size={15} strokeWidth={1.8} />
         Reload
       </Button>
 
-      <Button onClick={onDiscard} disabled={isBusy || !isDirty} className="header-btn w-full rounded-2xl px-4 sm:w-auto">
+      <Button onClick={onDiscard} disabled={isBusy || !isDirty} className={secondaryBtnClassName}>
         <RotateCcw size={15} strokeWidth={1.8} />
         Discard
       </Button>
