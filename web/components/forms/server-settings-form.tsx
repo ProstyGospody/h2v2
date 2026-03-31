@@ -1,18 +1,8 @@
 import { Code, Gauge, Globe, Lock, Shield, SlidersHorizontal } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 
 import { Hy2Settings } from "@/domain/settings/types";
-import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Toggle, cn } from "@/src/components/ui";
-
-type SectionId = "general" | "tls" | "network" | "masking" | "performance";
-
-const sectionItems: { id: SectionId; label: string }[] = [
-  { id: "general", label: "General" },
-  { id: "tls", label: "TLS" },
-  { id: "network", label: "Network" },
-  { id: "masking", label: "Masking" },
-  { id: "performance", label: "Performance" },
-];
+import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Toggle } from "@/src/components/ui";
 
 function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
   return (
@@ -29,15 +19,13 @@ function SectionCard({
   title,
   icon,
   children,
-  sectionRef,
 }: {
   title: string;
   icon: ReactNode;
   children: ReactNode;
-  sectionRef?: (node: HTMLElement | null) => void;
 }) {
   return (
-    <section ref={sectionRef} className="panel-card space-y-4">
+    <section className="panel-card space-y-4">
       <SectionTitle icon={icon} title={title} />
       {children}
     </section>
@@ -140,15 +128,6 @@ export function ServerSettingsForm({
   rawYaml: string;
   onDraftChange: (next: Hy2Settings) => void;
 }) {
-  const [activeSection, setActiveSection] = useState<SectionId>("general");
-  const sectionRefs = useRef<Record<SectionId, HTMLElement | null>>({
-    general: null,
-    tls: null,
-    network: null,
-    masking: null,
-    performance: null,
-  });
-
   const tlsMode = draft.tlsMode === "tls" ? "tls" : "acme";
   const obfsType = draft.obfs?.type === "salamander" ? "salamander" : "none";
   const masqueradeType = draft.masquerade?.type || "none";
@@ -159,18 +138,6 @@ export function ServerSettingsForm({
       onDraftChange({ ...draft, masquerade: undefined });
     }
   }, [draft, masqueradeType, obfsType, onDraftChange]);
-
-  const bindSectionRef = useCallback(
-    (id: SectionId) => (node: HTMLElement | null) => {
-      sectionRefs.current[id] = node;
-    },
-    [],
-  );
-
-  const jumpToSection = useCallback((id: SectionId) => {
-    setActiveSection(id);
-    sectionRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
 
   const snapshotItems = useMemo(
     () => [
@@ -185,27 +152,7 @@ export function ServerSettingsForm({
   return (
     <div className="grid gap-4 xl:grid-cols-12">
       <div className="space-y-4 xl:col-span-8">
-        <section className="panel-card-compact overflow-x-auto">
-          <div className="flex min-w-max items-center gap-2">
-            {sectionItems.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => jumpToSection(item.id)}
-                className={cn(
-                  "rounded-xl px-3 py-2 text-[13px] font-semibold transition-colors",
-                  activeSection === item.id
-                    ? "bg-surface-4 text-txt-primary"
-                    : "bg-surface-1 text-txt-secondary hover:text-txt-primary",
-                )}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <SectionCard title="General" icon={<Globe size={17} strokeWidth={1.7} />} sectionRef={bindSectionRef("general")}>
+        <SectionCard title="General" icon={<Globe size={17} strokeWidth={1.7} />}>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input
               label="Listen"
@@ -236,7 +183,7 @@ export function ServerSettingsForm({
           </div>
         </SectionCard>
 
-        <SectionCard title="TLS" icon={<Lock size={17} strokeWidth={1.7} />} sectionRef={bindSectionRef("tls")}>
+        <SectionCard title="TLS" icon={<Lock size={17} strokeWidth={1.7} />}>
           {tlsMode === "acme" ? (
             <div className="grid gap-3 sm:grid-cols-2">
               <Input
@@ -298,7 +245,7 @@ export function ServerSettingsForm({
           />
         </SectionCard>
 
-        <SectionCard title="Network" icon={<Shield size={17} strokeWidth={1.7} />} sectionRef={bindSectionRef("network")}>
+        <SectionCard title="Network" icon={<Shield size={17} strokeWidth={1.7} />}>
           <div className="grid gap-3 sm:grid-cols-2">
             <Input
               label="Bandwidth Up"
@@ -338,7 +285,7 @@ export function ServerSettingsForm({
           </div>
         </SectionCard>
 
-        <SectionCard title="Masking" icon={<Lock size={17} strokeWidth={1.7} />} sectionRef={bindSectionRef("masking")}>
+        <SectionCard title="Masking" icon={<Lock size={17} strokeWidth={1.7} />}>
           <div className="grid gap-3 sm:grid-cols-2">
             <SelectField
               label="OBFS"
@@ -517,7 +464,7 @@ export function ServerSettingsForm({
           )}
         </SectionCard>
 
-        <SectionCard title="Performance" icon={<SlidersHorizontal size={17} strokeWidth={1.7} />} sectionRef={bindSectionRef("performance")}>
+        <SectionCard title="Performance" icon={<SlidersHorizontal size={17} strokeWidth={1.7} />}>
           <ToggleField
             label="Custom QUIC"
             checked={draft.quicEnabled}

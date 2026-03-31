@@ -414,10 +414,6 @@ export default function ConfigPage() {
               <RefreshCw size={15} strokeWidth={1.8} />
               Reload
             </Button>
-            <Button onClick={() => void validateDraft()} disabled={isBusy}>
-              <CheckCircle2 size={15} strokeWidth={1.8} />
-              Validate
-            </Button>
             <Button onClick={discardChanges} disabled={isBusy || !isDirty}>
               <RotateCcw size={15} strokeWidth={1.8} />
               Discard
