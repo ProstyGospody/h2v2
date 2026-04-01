@@ -47,7 +47,6 @@ type TrafficChartPoint = {
 };
 
 const WINDOW_TABS: Array<{ value: HistoryWindow; label: string }> = [
-  { value: "1h", label: "1h" },
   { value: "24h", label: "24h" },
   { value: "7d", label: "7d" },
 ];
@@ -55,7 +54,6 @@ const WINDOW_TABS: Array<{ value: HistoryWindow; label: string }> = [
 const CHART_RESIZE_DEBOUNCE_MS = 0;
 
 function chartCategoryGap(window: HistoryWindow): number {
-  if (window === "1h") return 12;
   if (window === "24h") return 10;
   return 18;
 }

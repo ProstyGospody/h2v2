@@ -27,14 +27,6 @@ const HISTORY_WINDOW_CONFIG: Record<
     refetchMs: number;
   }
 > = {
-  "1h": {
-    queryWindow: "1h",
-    stepSeconds: 5,
-    limit: 2_000,
-    bucketMs: 5 * 60 * 1_000,
-    bucketCount: 12,
-    refetchMs: 15_000,
-  },
   "24h": {
     queryWindow: "24h",
     stepSeconds: 60,
@@ -54,7 +46,7 @@ const HISTORY_WINDOW_CONFIG: Record<
 };
 
 export default function DashboardPage() {
-  const [historyWindow, setHistoryWindow] = useState<HistoryWindow>("1h");
+  const [historyWindow, setHistoryWindow] = useState<HistoryWindow>("24h");
   const [servicesBusy, setServicesBusy] = useState(false);
   const [servicesActionError, setServicesActionError] = useState("");
   const [dismissedLiveError, setDismissedLiveError] = useState(false);
