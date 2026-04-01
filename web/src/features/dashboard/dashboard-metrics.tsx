@@ -1,6 +1,6 @@
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
 import { ArrowDownToLine, ArrowUpFromLine, Clock, Globe, Network, Users2, Zap } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { Children, isValidElement, type ReactNode, useEffect, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -114,15 +114,31 @@ function MiniSparkline({
 }
 
 function MetricsCarousel({ children }: { children: ReactNode }) {
-  const items = Array.isArray(children) ? children : [children];
+  const itemNodes = Children.toArray(children);
+  const itemKeys = itemNodes.map((item, index) => {
+    if (isValidElement(item) && item.key !== null) {
+      return String(item.key);
+    }
+    return `item-${index}`;
+  });
   const [currentIndex, setCurrentIndex] = useState(0);
   const constraintsRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
 
+  useEffect(() => {
+    if (currentIndex >= itemNodes.length) {
+      setCurrentIndex(Math.max(0, itemNodes.length - 1));
+    }
+  }, [currentIndex, itemNodes.length]);
+
+  if (itemNodes.length === 0) {
+    return null;
+  }
+
   return (
     <>
       <div className="hidden gap-4 sm:grid sm:grid-cols-2 xl:grid-cols-4">
-        {items}
+        {itemNodes}
       </div>
 
       <div className="sm:hidden">
@@ -134,7 +150,7 @@ function MetricsCarousel({ children }: { children: ReactNode }) {
             dragElastic={reduceMotion ? 0 : 0.2}
             onDragEnd={(_event, info) => {
               const threshold = 60;
-              if (info.offset.x < -threshold && currentIndex < items.length - 1) {
+              if (info.offset.x < -threshold && currentIndex < itemNodes.length - 1) {
                 setCurrentIndex((index) => index + 1);
               } else if (info.offset.x > threshold && currentIndex > 0) {
                 setCurrentIndex((index) => index - 1);
@@ -143,8 +159,8 @@ function MetricsCarousel({ children }: { children: ReactNode }) {
             animate={{ x: `-${currentIndex * 100}%` }}
             transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 30 }}
           >
-            {items.map((item, index) => (
-              <div key={index} className="w-full shrink-0">
+            {itemNodes.map((item, index) => (
+              <div key={itemKeys[index]} className="w-full shrink-0">
                 {item}
               </div>
             ))}
@@ -152,9 +168,9 @@ function MetricsCarousel({ children }: { children: ReactNode }) {
         </div>
 
         <div className="mt-3 flex items-center justify-center gap-1.5">
-          {items.map((_, index) => (
+          {itemNodes.map((_, index) => (
             <button
-              key={index}
+              key={`dot-${itemKeys[index]}`}
               type="button"
               aria-label={`Show metric ${index + 1}`}
               onClick={() => setCurrentIndex(index)}

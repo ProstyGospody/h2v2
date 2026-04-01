@@ -39,15 +39,34 @@ function asJSONText(value: unknown): string {
   }
 }
 
-function normalizeAuditItem(raw: unknown, index: number): AuditLogItem {
+function fallbackAuditID(record: UnknownRecord | null): number {
+  const idSeed = [
+    asString(record?.action, "unknown"),
+    asString(record?.entity_type, "unknown"),
+    typeof record?.entity_id === "string" ? record.entity_id : "",
+    typeof record?.admin_id === "string" ? record.admin_id : "",
+    asString(record?.created_at, ""),
+    asJSONText(record?.payload_json),
+  ].join("|");
+
+  let hash = 2166136261;
+  for (let index = 0; index < idSeed.length; index++) {
+    hash ^= idSeed.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) + 1;
+}
+
+function normalizeAuditItem(raw: unknown): AuditLogItem {
   const record = asRecord(raw);
-  const fallbackDate = new Date().toISOString();
+  const fallbackDate = "1970-01-01T00:00:00.000Z";
   const adminID = record?.admin_id;
   const adminEmail = record?.admin_email;
   const entityID = record?.entity_id;
+  const rawID = record?.id;
 
   return {
-    id: asNumber(record?.id, index + 1),
+    id: asNumber(rawID, fallbackAuditID(record)),
     admin_id: typeof adminID === "string" || adminID === null ? adminID : null,
     admin_email: typeof adminEmail === "string" || adminEmail === null ? adminEmail : null,
     action: asString(record?.action, "unknown"),
@@ -103,7 +122,7 @@ export function AuditFeedProvider({ children }: { children: ReactNode }) {
     queryFn: async ({ signal }) => {
       const payload = await apiFetch<{ items?: unknown }>("/api/audit?limit=250", { method: "GET", signal });
       const rawItems = Array.isArray(payload?.items) ? payload.items : [];
-      const next = dedupeAuditItems(rawItems.map((item, index) => normalizeAuditItem(item, index)));
+      const next = dedupeAuditItems(rawItems.map(normalizeAuditItem));
       next.sort((a, b) => itemTimestampMs(b) - itemTimestampMs(a));
       return next;
     },

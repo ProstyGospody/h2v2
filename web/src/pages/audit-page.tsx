@@ -31,6 +31,7 @@ export default function AuditPage() {
 
   const hasActiveFilters = actionFilter !== "all" || actorFilter.trim() !== "" || queryFilter.trim() !== "" || dateFrom !== "" || dateTo !== "";
   const secondaryBtnClassName = "header-btn w-full rounded-2xl px-4 sm:w-auto border-border/80 bg-surface-2/70 shadow-[inset_0_1px_0_var(--shell-highlight)] hover:bg-surface-3/60";
+  const clearButtonVisible = hasActiveFilters;
 
   const clearFilters = useCallback(() => {
     setActionFilter("all");
@@ -128,12 +129,15 @@ export default function AuditPage() {
               />
             </div>
 
-            {hasActiveFilters ? (
-              <Button onClick={clearFilters} className={secondaryBtnClassName}>
-                <FilterX size={16} strokeWidth={1.8} />
-                Clear
-              </Button>
-            ) : null}
+            <Button
+              onClick={clearFilters}
+              className={cn(secondaryBtnClassName, clearButtonVisible ? "opacity-100" : "pointer-events-none opacity-0")}
+              tabIndex={clearButtonVisible ? 0 : -1}
+              aria-hidden={!clearButtonVisible}
+            >
+              <FilterX size={16} strokeWidth={1.8} />
+              Clear
+            </Button>
           </>
         }
       />
