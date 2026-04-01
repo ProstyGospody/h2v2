@@ -75,6 +75,24 @@ function itemTimestampMs(item: AuditLogItem): number {
   return Number.isFinite(ms) ? ms : 0;
 }
 
+function itemIdentity(item: AuditLogItem): string {
+  return `${item.id}:${item.created_at}:${item.action}:${item.entity_type}:${item.entity_id || ""}:${item.admin_id || ""}`;
+}
+
+function dedupeAuditItems(items: AuditLogItem[]): AuditLogItem[] {
+  const seen = new Set<string>();
+  const unique: AuditLogItem[] = [];
+  for (const item of items) {
+    const identity = itemIdentity(item);
+    if (seen.has(identity)) {
+      continue;
+    }
+    seen.add(identity);
+    unique.push(item);
+  }
+  return unique;
+}
+
 export function AuditFeedProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [seenAtMs, setSeenAtMs] = useState(() => Date.now());
@@ -85,7 +103,7 @@ export function AuditFeedProvider({ children }: { children: ReactNode }) {
     queryFn: async ({ signal }) => {
       const payload = await apiFetch<{ items?: unknown }>("/api/audit?limit=250", { method: "GET", signal });
       const rawItems = Array.isArray(payload?.items) ? payload.items : [];
-      const next = rawItems.map((item, index) => normalizeAuditItem(item, index));
+      const next = dedupeAuditItems(rawItems.map((item, index) => normalizeAuditItem(item, index)));
       next.sort((a, b) => itemTimestampMs(b) - itemTimestampMs(a));
       return next;
     },

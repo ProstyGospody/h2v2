@@ -51,6 +51,8 @@ export function UsersToolbar({
   onDisableSelected,
   onDeleteSelected,
 }: UsersToolbarProps) {
+  const selectionActionsVisible = selectedCount > 0;
+
   return (
     <>
       <PageHeader
@@ -107,55 +109,63 @@ export function UsersToolbar({
               ))}
             </div>
 
-            {selectedCount > 0 ? (
-              <div className="flex w-full items-center gap-1 rounded-2xl bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)] sm:w-auto">
-                <span className="inline-flex h-9 min-w-[36px] items-center justify-center rounded-xl bg-accent/15 px-2 text-[13px] font-bold tabular-nums text-accent">
-                  {selectedCount}
-                </span>
-                <span className="px-2 text-[13px] font-medium text-txt-secondary">selected</span>
+            <div
+              className={cn(
+                "flex w-full items-center gap-1 overflow-x-auto rounded-2xl bg-surface-2/70 p-1 shadow-[inset_0_1px_0_var(--shell-highlight)] sm:w-auto",
+                selectionActionsVisible ? "opacity-100" : "pointer-events-none opacity-0",
+              )}
+              aria-hidden={!selectionActionsVisible}
+            >
+              <span className="inline-flex h-9 min-w-[36px] shrink-0 items-center justify-center rounded-xl bg-accent/15 px-2 text-[13px] font-bold tabular-nums text-accent">
+                {selectedCount}
+              </span>
+              <span className="shrink-0 px-2 text-[13px] font-medium text-txt-secondary">selected</span>
 
+              <button
+                type="button"
+                onClick={onClearSelection}
+                className="header-btn inline-flex w-11 shrink-0 items-center justify-center rounded-2xl text-txt-muted transition-colors hover:bg-surface-3/60 hover:text-txt"
+                tabIndex={selectionActionsVisible ? 0 : -1}
+              >
+                <X size={14} strokeWidth={1.9} />
+              </button>
+
+              <button
+                type="button"
+                onClick={onEnableSelected}
+                className="header-btn inline-flex shrink-0 items-center gap-1.5 rounded-2xl px-3 text-[13px] font-semibold text-status-success transition-colors hover:bg-status-success/10"
+                tabIndex={selectionActionsVisible ? 0 : -1}
+              >
+                <Power size={14} strokeWidth={1.8} />
+                Enable
+              </button>
+
+              <button
+                type="button"
+                onClick={onDisableSelected}
+                className="header-btn inline-flex shrink-0 items-center gap-1.5 rounded-2xl px-3 text-[13px] font-semibold text-status-warning transition-colors hover:bg-status-warning/10"
+                tabIndex={selectionActionsVisible ? 0 : -1}
+              >
+                <PowerOff size={14} strokeWidth={1.8} />
+                Disable
+              </button>
+
+              <ConfirmPopover
+                title="Delete selected users"
+                description={selectedDeleteDescription}
+                confirmText="Delete"
+                onConfirm={() => void onDeleteSelected()}
+              >
                 <button
                   type="button"
-                  onClick={onClearSelection}
-                  className="header-btn inline-flex w-11 items-center justify-center rounded-2xl text-txt-muted transition-colors hover:bg-surface-3/60 hover:text-txt"
+                  className="header-btn inline-flex shrink-0 items-center gap-1.5 rounded-2xl px-3 text-[13px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10"
+                  tabIndex={selectionActionsVisible ? 0 : -1}
                 >
-                  <X size={14} strokeWidth={1.9} />
+                  <Trash2 size={14} strokeWidth={1.8} />
+                  Delete
                 </button>
-
-                <button
-                  type="button"
-                  onClick={onEnableSelected}
-                  className="header-btn inline-flex items-center gap-1.5 rounded-2xl px-3 text-[13px] font-semibold text-status-success transition-colors hover:bg-status-success/10"
-                >
-                  <Power size={14} strokeWidth={1.8} />
-                  Enable
-                </button>
-
-                <button
-                  type="button"
-                  onClick={onDisableSelected}
-                  className="header-btn inline-flex items-center gap-1.5 rounded-2xl px-3 text-[13px] font-semibold text-status-warning transition-colors hover:bg-status-warning/10"
-                >
-                  <PowerOff size={14} strokeWidth={1.8} />
-                  Disable
-                </button>
-
-                <ConfirmPopover
-                  title="Delete selected users"
-                  description={selectedDeleteDescription}
-                  confirmText="Delete"
-                  onConfirm={() => void onDeleteSelected()}
-                >
-                  <button
-                    type="button"
-                    className="header-btn inline-flex items-center gap-1.5 rounded-2xl px-3 text-[13px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10"
-                  >
-                    <Trash2 size={14} strokeWidth={1.8} />
-                    Delete
-                  </button>
-                </ConfirmPopover>
-              </div>
-            ) : null}
+              </ConfirmPopover>
+            </div>
           </>
         }
       />

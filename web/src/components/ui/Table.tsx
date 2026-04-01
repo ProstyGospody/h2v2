@@ -10,11 +10,11 @@ export const TableContainer = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivE
 TableContainer.displayName = "TableContainer";
 
 export function Table({ className, ...props }: TableHTMLAttributes<HTMLTableElement>) {
-  return <table className={cn("w-full border-collapse", className)} {...props} />;
+  return <table className={cn("w-full border-separate border-spacing-0", className)} {...props} />;
 }
 
 export function TableHeader({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
-  return <thead className={cn("border-b border-border/40 bg-surface-3/20", className)} {...props} />;
+  return <thead className={cn("bg-surface-3/20", className)} {...props} />;
 }
 
 export function TableBody({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
@@ -22,13 +22,13 @@ export function TableBody({ className, ...props }: HTMLAttributes<HTMLTableSecti
 }
 
 export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
-  return <tr className={cn("border-t border-border/30 transition-colors duration-150 hover:bg-surface-3/25", className)} {...props} />;
+  return <tr className={cn("transition-colors duration-150 hover:bg-surface-3/25", className)} {...props} />;
 }
 
 export function TableHead({ className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
-  return <th className={cn("px-4 py-3 text-left text-[12px] font-semibold uppercase tracking-wide text-txt-muted", className)} {...props} />;
+  return <th className={cn("align-middle px-4 py-3 text-left text-[12px] font-semibold uppercase tracking-wide text-txt-muted", className)} {...props} />;
 }
 
 export function TableCell({ className, ...props }: TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn("px-4 py-3 text-[13px] text-txt", className)} {...props} />;
+  return <td className={cn("align-middle border-t border-border/30 px-4 py-3 text-[13px] text-txt", className)} {...props} />;
 }

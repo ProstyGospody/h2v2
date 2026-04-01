@@ -348,12 +348,12 @@ export function PanelShell({ children }: { children: ReactNode }) {
         )}
 
         <main className="p-4 pt-16 sm:p-5 sm:pt-20 md:p-8 md:pt-20 lg:pt-8">
-          <AnimatePresence mode="sync" initial={false}>
+          <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={pathname}
-              initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: -6 }}
+              initial={reduceMotion ? { opacity: 1 } : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={reduceMotion ? { opacity: 1 } : { opacity: 0 }}
               transition={reduceMotion ? { duration: 0 } : { duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             >
               {children}
