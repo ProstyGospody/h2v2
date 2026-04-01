@@ -384,14 +384,14 @@ export function ServerSettingsForm({
         </SectionCard>
       </div>
 
-      <aside className="min-w-0">
+      <aside className="min-w-0 w-full xl:w-[560px] xl:justify-self-start">
         <section className="panel-card-compact space-y-3">
           <SectionTitle icon={<Gauge size={16} strokeWidth={1.7} />} title="Snapshot" />
           <div className="grid gap-2">
             {snapshotItems.map((item) => (
-              <div key={item.label} className="grid grid-cols-[88px,minmax(0,1fr)] items-center gap-2 rounded-lg bg-surface-3/35 px-3 py-2 text-[13px]">
-                <span className="text-txt-secondary">{item.label}</span>
-                <span className="truncate text-right font-medium text-txt-primary">{item.value || "-"}</span>
+              <div key={item.label} className="flex items-center gap-2 rounded-lg bg-surface-3/35 px-3 py-2 text-[13px]">
+                <span className="w-[88px] shrink-0 text-txt-secondary">{item.label}</span>
+                <span className="min-w-0 truncate font-medium text-txt-primary">{item.value || "-"}</span>
               </div>
             ))}
           </div>

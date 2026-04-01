@@ -371,7 +371,7 @@ export default function ConfigPage() {
               </section>
             ))}
           </div>
-          <section className="panel-card-compact animate-pulse space-y-3">
+          <section className="panel-card-compact w-full xl:w-[560px] animate-pulse space-y-3">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-xl bg-surface-3/55" />
               <div className="h-4 w-20 rounded bg-surface-3/55" />
