@@ -1,5 +1,5 @@
 import { TrendingUp } from "lucide-react";
-import { useMemo, type ReactNode } from "react";
+import { memo, useMemo, type ReactNode } from "react";
 import {
   Bar,
   BarChart,
@@ -52,13 +52,15 @@ const WINDOW_TABS: Array<{ value: HistoryWindow; label: string }> = [
   { value: "7d", label: "7d" },
 ];
 
-function chartGap(window: HistoryWindow): string {
-  if (window === "1h") return "6%";
-  if (window === "24h") return "10%";
-  return "16%";
+const CHART_RESIZE_DEBOUNCE_MS = 380;
+
+function chartCategoryGap(window: HistoryWindow): number {
+  if (window === "1h") return 12;
+  if (window === "24h") return 10;
+  return 18;
 }
 
-export function DashboardTraffic({
+function DashboardTrafficComponent({
   historyWindow,
   onHistoryWindowChange,
   historyError,
@@ -127,13 +129,13 @@ export function DashboardTraffic({
         ) : chartData.length === 0 ? (
           <StateBlock tone="empty" title="No data" minHeightClassName="h-[320px]" className="rounded-xl bg-surface-3/28" />
         ) : (
-          <div className="h-[320px]">
-            <ResponsiveContainer width="100%" height="100%" minHeight={320} debounce={120}>
+          <div className="h-[320px] overflow-hidden">
+            <ResponsiveContainer width="100%" height="100%" minHeight={320} debounce={CHART_RESIZE_DEBOUNCE_MS}>
               <BarChart
                 data={chartData}
                 margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
                 barGap={0}
-                barCategoryGap={chartGap(historyWindow)}
+                barCategoryGap={chartCategoryGap(historyWindow)}
               >
                 <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
 
@@ -142,7 +144,7 @@ export function DashboardTraffic({
                   type="category"
                   interval="preserveStartEnd"
                   minTickGap={xTickMinGap}
-                  padding="gap"
+                  padding={{ left: 10, right: 10 }}
                   tickFormatter={(value) => formatTrafficTick(new Date(Number(value)), historyWindow)}
                   tick={{ fill: "var(--txt-icon)", fontSize: 12 }}
                   tickLine={false}
@@ -192,3 +194,5 @@ export function DashboardTraffic({
     </div>
   );
 }
+
+export const DashboardTraffic = memo(DashboardTrafficComponent);

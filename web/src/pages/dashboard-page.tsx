@@ -149,6 +149,10 @@ export default function DashboardPage() {
     void historyQuery.refetch();
   }, [historyQuery]);
 
+  const dismissHistoryError = useCallback(() => {
+    setDismissedHistoryError(true);
+  }, []);
+
   const retryServices = useCallback(() => {
     setDismissedServicesError(false);
     setServicesActionError("");
@@ -313,7 +317,7 @@ export default function DashboardPage() {
         historyWindow={historyWindow}
         onHistoryWindowChange={setHistoryWindow}
         historyError={historyError}
-        onDismissHistoryError={() => setDismissedHistoryError(true)}
+        onDismissHistoryError={dismissHistoryError}
         onRetryHistory={retryHistory}
         showHistorySkeleton={showHistorySkeleton}
         trafficTotal={trafficTotal}
