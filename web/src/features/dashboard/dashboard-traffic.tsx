@@ -1,8 +1,8 @@
 import { TrendingUp } from "lucide-react";
-import { useId, useMemo, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import {
-  Area,
-  AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
@@ -49,6 +49,12 @@ type TrafficChartPoint = {
   upload: number;
 };
 
+const WINDOW_TABS: Array<{ value: HistoryWindow; label: string }> = [
+  { value: "1h", label: "1h" },
+  { value: "24h", label: "24h" },
+  { value: "7d", label: "7d" },
+];
+
 export function DashboardTraffic({
   historyWindow,
   onHistoryWindowChange,
@@ -59,10 +65,6 @@ export function DashboardTraffic({
   trafficTotals,
   trafficUsageBars,
 }: DashboardTrafficProps) {
-  const gradientIdBase = useId().replace(/[^a-zA-Z0-9_-]/g, "-");
-  const downGradientId = `traffic-down-${gradientIdBase}`;
-  const upGradientId = `traffic-up-${gradientIdBase}`;
-
   const chartData = useMemo<TrafficChartPoint[]>(() => {
     const merged = new Map<number, TrafficChartPoint>();
 
@@ -72,9 +74,9 @@ export function DashboardTraffic({
         continue;
       }
 
-      const current = merged.get(ts);
       const download = Math.max(0, Number(entry.download_bytes) || 0);
       const upload = Math.max(0, Number(entry.upload_bytes) || 0);
+      const current = merged.get(ts);
 
       if (current) {
         current.download += download;
@@ -82,27 +84,34 @@ export function DashboardTraffic({
         continue;
       }
 
-      merged.set(ts, { ts, download, upload });
+      merged.set(ts, {
+        ts,
+        download,
+        upload,
+      });
     }
 
     return Array.from(merged.values()).sort((a, b) => a.ts - b.ts);
   }, [trafficUsageBars]);
 
+  const totalTraffic = Math.max(0, trafficTotals.download + trafficTotals.upload);
+  const tickCount = historyWindow === "1h" ? 12 : historyWindow === "24h" ? 8 : 7;
+
   return (
     <div className="space-y-4">
       <SectionHeader icon={<TrendingUp size={18} strokeWidth={1.6} />} title="Traffic Consumption">
         <div className="inline-flex w-full rounded-xl bg-surface-3/50 p-1 text-[13px] sm:w-auto">
-          {(["1h", "24h"] as HistoryWindow[]).map((window) => (
+          {WINDOW_TABS.map((window) => (
             <button
-              key={window}
+              key={window.value}
               type="button"
-              onClick={() => onHistoryWindowChange(window)}
+              onClick={() => onHistoryWindowChange(window.value)}
               className={cn(
                 "flex-1 rounded-lg px-4 py-1.5 font-semibold transition-colors sm:flex-none",
-                historyWindow === window ? "bg-surface-4 text-txt-primary shadow-sm" : "text-txt-secondary hover:text-txt",
+                historyWindow === window.value ? "bg-surface-4 text-txt-primary shadow-sm" : "text-txt-secondary hover:text-txt",
               )}
             >
-              {window}
+              {window.label}
             </button>
           ))}
         </div>
@@ -129,41 +138,25 @@ export function DashboardTraffic({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
-              Down total: {formatBytes(trafficTotals.download)}
+              Total: {formatBytes(totalTraffic)}
             </span>
             <span className="rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
-              Up total: {formatBytes(trafficTotals.upload)}
+              Down: {formatBytes(trafficTotals.download)}
+            </span>
+            <span className="rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
+              Up: {formatBytes(trafficTotals.upload)}
             </span>
           </div>
         </div>
 
         {showHistorySkeleton ? (
-          <StateBlock
-            tone="loading"
-            title="Loading chart"
-            minHeightClassName="h-[320px]"
-            className="rounded-xl bg-surface-3/28"
-          />
+          <StateBlock tone="loading" title="Loading chart" minHeightClassName="h-[320px]" className="rounded-xl bg-surface-3/28" />
         ) : chartData.length === 0 ? (
           <StateBlock tone="empty" title="No data" minHeightClassName="h-[320px]" className="rounded-xl bg-surface-3/28" />
         ) : (
           <div className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%" minHeight={320} debounce={120}>
-              <AreaChart
-                data={chartData}
-                margin={{ top: 12, right: 8, bottom: 0, left: 0 }}
-              >
-                <defs>
-                  <linearGradient id={downGradientId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--data-1)" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="var(--data-1)" stopOpacity={0.02} />
-                  </linearGradient>
-                  <linearGradient id={upGradientId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--data-2)" stopOpacity={0.28} />
-                    <stop offset="100%" stopColor="var(--data-2)" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-
+              <BarChart data={chartData} margin={{ top: 12, right: 8, bottom: 0, left: 0 }} barGap={2}>
                 <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
 
                 <XAxis
@@ -171,9 +164,9 @@ export function DashboardTraffic({
                   dataKey="ts"
                   domain={["dataMin", "dataMax"]}
                   scale="time"
-                  tickCount={historyWindow === "24h" ? 8 : 12}
+                  tickCount={tickCount}
                   minTickGap={22}
-                  tickFormatter={(value) => formatTrafficTick(new Date(Number(value)))}
+                  tickFormatter={(value) => formatTrafficTick(new Date(Number(value)), historyWindow)}
                   tick={{ fill: "var(--txt-icon)", fontSize: 12 }}
                   tickLine={false}
                   axisLine={{ stroke: "var(--border)" }}
@@ -194,7 +187,7 @@ export function DashboardTraffic({
                   isAnimationActive={false}
                   formatter={(value) => formatBytes(Number(value) || 0)}
                   labelFormatter={(label) => formatTrafficTooltipLabel(Number(label), historyWindow)}
-                  cursor={{ stroke: "var(--border-hover)", strokeDasharray: "4 4" }}
+                  cursor={{ fill: "var(--surface-3)", opacity: 0.18 }}
                   contentStyle={{
                     backgroundColor: "var(--surface-2)",
                     border: "1px solid var(--border)",
@@ -206,30 +199,25 @@ export function DashboardTraffic({
                   }}
                 />
 
-                <Area
-                  type="monotone"
+                <Bar
                   dataKey="download"
                   name="Download"
-                  stroke="var(--data-1)"
-                  strokeWidth={2}
-                  fill={`url(#${downGradientId})`}
-                  dot={false}
-                  activeDot={{ r: 3, strokeWidth: 0 }}
+                  stackId="traffic"
+                  fill="var(--data-1)"
+                  maxBarSize={42}
+                  radius={[4, 4, 0, 0]}
                   isAnimationActive={false}
                 />
-
-                <Area
-                  type="monotone"
+                <Bar
                   dataKey="upload"
                   name="Upload"
-                  stroke="var(--data-2)"
-                  strokeWidth={2}
-                  fill={`url(#${upGradientId})`}
-                  dot={false}
-                  activeDot={{ r: 3, strokeWidth: 0 }}
+                  stackId="traffic"
+                  fill="var(--data-2)"
+                  maxBarSize={42}
+                  radius={[4, 4, 0, 0]}
                   isAnimationActive={false}
                 />
-              </AreaChart>
+              </BarChart>
             </ResponsiveContainer>
           </div>
         )}

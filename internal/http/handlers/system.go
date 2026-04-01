@@ -16,8 +16,8 @@ import (
 
 const (
 	systemTrendRetention         = 24 * time.Hour
-	systemTrendMaxPoints         = 20000
-	systemTrendDefaultLimit      = 15000
+	systemTrendMaxPoints         = 250000
+	systemTrendDefaultLimit      = 50000
 	systemTrendCollectorInterval = 3 * time.Second
 	systemTrendDefaultStepSec    = 3
 	systemTrendMaxStepSec        = 3600
@@ -409,6 +409,8 @@ func parseSystemHistoryWindow(raw string) time.Duration {
 		return time.Hour
 	case "24h", "1d", "day":
 		return 24 * time.Hour
+	case "7d", "week", "1w":
+		return 7 * 24 * time.Hour
 	}
 
 	parsed, err := time.ParseDuration(value)

@@ -43,14 +43,20 @@ export function formatTooltipDate(value: unknown): string {
   return `${date.toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" })} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 }
 
-export function formatTrafficTick(value: Date): string {
+export function formatTrafficTick(value: Date, window: HistoryWindow): string {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) return "--:--";
+  if (window === "7d") {
+    return value.toLocaleDateString([], { day: "2-digit", month: "short" });
+  }
   return value.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 export function formatTrafficTooltipLabel(value: unknown, window: HistoryWindow): string {
   const date = parseDate(value);
   if (!date) return "--";
+  if (window === "7d") {
+    return `${date.toLocaleDateString([], { weekday: "short", day: "2-digit", month: "short" })} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  }
   if (window === "24h") {
     return `${date.toLocaleDateString([], { day: "2-digit", month: "short" })} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
   }

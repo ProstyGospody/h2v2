@@ -16,11 +16,42 @@ import { clampPercent } from "@/src/features/dashboard/dashboard-utils";
 import { ServiceGrid } from "@/src/features/dashboard/service-grid";
 
 const LIVE_POLL_MS = 5000;
-const HISTORY_POLL_MS = 15000;
-const HISTORY_LIMIT_1H = 900;
-const HISTORY_LIMIT_24H = 3200;
-const TRAFFIC_BUCKET_MS_1H = 5 * 60 * 1000;
-const TRAFFIC_BUCKET_MS_24H = 60 * 60 * 1000;
+const HISTORY_WINDOW_CONFIG: Record<
+  HistoryWindow,
+  {
+    queryWindow: string;
+    stepSeconds: number;
+    limit: number;
+    bucketMs: number;
+    bucketCount: number;
+    refetchMs: number;
+  }
+> = {
+  "1h": {
+    queryWindow: "1h",
+    stepSeconds: 5,
+    limit: 2_000,
+    bucketMs: 5 * 60 * 1_000,
+    bucketCount: 12,
+    refetchMs: 15_000,
+  },
+  "24h": {
+    queryWindow: "24h",
+    stepSeconds: 60,
+    limit: 40_000,
+    bucketMs: 60 * 60 * 1_000,
+    bucketCount: 24,
+    refetchMs: 30_000,
+  },
+  "7d": {
+    queryWindow: "168h",
+    stepSeconds: 900,
+    limit: 220_000,
+    bucketMs: 24 * 60 * 60 * 1_000,
+    bucketCount: 7,
+    refetchMs: 120_000,
+  },
+};
 
 export default function DashboardPage() {
   const [historyWindow, setHistoryWindow] = useState<HistoryWindow>("1h");
@@ -31,6 +62,7 @@ export default function DashboardPage() {
   const [dismissedServicesError, setDismissedServicesError] = useState(false);
   const [serviceDetails, setServiceDetails] = useState<ServiceDetails | null>(null);
   const [serviceDetailsOpen, setServiceDetailsOpen] = useState(false);
+  const historyConfig = HISTORY_WINDOW_CONFIG[historyWindow];
 
   const queryClient = useQueryClient();
 
@@ -53,13 +85,12 @@ export default function DashboardPage() {
   const historyQuery = useQuery({
     queryKey: ["dashboard", "history", historyWindow],
     queryFn: ({ signal }) => {
-      const step = historyWindow === "24h" ? 60 : 5;
-      const limit = historyWindow === "24h" ? HISTORY_LIMIT_24H : HISTORY_LIMIT_1H;
-      return apiFetch<SystemHistoryResponse>(`/api/system/history?window=${historyWindow}&step=${step}&limit=${limit}`, { method: "GET", signal });
+      const { queryWindow, stepSeconds, limit } = historyConfig;
+      return apiFetch<SystemHistoryResponse>(`/api/system/history?window=${queryWindow}&step=${stepSeconds}&limit=${limit}`, { method: "GET", signal });
     },
     staleTime: 10_000,
     refetchOnWindowFocus: true,
-    refetchInterval: (query) => queryRefetchInterval(HISTORY_POLL_MS, query),
+    refetchInterval: (query) => queryRefetchInterval(historyConfig.refetchMs, query, { maxMs: historyConfig.refetchMs * 4 }),
   });
 
   useEffect(() => {
@@ -200,11 +231,11 @@ export default function DashboardPage() {
   }, [historyItems]);
 
   const trafficUsageBars = useMemo<TrafficUsageBarPoint[]>(() => {
-    const bucketMs = historyWindow === "24h" ? TRAFFIC_BUCKET_MS_24H : TRAFFIC_BUCKET_MS_1H;
-    const bucketCount = historyWindow === "24h" ? 24 : 12;
+    const { bucketMs, bucketCount, stepSeconds } = historyConfig;
     const nowMs = Date.now();
     const endBucketMs = Math.floor(nowMs / bucketMs) * bucketMs;
     const startBucketMs = endBucketMs - (bucketCount - 1) * bucketMs;
+    const maxIntervalSeconds = Math.max(stepSeconds * 2, 60);
 
     const buckets: TrafficUsageBarPoint[] = Array.from({ length: bucketCount }, (_, index) => ({
       timestamp: new Date(startBucketMs + index * bucketMs),
@@ -224,8 +255,9 @@ export default function DashboardPage() {
     for (let index = 0; index < historyPoints.length; index++) {
       const point = historyPoints[index];
       const ms = point.timestamp.getTime();
-      const prevMs = index > 0 ? historyPoints[index - 1].timestamp.getTime() : ms - 5_000;
-      const dt = Math.max(1, (ms - prevMs) / 1000);
+      const prevMs = index > 0 ? historyPoints[index - 1].timestamp.getTime() : ms - stepSeconds * 1_000;
+      const intervalSeconds = Math.max(1, (ms - prevMs) / 1000);
+      const dt = Math.min(intervalSeconds, maxIntervalSeconds);
       const key = Math.floor(ms / bucketMs) * bucketMs;
       if (key < startBucketMs || key > endBucketMs) {
         continue;
@@ -239,7 +271,7 @@ export default function DashboardPage() {
     }
 
     return buckets;
-  }, [historyPoints, historyWindow]);
+  }, [historyConfig, historyPoints]);
 
   const trafficTotals = useMemo(() => {
     return trafficUsageBars.reduce(

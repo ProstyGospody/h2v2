@@ -1,4 +1,4 @@
-export type HistoryWindow = "1h" | "24h";
+export type HistoryWindow = "1h" | "24h" | "7d";
 
 export type HistoryTrendPoint = {
   timestamp: Date;

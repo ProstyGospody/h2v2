@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	systemSnapshotMaxFiles  int64 = 20000
-	systemSnapshotPruneEvery int64 = 200
+	systemSnapshotMaxFiles  int64 = 250000
+	systemSnapshotPruneEvery int64 = 1000
 )
 
 func (r *SQLiteRepository) InsertSystemSnapshot(ctx context.Context, snapshot SystemSnapshot) (SystemSnapshot, error) {
