@@ -52,7 +52,7 @@ const WINDOW_TABS: Array<{ value: HistoryWindow; label: string }> = [
   { value: "7d", label: "7d" },
 ];
 
-const CHART_RESIZE_DEBOUNCE_MS = 380;
+const CHART_RESIZE_DEBOUNCE_MS = 0;
 
 function chartCategoryGap(window: HistoryWindow): number {
   if (window === "1h") return 12;
