@@ -14,8 +14,3 @@ export type TrafficUsageBarPoint = {
   download_bytes: number;
   upload_bytes: number;
 };
-
-export type SparkPoint = {
-  idx: number;
-  value: number;
-};

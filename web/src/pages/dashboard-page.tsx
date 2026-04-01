@@ -11,7 +11,7 @@ import { formatDateTime, formatUptime } from "@/utils/format";
 
 import { DashboardMetrics } from "@/src/features/dashboard/dashboard-metrics";
 import { DashboardTraffic } from "@/src/features/dashboard/dashboard-traffic";
-import { type HistoryTrendPoint, type HistoryWindow, type SparkPoint, type TrafficUsageBarPoint } from "@/src/features/dashboard/dashboard-types";
+import { type HistoryTrendPoint, type HistoryWindow, type TrafficUsageBarPoint } from "@/src/features/dashboard/dashboard-types";
 import { clampPercent } from "@/src/features/dashboard/dashboard-utils";
 import { ServiceGrid } from "@/src/features/dashboard/service-grid";
 
@@ -199,33 +199,6 @@ export default function DashboardPage() {
     return Array.from(byTimestamp.values()).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }, [historyItems]);
 
-  const networkSparkline = useMemo<SparkPoint[]>(() => {
-    return historyPoints.map((point, index) => ({ idx: index, value: point.download + point.upload })).slice(-24);
-  }, [historyPoints]);
-
-  const trafficSparkline = useMemo<SparkPoint[]>(() => {
-    if (!historyPoints.length) return [];
-    const points: SparkPoint[] = [];
-    let total = 0;
-    for (let index = 0; index < historyPoints.length; index++) {
-      const current = historyPoints[index];
-      const prevMs = index > 0 ? historyPoints[index - 1].timestamp.getTime() : current.timestamp.getTime() - 5_000;
-      const dt = Math.max(1, (current.timestamp.getTime() - prevMs) / 1000);
-      total += (current.download + current.upload) * dt;
-      points.push({ idx: index, value: total });
-    }
-    return points.slice(-24);
-  }, [historyPoints]);
-
-  const connectionsSparkline = useMemo<SparkPoint[]>(() => {
-    const hasConnectionHistory = historyPoints.some((point) => point.connections > 0);
-    if (hasConnectionHistory) {
-      return historyPoints.map((point, index) => ({ idx: index, value: point.connections })).slice(-24);
-    }
-    const fallback = Math.max(0, tcpConnections + udpConnections);
-    return Array.from({ length: 12 }, (_, index) => ({ idx: index, value: fallback }));
-  }, [historyPoints, tcpConnections, udpConnections]);
-
   const trafficUsageBars = useMemo<TrafficUsageBarPoint[]>(() => {
     const bucketMs = historyWindow === "24h" ? TRAFFIC_BUCKET_MS_24H : TRAFFIC_BUCKET_MS_1H;
     const bucketCount = historyWindow === "24h" ? 24 : 12;
@@ -309,9 +282,6 @@ export default function DashboardPage() {
         totalTraffic={totalTraffic}
         tcpConnections={tcpConnections}
         udpConnections={udpConnections}
-        networkSparkline={networkSparkline}
-        trafficSparkline={trafficSparkline}
-        connectionsSparkline={connectionsSparkline}
       />
 
       <DashboardTraffic
