@@ -1,5 +1,5 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -26,9 +26,11 @@ export function Dialog({
   contentClassName,
   hideClose = false,
 }: DialogProps) {
+  const reduceMotion = useReducedMotion();
+
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <AnimatePresence>
+      <AnimatePresence initial={false} mode="wait">
         {open ? (
           <DialogPrimitive.Portal forceMount>
             <DialogPrimitive.Overlay asChild forceMount>
@@ -37,7 +39,7 @@ export function Dialog({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
+                transition={reduceMotion ? { duration: 0 } : { duration: 0.2 }}
               />
             </DialogPrimitive.Overlay>
 
@@ -48,10 +50,10 @@ export function Dialog({
                     "relative w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl bg-[var(--dialog-surface)] p-5 shadow-[0_24px_56px_-16px_var(--dialog-shadow)] outline-none backdrop-blur-xl sm:p-7",
                     contentClassName,
                   )}
-                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  initial={reduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={reduceMotion ? { opacity: 1 } : { opacity: 0, scale: 0.97 }}
+                  transition={reduceMotion ? { duration: 0 } : { duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                 >
                   {(title || description || !hideClose) && (
                     <div className="mb-5 pr-8">

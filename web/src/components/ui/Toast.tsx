@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -36,6 +36,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const idRef = useRef(0);
   const timersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     const timers = timersRef.current;
@@ -50,13 +51,27 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const notify = useCallback((message: string, variant: ToastVariant = "success") => {
     const id = ++idRef.current;
-    setToasts((prev) => [...prev.slice(-(MAX_TOASTS - 1)), { id, message, variant }]);
+    setToasts((prev) => {
+      const keepCount = MAX_TOASTS - 1;
+      const dropped = prev.slice(0, Math.max(0, prev.length - keepCount));
+      for (const item of dropped) {
+        const timer = timersRef.current.get(item.id);
+        if (timer) {
+          clearTimeout(timer);
+          timersRef.current.delete(item.id);
+        }
+      }
+      return [...prev.slice(-keepCount), { id, message, variant }];
+    });
     const timer = setTimeout(() => { timersRef.current.delete(id); dismiss(id); }, AUTO_DISMISS_MS);
     timersRef.current.set(id, timer);
     return id;
   }, [dismiss]);
 
   const update = useCallback((id: number, message: string, variant?: ToastVariant) => {
+    if (!timersRef.current.has(id)) {
+      return;
+    }
     setToasts((prev) =>
       prev.map((t) => (t.id === id ? { ...t, message, variant: variant ?? t.variant } : t)),
     );
@@ -71,11 +86,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={{ notify, update }}>
       {children}
       <div className="fixed bottom-4 right-4 left-4 z-50 flex flex-col-reverse items-end gap-2 sm:left-auto sm:bottom-5 sm:right-5">
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence initial={false} mode="sync">
           {toasts.map((toast) => (
             <motion.div
               key={toast.id}
-              layout
               role={toast.variant === "error" ? "alert" : "status"}
               aria-live={toast.variant === "error" ? "assertive" : "polite"}
               className={cn(
@@ -83,10 +97,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 toast.variant === "success" && "border-status-success/20",
                 toast.variant === "error" && "border-status-danger/20",
               )}
-              initial={{ opacity: 0, x: 40, scale: 0.95 }}
+              initial={reduceMotion ? { opacity: 1 } : { opacity: 0, x: 40, scale: 0.96 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 40, scale: 0.95 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              exit={reduceMotion ? { opacity: 1 } : { opacity: 0, x: 24, scale: 0.96 }}
+              transition={reduceMotion ? { duration: 0 } : { duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             >
               <ToastIcon variant={toast.variant} />
               <span className="flex-1 leading-relaxed">{toast.message}</span>

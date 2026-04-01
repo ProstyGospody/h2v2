@@ -58,6 +58,7 @@ export function DateField({
   const maxDate = useMemo(() => parseISODate(max || ""), [max]);
   const [open, setOpen] = useState(false);
   const [viewDate, setViewDate] = useState<Date>(selectedDate || startOfDay(new Date()));
+  const today = startOfDay(new Date());
 
   useEffect(() => {
     if (!open) return;
@@ -141,12 +142,12 @@ export function DateField({
                 const inCurrentMonth = day.getMonth() === viewDate.getMonth();
                 const dayValue = startOfDay(day);
                 const isSelected = isSameDate(dayValue, selectedDate);
-                const isToday = isSameDate(dayValue, startOfDay(new Date()));
+                const isToday = isSameDate(dayValue, today);
                 const disabled = isOutOfRange(dayValue);
 
                 return (
                   <button
-                    key={day.toISOString()}
+                    key={toISODate(dayValue)}
                     type="button"
                     disabled={disabled}
                     onClick={() => selectDate(dayValue)}
@@ -180,7 +181,7 @@ export function DateField({
               </button>
               <button
                 type="button"
-                onClick={() => selectDate(startOfDay(new Date()))}
+                onClick={() => selectDate(today)}
                 className="rounded-lg px-2 py-1 text-[12px] font-medium text-accent transition-colors hover:bg-accent/10"
               >
                 Today
