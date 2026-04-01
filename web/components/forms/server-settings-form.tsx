@@ -40,7 +40,7 @@ export function ServerSettingsForm({
   return (
     <div className="space-y-4">
       <section className="panel-card-compact py-2">
-        <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] font-semibold text-txt-primary">
             <Gauge size={13} strokeWidth={1.7} className="text-txt-secondary" />
             Snapshot
@@ -53,14 +53,14 @@ export function ServerSettingsForm({
           ))}
 
           {snapshotStorage ? (
-            <div className="ml-auto flex shrink-0 items-center gap-2 pl-2">
+            <div className="flex w-full flex-wrap items-center gap-2 pt-1 sm:ml-auto sm:w-auto sm:justify-end sm:pl-2 sm:pt-0">
               <Button size="sm" onClick={snapshotStorage.onBackup} disabled={snapshotStorage.busy} className="h-8 px-3">
                 <Download size={13} strokeWidth={1.7} />
                 Backup
               </Button>
               {snapshotStorage.restoreFileName ? (
                 <>
-                  <span className="max-w-[220px] truncate rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] text-txt-secondary">
+                  <span className="w-full rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] text-txt-secondary break-all sm:w-auto sm:max-w-[220px] sm:truncate sm:break-normal">
                     {snapshotStorage.restoreFileName}
                   </span>
                   <Button size="sm" onClick={snapshotStorage.onSelectRestore} disabled={snapshotStorage.busy} className="h-8 px-3">

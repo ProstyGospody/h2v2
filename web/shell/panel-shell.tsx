@@ -335,7 +335,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <div className="panel-main">
+      <div className="panel-main min-w-0">
         {!mobileOpen && (
           <button
             type="button"
@@ -347,7 +347,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
           </button>
         )}
 
-        <main className="p-4 pt-16 sm:p-5 sm:pt-20 md:p-8 md:pt-20 lg:pt-8">
+        <main className="min-w-0 p-4 pt-16 sm:p-5 sm:pt-20 md:p-8 md:pt-20 lg:pt-8">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={pathname}

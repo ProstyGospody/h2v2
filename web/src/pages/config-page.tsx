@@ -357,14 +357,14 @@ export default function ConfigPage() {
 
       {loading ? (
         <div className="grid gap-4">
-          <section className="panel-card-compact h-[52px] animate-pulse">
-            <div className="flex h-full items-center gap-2">
+          <section className="panel-card-compact min-h-[52px] animate-pulse">
+            <div className="flex flex-wrap items-center gap-2">
               <div className="h-6 w-24 rounded-lg bg-surface-3/55" />
               <div className="h-6 w-20 rounded-lg bg-surface-3/45" />
               <div className="h-6 w-20 rounded-lg bg-surface-3/45" />
               <div className="h-6 w-20 rounded-lg bg-surface-3/45" />
               <div className="h-6 w-20 rounded-lg bg-surface-3/45" />
-              <div className="ml-auto h-8 w-24 rounded-lg bg-surface-3/45" />
+              <div className="h-8 w-24 rounded-lg bg-surface-3/45 sm:ml-auto" />
               <div className="h-8 w-24 rounded-lg bg-surface-3/45" />
             </div>
           </section>
