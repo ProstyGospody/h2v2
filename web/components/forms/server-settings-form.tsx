@@ -4,7 +4,7 @@ import { useEffect, useMemo } from "react";
 import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
 import { type Hy2Settings } from "@/domain/settings/types";
 import { buildSnapshotItems } from "@/src/features/settings/server-settings-utils";
-import { Button, Input, SectionCard, SectionTitle, SelectField, ToggleField } from "@/src/components/ui";
+import { Button, Input, SectionCard, SelectField, ToggleField } from "@/src/components/ui";
 
 export function ServerSettingsForm({
   draft,
@@ -38,7 +38,58 @@ export function ServerSettingsForm({
   );
 
   return (
-    <div className="grid gap-4">
+    <div className="space-y-4">
+      <section className="panel-card-compact py-2">
+        <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] font-semibold text-txt-primary">
+            <Gauge size={13} strokeWidth={1.7} className="text-txt-secondary" />
+            Snapshot
+          </span>
+          {snapshotItems.map((item) => (
+            <span key={item.label} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px]">
+              <span className="text-txt-secondary">{item.label}</span>
+              <span className="font-medium text-txt-primary">{item.value || "-"}</span>
+            </span>
+          ))}
+
+          {snapshotStorage ? (
+            <div className="ml-auto flex shrink-0 items-center gap-2 pl-2">
+              <Button size="sm" onClick={snapshotStorage.onBackup} disabled={snapshotStorage.busy} className="h-8 px-3">
+                <Download size={13} strokeWidth={1.7} />
+                Backup
+              </Button>
+              {snapshotStorage.restoreFileName ? (
+                <>
+                  <span className="max-w-[220px] truncate rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] text-txt-secondary">
+                    {snapshotStorage.restoreFileName}
+                  </span>
+                  <Button size="sm" onClick={snapshotStorage.onSelectRestore} disabled={snapshotStorage.busy} className="h-8 px-3">
+                    <Upload size={13} strokeWidth={1.7} />
+                    Select
+                  </Button>
+                  <ConfirmPopover
+                    title="Restore database"
+                    description={`Restore ${snapshotStorage.restoreFileName}?`}
+                    confirmText="Restore"
+                    onConfirm={snapshotStorage.onRestore}
+                  >
+                    <Button size="sm" variant="danger" disabled={snapshotStorage.busy} className="h-8 px-3">
+                      <Upload size={13} strokeWidth={1.7} />
+                      Restore
+                    </Button>
+                  </ConfirmPopover>
+                </>
+              ) : (
+                <Button size="sm" variant="danger" onClick={snapshotStorage.onSelectRestore} disabled={snapshotStorage.busy} className="h-8 px-3">
+                  <Upload size={13} strokeWidth={1.7} />
+                  Restore
+                </Button>
+              )}
+            </div>
+          ) : null}
+        </div>
+      </section>
+
       <div className="min-w-0 space-y-4 xl:grid xl:grid-cols-2 xl:gap-4 xl:space-y-0">
         <SectionCard title="General" icon={<Globe size={17} strokeWidth={1.7} />}>
           <div className="grid gap-3 md:grid-cols-2">
@@ -383,55 +434,6 @@ export function ServerSettingsForm({
           )}
         </SectionCard>
       </div>
-
-      <aside className="min-w-0 w-full xl:w-[560px] xl:justify-self-start">
-        <section className="panel-card-compact space-y-3">
-          <SectionTitle icon={<Gauge size={16} strokeWidth={1.7} />} title="Snapshot" />
-          <div className="grid gap-2">
-            {snapshotItems.map((item) => (
-              <div key={item.label} className="flex items-center gap-2 rounded-lg bg-surface-3/35 px-3 py-2 text-[13px]">
-                <span className="w-[88px] shrink-0 text-txt-secondary">{item.label}</span>
-                <span className="min-w-0 truncate font-medium text-txt-primary">{item.value || "-"}</span>
-              </div>
-            ))}
-          </div>
-          {snapshotStorage ? (
-            <div className="space-y-2 pt-1">
-              <Button size="sm" onClick={snapshotStorage.onBackup} disabled={snapshotStorage.busy} className="h-9 w-full justify-center">
-                <Download size={14} strokeWidth={1.7} />
-                Backup
-              </Button>
-              {snapshotStorage.restoreFileName ? (
-                <>
-                  <div className="break-all rounded-lg bg-surface-3/35 px-3 py-2 text-[12px] text-txt-secondary">{snapshotStorage.restoreFileName}</div>
-                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                    <Button size="sm" onClick={snapshotStorage.onSelectRestore} disabled={snapshotStorage.busy} className="h-9 w-full justify-center">
-                      <Upload size={14} strokeWidth={1.7} />
-                      Select DB
-                    </Button>
-                    <ConfirmPopover
-                      title="Restore database"
-                      description={`Restore ${snapshotStorage.restoreFileName}?`}
-                      confirmText="Restore"
-                      onConfirm={snapshotStorage.onRestore}
-                    >
-                      <Button size="sm" variant="danger" disabled={snapshotStorage.busy} className="h-9 w-full justify-center">
-                        <Upload size={14} strokeWidth={1.7} />
-                        Restore
-                      </Button>
-                    </ConfirmPopover>
-                  </div>
-                </>
-              ) : (
-                <Button size="sm" variant="danger" onClick={snapshotStorage.onSelectRestore} disabled={snapshotStorage.busy} className="h-9 w-full justify-center">
-                  <Upload size={14} strokeWidth={1.7} />
-                  Restore
-                </Button>
-              )}
-            </div>
-          ) : null}
-        </section>
-      </aside>
     </div>
   );
 }
