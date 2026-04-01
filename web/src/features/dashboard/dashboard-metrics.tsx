@@ -1,6 +1,6 @@
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
 import { ArrowDownToLine, ArrowUpFromLine, Clock, Globe, Network, Users2, Zap } from "lucide-react";
-import { Children, isValidElement, type ReactNode, useEffect, useRef, useState } from "react";
+import { Children, isValidElement, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -148,6 +148,7 @@ function MetricsCarousel({ children }: { children: ReactNode }) {
             drag="x"
             dragConstraints={constraintsRef}
             dragElastic={reduceMotion ? 0 : 0.2}
+            dragMomentum={false}
             onDragEnd={(_event, info) => {
               const threshold = 60;
               if (info.offset.x < -threshold && currentIndex < itemNodes.length - 1) {
@@ -217,6 +218,8 @@ export function DashboardMetrics({
   trafficSparkline,
   connectionsSparkline,
 }: DashboardMetricsProps) {
+  const sparkIdBase = useId().replace(/[^a-zA-Z0-9_-]/g, "-");
+
   if (showInitialLoading) {
     return (
       <>
@@ -322,7 +325,7 @@ export function DashboardMetrics({
               <span className="inline-flex items-center gap-1.5"><ArrowUpFromLine size={14} strokeWidth={1.8} className="text-status-warning" /><AnimatedNumber value={networkTx} format={formatRate} /></span>
             </div>
           </div>
-          <div className="shrink-0"><MiniSparkline data={networkSparkline} color="var(--data-2)" gradientId="spark-network" /></div>
+          <div className="shrink-0"><MiniSparkline data={networkSparkline} color="var(--data-2)" gradientId={`spark-network-${sparkIdBase}`} /></div>
         </div>
 
         <div className="card-hover panel-card flex min-h-[102px] items-center gap-4">
@@ -333,7 +336,7 @@ export function DashboardMetrics({
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Total Traffic</p>
             <p className="mt-1.5 text-[15px] font-semibold text-txt-primary"><AnimatedNumber value={totalTraffic} format={formatBytes} /></p>
           </div>
-          <div className="shrink-0"><MiniSparkline data={trafficSparkline} color="var(--data-1)" gradientId="spark-traffic" /></div>
+          <div className="shrink-0"><MiniSparkline data={trafficSparkline} color="var(--data-1)" gradientId={`spark-traffic-${sparkIdBase}`} /></div>
         </div>
 
         <div className="card-hover panel-card flex min-h-[102px] items-center gap-4">
@@ -348,7 +351,7 @@ export function DashboardMetrics({
               <span>UDP <AnimatedNumber value={udpConnections} /></span>
             </div>
           </div>
-          <div className="shrink-0"><MiniSparkline data={connectionsSparkline} color="var(--status-success)" gradientId="spark-connections" /></div>
+          <div className="shrink-0"><MiniSparkline data={connectionsSparkline} color="var(--status-success)" gradientId={`spark-connections-${sparkIdBase}`} /></div>
         </div>
       </div>
     </>

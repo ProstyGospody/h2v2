@@ -1,5 +1,5 @@
 import { TrendingUp } from "lucide-react";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { StateBlock, cn } from "@/src/components/ui";
@@ -65,6 +65,10 @@ export function DashboardTraffic({
   trafficTotals,
   trafficUsageBars,
 }: DashboardTrafficProps) {
+  const gradientIdBase = useId().replace(/[^a-zA-Z0-9_-]/g, "-");
+  const downGradientId = `grad-down-${gradientIdBase}`;
+  const upGradientId = `grad-up-${gradientIdBase}`;
+
   return (
     <div className="space-y-4">
       <SectionHeader icon={<TrendingUp size={18} strokeWidth={1.6} />} title="Traffic Consumption">
@@ -117,11 +121,11 @@ export function DashboardTraffic({
             <ResponsiveContainer width="100%" height="100%" minHeight={300}>
               <AreaChart data={trafficUsageBars}>
                 <defs>
-                  <linearGradient id="gradDown" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id={downGradientId} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--data-1)" stopOpacity={0.3} />
                     <stop offset="100%" stopColor="var(--data-1)" stopOpacity={0.02} />
                   </linearGradient>
-                  <linearGradient id="gradUp" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id={upGradientId} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="var(--data-2)" stopOpacity={0.3} />
                     <stop offset="100%" stopColor="var(--data-2)" stopOpacity={0.02} />
                   </linearGradient>
@@ -152,7 +156,7 @@ export function DashboardTraffic({
                   dataKey="download_bytes"
                   stroke="var(--data-1)"
                   strokeWidth={2}
-                  fill="url(#gradDown)"
+                  fill={`url(#${downGradientId})`}
                   name="Download"
                   isAnimationActive={false}
                 />
@@ -161,7 +165,7 @@ export function DashboardTraffic({
                   dataKey="upload_bytes"
                   stroke="var(--data-2)"
                   strokeWidth={2}
-                  fill="url(#gradUp)"
+                  fill={`url(#${upGradientId})`}
                   name="Upload"
                   isAnimationActive={false}
                 />

@@ -1,4 +1,4 @@
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Eye, EyeOff, Loader2, Lock, Mail, Moon, Sun, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -30,12 +30,22 @@ export default function LoginPage() {
   }
 
   useEffect(() => {
+    const controller = new AbortController();
     let disposed = false;
     (async () => {
-      try { await apiFetch<{ id: string }>("/api/auth/me", { method: "GET" }); if (!disposed) navigate(redirectTo, { replace: true }); }
-      catch { if (!disposed) setChecking(false); }
+      try {
+        await apiFetch<{ id: string }>("/api/auth/me", { method: "GET", signal: controller.signal });
+        if (!disposed) navigate(redirectTo, { replace: true });
+      } catch (err) {
+        if (disposed) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setChecking(false);
+      }
     })();
-    return () => { disposed = true; };
+    return () => {
+      disposed = true;
+      controller.abort();
+    };
   }, [navigate, redirectTo]);
 
   const submit = handleSubmit(async ({ email, password }) => {
@@ -72,14 +82,13 @@ export default function LoginPage() {
         {theme === "dark" ? "Light" : "Dark"}
       </button>
       <motion.div
-        initial={reduceMotion ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 24, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
+        initial={reduceMotion ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
         transition={reduceMotion ? { duration: 0 } : { duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         className="relative w-full max-w-[440px]"
       >
         <div className="glass-strong gradient-border rounded-2xl p-9 shadow-2xl shadow-accent/5">
           <div className="space-y-7">
-            {/* Brand */}
             <div className="flex flex-col items-center gap-5 text-center">
               <motion.div
                 initial={reduceMotion ? { scale: 1, rotate: 0 } : { scale: 0, rotate: -180 }}
@@ -97,15 +106,19 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {error && (
-              <motion.div
-                initial={reduceMotion ? { opacity: 1, height: "auto" } : { opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                transition={reduceMotion ? { duration: 0 } : undefined}
-              >
-                <ErrorBanner message={error} onDismiss={() => setError("")} />
-              </motion.div>
-            )}
+            <AnimatePresence initial={false} mode="wait">
+              {error ? (
+                <motion.div
+                  key="login-error"
+                  initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -4 }}
+                  transition={reduceMotion ? { duration: 0 } : { duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <ErrorBanner message={error} onDismiss={() => setError("")} />
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
 
             <form onSubmit={submit} className="space-y-5">
               <div className="space-y-3.5">

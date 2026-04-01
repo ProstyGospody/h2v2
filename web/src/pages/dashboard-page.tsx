@@ -82,7 +82,23 @@ export default function DashboardPage() {
 
   const live = liveQuery.data || null;
   const historyItems = Array.isArray(historyQuery.data?.items) ? historyQuery.data.items : [];
-  const serviceItems = Array.isArray(servicesQuery.data?.items) ? servicesQuery.data.items : [];
+  const serviceItems = useMemo<ServiceSummary[]>(() => {
+    const source = Array.isArray(servicesQuery.data?.items) ? servicesQuery.data.items : [];
+    if (source.length === 0) {
+      return [];
+    }
+
+    const uniqueByName = new Map<string, ServiceSummary>();
+    for (const item of source) {
+      const name = typeof item?.service_name === "string" ? item.service_name.trim() : "";
+      if (!name) {
+        continue;
+      }
+      uniqueByName.set(name, item);
+    }
+
+    return Array.from(uniqueByName.values()).sort((a, b) => a.service_name.localeCompare(b.service_name));
+  }, [servicesQuery.data?.items]);
   const loading = liveQuery.isPending;
   const historyLoading = historyQuery.isPending;
   const servicesLoading = servicesQuery.isPending;
@@ -160,23 +176,27 @@ export default function DashboardPage() {
   const udpConnections = Math.max(0, Math.round(live?.system.udp_sockets ?? 0));
 
   const historyPoints = useMemo<HistoryTrendPoint[]>(() => {
-    return historyItems
-      .map((sample) => {
-        const timestamp = new Date(sample.timestamp);
-        if (Number.isNaN(timestamp.getTime())) return null;
-        const tcp = Number(sample.tcp_sockets || 0);
-        const udp = Number(sample.udp_sockets || 0);
-        return {
-          timestamp,
-          download: Math.max(0, sample.network_rx_bps || 0),
-          upload: Math.max(0, sample.network_tx_bps || 0),
-          connections: Math.max(0, (Number.isFinite(tcp) ? tcp : 0) + (Number.isFinite(udp) ? udp : 0)),
-          cpu: clampPercent(Number(sample.cpu_usage_percent || 0)),
-          ram: clampPercent(Number(sample.memory_used_percent || 0)),
-        };
-      })
-      .filter((point): point is HistoryTrendPoint => Boolean(point))
-      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    const byTimestamp = new Map<number, HistoryTrendPoint>();
+
+    for (const sample of historyItems) {
+      const timestamp = new Date(sample.timestamp);
+      const timestampMs = timestamp.getTime();
+      if (!Number.isFinite(timestampMs)) {
+        continue;
+      }
+      const tcp = Number(sample.tcp_sockets || 0);
+      const udp = Number(sample.udp_sockets || 0);
+      byTimestamp.set(timestampMs, {
+        timestamp,
+        download: Math.max(0, sample.network_rx_bps || 0),
+        upload: Math.max(0, sample.network_tx_bps || 0),
+        connections: Math.max(0, (Number.isFinite(tcp) ? tcp : 0) + (Number.isFinite(udp) ? udp : 0)),
+        cpu: clampPercent(Number(sample.cpu_usage_percent || 0)),
+        ram: clampPercent(Number(sample.memory_used_percent || 0)),
+      });
+    }
+
+    return Array.from(byTimestamp.values()).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }, [historyItems]);
 
   const networkSparkline = useMemo<SparkPoint[]>(() => {
