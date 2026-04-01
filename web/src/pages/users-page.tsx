@@ -31,19 +31,8 @@ import {
   type SortState,
 } from "@/src/features/users/users-utils";
 
-const ROWS_PER_PAGE_OPTIONS = [25, 50, 100, 250, 500];
 const SEARCH_DEBOUNCE_MS = 250;
 const EMPTY_CLIENTS: HysteriaClient[] = [];
-
-function parseSortValue(value: string): SortState | null {
-  if (value === "username_asc") return { field: "username", dir: "asc" };
-  if (value === "username_desc") return { field: "username", dir: "desc" };
-  if (value === "traffic_asc") return { field: "traffic", dir: "asc" };
-  if (value === "traffic_desc") return { field: "traffic", dir: "desc" };
-  if (value === "last_seen_asc") return { field: "last_seen", dir: "asc" };
-  if (value === "last_seen_desc") return { field: "last_seen", dir: "desc" };
-  return null;
-}
 
 function defaultSortDir(field: SortField): "asc" | "desc" {
   return field === "username" ? "asc" : "desc";
@@ -61,7 +50,7 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<ClientFilter>("all");
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const rowsPerPage = 25;
   const [selectedClientIDs, setSelectedClientIDs] = useState<string[]>([]);
   const [sort, setSort] = useState<SortState>({ field: "last_seen", dir: "desc" });
   const [actionError, setActionError] = useState("");
@@ -115,7 +104,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, filter, rowsPerPage, sort]);
+  }, [searchQuery, filter, sort]);
 
   useEffect(() => {
     const existing = new Set(clients.map((client) => client.id));
@@ -201,12 +190,6 @@ export default function UsersPage() {
       }
       return { field, dir: defaultSortDir(field) };
     });
-  }
-
-  function handleSortChange(value: string) {
-    const parsed = parseSortValue(value);
-    if (!parsed) return;
-    setSort(parsed);
   }
 
   function exportCSV() {
@@ -403,15 +386,6 @@ export default function UsersPage() {
     setSelectedClientIDs((current) => current.filter((id) => !filteredSet.has(id)));
   }
 
-  function handleRowsPerPageChange(value: string) {
-    const parsed = Number.parseInt(value, 10);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      return;
-    }
-    setRowsPerPage(parsed);
-    setPage(0);
-  }
-
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const editable = isEditableTarget(event.target);
@@ -480,17 +454,12 @@ export default function UsersPage() {
         searchQuery={searchQuery}
         filter={filter}
         filteredClientsCount={filteredClients.length}
-        rowsPerPage={rowsPerPage}
-        rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
-        sort={sort}
         searchInputRef={searchInputRef}
         hasUsersToExport={filteredClients.length > 0}
         onCreate={openCreate}
         onExportCSV={exportCSV}
         onSearchInputChange={setSearchInput}
         onFilterChange={setFilter}
-        onRowsPerPageChange={handleRowsPerPageChange}
-        onSortChange={handleSortChange}
         selectedCount={selectedClientIDs.length}
         selectedDeleteDescription={selectedDeleteDescription(selectedClientIDs, clients)}
         onClearSelection={() => setSelectedClientIDs([])}

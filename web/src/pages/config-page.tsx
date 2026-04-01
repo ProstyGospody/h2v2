@@ -1,6 +1,5 @@
 import {
   Play,
-  RefreshCw,
   RotateCcw,
   Save,
 } from "lucide-react";
@@ -80,9 +79,7 @@ type ConfigHeaderActionsProps = {
   isDirty: boolean;
   saving: boolean;
   applying: boolean;
-  reloading: boolean;
   hasValidationErrors: boolean;
-  onReload: () => void;
   onDiscard: () => void;
   onSave: () => void;
   onApply: () => void;
@@ -93,9 +90,7 @@ function ConfigHeaderActions({
   isDirty,
   saving,
   applying,
-  reloading,
   hasValidationErrors,
-  onReload,
   onDiscard,
   onSave,
   onApply,
@@ -107,11 +102,6 @@ function ConfigHeaderActions({
       <span className="header-btn inline-flex w-full items-center rounded-2xl bg-surface-2/70 px-3 text-[13px] font-medium text-txt-secondary shadow-[inset_0_1px_0_var(--shell-highlight)] sm:w-auto">
         {isDirty ? "Unsaved changes" : "Up to date"}
       </span>
-
-      <Button loading={reloading} onClick={onReload} disabled={isBusy} className={secondaryBtnClassName}>
-        <RefreshCw size={15} strokeWidth={1.8} />
-        Reload
-      </Button>
 
       <Button onClick={onDiscard} disabled={isBusy || !isDirty} className={secondaryBtnClassName}>
         <RotateCcw size={15} strokeWidth={1.8} />
@@ -354,9 +344,7 @@ export default function ConfigPage() {
             isDirty={isDirty}
             saving={saving}
             applying={applying}
-            reloading={reloading}
             hasValidationErrors={Boolean(validationErrors.length)}
-            onReload={() => void load(false)}
             onDiscard={discardChanges}
             onSave={() => void saveDraft()}
             onApply={() => void applyConfig()}

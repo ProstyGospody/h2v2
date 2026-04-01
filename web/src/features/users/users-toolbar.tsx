@@ -6,33 +6,23 @@ import { PageHeader } from "@/components/ui/page-header";
 import {
   Button,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Tooltip,
   cn,
 } from "@/src/components/ui";
 
-import { type ClientFilter, type SortState } from "./users-utils";
+import { type ClientFilter } from "./users-utils";
 
 type UsersToolbarProps = {
   searchInput: string;
   searchQuery: string;
   filter: ClientFilter;
   filteredClientsCount: number;
-  rowsPerPage: number;
-  rowsPerPageOptions: number[];
-  sort: SortState;
   searchInputRef: RefObject<HTMLInputElement | null>;
   hasUsersToExport: boolean;
   onCreate: () => void;
   onExportCSV: () => void;
   onSearchInputChange: (value: string) => void;
   onFilterChange: (value: ClientFilter) => void;
-  onRowsPerPageChange: (value: string) => void;
-  onSortChange: (value: string) => void;
   selectedCount: number;
   selectedDeleteDescription: string;
   onClearSelection: () => void;
@@ -41,34 +31,19 @@ type UsersToolbarProps = {
   onDeleteSelected: () => void;
 };
 
-const SORT_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "last_seen_desc", label: "Seen" },
-  { value: "traffic_desc", label: "Traffic" },
-  { value: "username_asc", label: "Name A-Z" },
-  { value: "username_desc", label: "Name Z-A" },
-];
 const HEADER_SECONDARY_BTN = "header-btn w-full rounded-2xl px-5 sm:w-auto border-border/80 bg-surface-2/70 shadow-[inset_0_1px_0_var(--shell-highlight)] hover:bg-surface-3/60";
-
-function sortValue(sort: SortState): string {
-  return `${sort.field}_${sort.dir}`;
-}
 
 export function UsersToolbar({
   searchInput,
   searchQuery,
   filter,
   filteredClientsCount,
-  rowsPerPage,
-  rowsPerPageOptions,
-  sort,
   searchInputRef,
   hasUsersToExport,
   onCreate,
   onExportCSV,
   onSearchInputChange,
   onFilterChange,
-  onRowsPerPageChange,
-  onSortChange,
   selectedCount,
   selectedDeleteDescription,
   onClearSelection,
@@ -130,32 +105,6 @@ export function UsersToolbar({
                   {item}
                 </button>
               ))}
-            </div>
-
-            <div className="w-full sm:w-[170px]">
-              <Select value={sortValue(sort)} onValueChange={onSortChange}>
-                <SelectTrigger className="header-btn rounded-2xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SORT_OPTIONS.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="w-full sm:w-[100px]">
-              <Select value={String(rowsPerPage)} onValueChange={onRowsPerPageChange}>
-                <SelectTrigger className="header-btn rounded-2xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {rowsPerPageOptions.map((value) => (
-                    <SelectItem key={value} value={String(value)}>{value}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             {selectedCount > 0 ? (
