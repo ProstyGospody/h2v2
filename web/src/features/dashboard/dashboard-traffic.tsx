@@ -41,6 +41,7 @@ type DashboardTrafficProps = {
 };
 
 type TrafficChartPoint = {
+  bucketKey: string;
   ts: number;
   total: number;
 };
@@ -50,6 +51,12 @@ const WINDOW_TABS: Array<{ value: HistoryWindow; label: string }> = [
   { value: "24h", label: "24h" },
   { value: "7d", label: "7d" },
 ];
+
+function chartGap(window: HistoryWindow): string {
+  if (window === "1h") return "6%";
+  if (window === "24h") return "10%";
+  return "16%";
+}
 
 export function DashboardTraffic({
   historyWindow,
@@ -62,7 +69,7 @@ export function DashboardTraffic({
   trafficUsageBars,
 }: DashboardTrafficProps) {
   const chartData = useMemo<TrafficChartPoint[]>(() => {
-    const merged = new Map<number, TrafficChartPoint>();
+    const byTimestamp = new Map<number, number>();
 
     for (const entry of trafficUsageBars) {
       const ts = entry.timestamp instanceof Date ? entry.timestamp.getTime() : new Date(entry.timestamp).getTime();
@@ -70,24 +77,16 @@ export function DashboardTraffic({
         continue;
       }
 
-      const total = Math.max(0, Number(entry.download_bytes) || 0) + Math.max(0, Number(entry.upload_bytes) || 0);
-      const current = merged.get(ts);
-
-      if (current) {
-        current.total += total;
-        continue;
-      }
-
-      merged.set(ts, {
-        ts,
-        total,
-      });
+      const value = Math.max(0, Number(entry.download_bytes) || 0) + Math.max(0, Number(entry.upload_bytes) || 0);
+      byTimestamp.set(ts, (byTimestamp.get(ts) || 0) + value);
     }
 
-    return Array.from(merged.values()).sort((a, b) => a.ts - b.ts);
+    return Array.from(byTimestamp.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([ts, total]) => ({ bucketKey: String(ts), ts, total }));
   }, [trafficUsageBars]);
 
-  const tickCount = historyWindow === "1h" ? 12 : historyWindow === "24h" ? 8 : 7;
+  const xTickMinGap = historyWindow === "7d" ? 26 : 14;
 
   return (
     <div className="space-y-4">
@@ -118,11 +117,9 @@ export function DashboardTraffic({
 
       <div className="panel-card p-4 sm:p-6">
         <div className="mb-4 flex flex-wrap items-center justify-end gap-3 text-[13px]">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
-              Total: {formatBytes(trafficTotal)}
-            </span>
-          </div>
+          <span className="rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
+            Total: {formatBytes(trafficTotal)}
+          </span>
         </div>
 
         {showHistorySkeleton ? (
@@ -132,16 +129,20 @@ export function DashboardTraffic({
         ) : (
           <div className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%" minHeight={320} debounce={120}>
-              <BarChart data={chartData} margin={{ top: 12, right: 8, bottom: 0, left: 0 }} barGap={2}>
+              <BarChart
+                data={chartData}
+                margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+                barGap={0}
+                barCategoryGap={chartGap(historyWindow)}
+              >
                 <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
 
                 <XAxis
-                  type="number"
-                  dataKey="ts"
-                  domain={["dataMin", "dataMax"]}
-                  scale="time"
-                  tickCount={tickCount}
-                  minTickGap={22}
+                  dataKey="bucketKey"
+                  type="category"
+                  interval="preserveStartEnd"
+                  minTickGap={xTickMinGap}
+                  padding="gap"
                   tickFormatter={(value) => formatTrafficTick(new Date(Number(value)), historyWindow)}
                   tick={{ fill: "var(--txt-icon)", fontSize: 12 }}
                   tickLine={false}
@@ -179,8 +180,8 @@ export function DashboardTraffic({
                   dataKey="total"
                   name="Total"
                   fill="var(--data-1)"
-                  maxBarSize={42}
                   radius={[4, 4, 0, 0]}
+                  minPointSize={2}
                   isAnimationActive={false}
                 />
               </BarChart>
