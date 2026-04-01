@@ -90,8 +90,8 @@ const GRID_CLASS = "grid grid-cols-1 gap-4 lg:grid-cols-7";
 
 function MetricsSkeletonCard() {
   return (
-    <div className="panel-card min-h-[108px] animate-pulse">
-      <div className="flex h-full items-start justify-between gap-3">
+    <div className="panel-card min-h-[96px] py-4 animate-pulse">
+      <div className="flex h-full items-center justify-between gap-3">
         <div className="w-full min-w-0 space-y-2.5">
           <div className="h-3 w-16 rounded bg-surface-3/55" />
           <div className="h-8 w-20 rounded bg-surface-3/60" />
@@ -124,11 +124,11 @@ export function DashboardMetrics({
 
   return (
     <div className={GRID_CLASS}>
-      <div className="card-hover panel-card min-h-[108px]">
-        <div className="flex h-full items-start justify-between gap-3">
+      <div className="card-hover panel-card min-h-[96px] py-4">
+        <div className="flex h-full items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">CPU</p>
-            <p className="mt-2 text-[30px] leading-none text-txt-primary tabular-nums">
+            <p className="mt-1.5 text-[30px] leading-none text-txt-primary tabular-nums">
               <AnimatedNumber value={cpuPercent} />
               <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
             </p>
@@ -139,11 +139,11 @@ export function DashboardMetrics({
         </div>
       </div>
 
-      <div className="card-hover panel-card min-h-[108px]">
-        <div className="flex h-full items-start justify-between gap-3">
+      <div className="card-hover panel-card min-h-[96px] py-4">
+        <div className="flex h-full items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">RAM</p>
-            <p className="mt-2 text-[30px] leading-none text-txt-primary tabular-nums">
+            <p className="mt-1.5 text-[30px] leading-none text-txt-primary tabular-nums">
               <AnimatedNumber value={ramPercent} />
               <span className="ml-1 text-[16px] font-medium text-txt-tertiary">%</span>
             </p>
@@ -154,11 +154,11 @@ export function DashboardMetrics({
         </div>
       </div>
 
-      <div className="card-hover panel-card min-h-[108px]">
-        <div className="flex h-full items-start justify-between gap-3">
+      <div className="card-hover panel-card min-h-[96px] py-4">
+        <div className="flex h-full items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Online</p>
-            <p className="mt-2 text-[30px] leading-none text-txt-primary tabular-nums">
+            <p className="mt-1.5 text-[30px] leading-none text-txt-primary tabular-nums">
               <AnimatedNumber value={onlineUsers} />
             </p>
           </div>
@@ -168,11 +168,11 @@ export function DashboardMetrics({
         </div>
       </div>
 
-      <div className="card-hover panel-card min-h-[108px]">
-        <div className="flex h-full items-start justify-between gap-3">
+      <div className="card-hover panel-card min-h-[96px] py-4">
+        <div className="flex h-full items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Uptime</p>
-            <p className="mt-2 whitespace-nowrap text-[30px] leading-none text-txt-primary tabular-nums">{uptime}</p>
+            <p className="mt-1.5 whitespace-nowrap text-[30px] leading-none text-txt-primary tabular-nums">{uptime}</p>
           </div>
           <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-surface-3/35">
             <Clock size={19} strokeWidth={1.7} className="text-txt-secondary" />
@@ -180,11 +180,11 @@ export function DashboardMetrics({
         </div>
       </div>
 
-      <div className="card-hover panel-card min-h-[108px]">
-        <div className="flex h-full items-start justify-between gap-3">
+      <div className="card-hover panel-card min-h-[96px] py-4">
+        <div className="flex h-full items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Network</p>
-            <div className="mt-2 space-y-1 text-[14px] font-semibold text-txt-primary tabular-nums">
+            <div className="mt-1.5 space-y-1 text-[14px] font-semibold text-txt-primary tabular-nums">
               <p className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 <ArrowDownToLine size={13} strokeWidth={1.8} className="text-status-success" />
                 <AnimatedNumber value={networkRx} format={formatRate} />
@@ -201,11 +201,11 @@ export function DashboardMetrics({
         </div>
       </div>
 
-      <div className="card-hover panel-card min-h-[108px]">
-        <div className="flex h-full items-start justify-between gap-3">
+      <div className="card-hover panel-card min-h-[96px] py-4">
+        <div className="flex h-full items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Total Traffic</p>
-            <p className="mt-2 text-[22px] font-semibold leading-none text-txt-primary tabular-nums">
+            <p className="mt-1.5 text-[22px] font-semibold leading-none text-txt-primary tabular-nums">
               <AnimatedNumber value={totalTraffic} format={formatBytes} />
             </p>
           </div>
@@ -215,11 +215,11 @@ export function DashboardMetrics({
         </div>
       </div>
 
-      <div className="card-hover panel-card min-h-[108px]">
-        <div className="flex h-full items-start justify-between gap-3">
+      <div className="card-hover panel-card min-h-[96px] py-4">
+        <div className="flex h-full items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[12px] font-semibold uppercase tracking-wider text-txt-muted">Connections</p>
-            <p className="mt-2 text-[14px] font-semibold text-txt-primary tabular-nums">
+            <p className="mt-1.5 text-[14px] font-semibold text-txt-primary tabular-nums">
               TCP <AnimatedNumber value={tcpConnections} />
               <span className="mx-1 text-txt-muted">/</span>
               UDP <AnimatedNumber value={udpConnections} />
