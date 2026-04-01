@@ -273,15 +273,8 @@ export default function DashboardPage() {
     return buckets;
   }, [historyConfig, historyPoints]);
 
-  const trafficTotals = useMemo(() => {
-    return trafficUsageBars.reduce(
-      (acc, item) => {
-        acc.download += item.download_bytes;
-        acc.upload += item.upload_bytes;
-        return acc;
-      },
-      { download: 0, upload: 0 },
-    );
+  const trafficTotal = useMemo(() => {
+    return trafficUsageBars.reduce((sum, item) => sum + item.download_bytes + item.upload_bytes, 0);
   }, [trafficUsageBars]);
 
   const showHistorySkeleton = historyLoading && !historyPoints.length;
@@ -323,7 +316,7 @@ export default function DashboardPage() {
         onDismissHistoryError={() => setDismissedHistoryError(true)}
         onRetryHistory={retryHistory}
         showHistorySkeleton={showHistorySkeleton}
-        trafficTotals={trafficTotals}
+        trafficTotal={trafficTotal}
         trafficUsageBars={trafficUsageBars}
       />
 

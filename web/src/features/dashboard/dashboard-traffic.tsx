@@ -36,17 +36,13 @@ type DashboardTrafficProps = {
   onDismissHistoryError: () => void;
   onRetryHistory: () => void;
   showHistorySkeleton: boolean;
-  trafficTotals: {
-    download: number;
-    upload: number;
-  };
+  trafficTotal: number;
   trafficUsageBars: TrafficUsageBarPoint[];
 };
 
 type TrafficChartPoint = {
   ts: number;
-  download: number;
-  upload: number;
+  total: number;
 };
 
 const WINDOW_TABS: Array<{ value: HistoryWindow; label: string }> = [
@@ -62,7 +58,7 @@ export function DashboardTraffic({
   onDismissHistoryError,
   onRetryHistory,
   showHistorySkeleton,
-  trafficTotals,
+  trafficTotal,
   trafficUsageBars,
 }: DashboardTrafficProps) {
   const chartData = useMemo<TrafficChartPoint[]>(() => {
@@ -74,27 +70,23 @@ export function DashboardTraffic({
         continue;
       }
 
-      const download = Math.max(0, Number(entry.download_bytes) || 0);
-      const upload = Math.max(0, Number(entry.upload_bytes) || 0);
+      const total = Math.max(0, Number(entry.download_bytes) || 0) + Math.max(0, Number(entry.upload_bytes) || 0);
       const current = merged.get(ts);
 
       if (current) {
-        current.download += download;
-        current.upload += upload;
+        current.total += total;
         continue;
       }
 
       merged.set(ts, {
         ts,
-        download,
-        upload,
+        total,
       });
     }
 
     return Array.from(merged.values()).sort((a, b) => a.ts - b.ts);
   }, [trafficUsageBars]);
 
-  const totalTraffic = Math.max(0, trafficTotals.download + trafficTotals.upload);
   const tickCount = historyWindow === "1h" ? 12 : historyWindow === "24h" ? 8 : 7;
 
   return (
@@ -125,26 +117,10 @@ export function DashboardTraffic({
       />
 
       <div className="panel-card p-4 sm:p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-[13px]">
-          <div className="flex flex-wrap items-center gap-4">
-            <span className="inline-flex items-center gap-2 text-txt-secondary">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "var(--data-1)" }} />
-              Download
-            </span>
-            <span className="inline-flex items-center gap-2 text-txt-secondary">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "var(--data-2)" }} />
-              Upload
-            </span>
-          </div>
+        <div className="mb-4 flex flex-wrap items-center justify-end gap-3 text-[13px]">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
-              Total: {formatBytes(totalTraffic)}
-            </span>
-            <span className="rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
-              Down: {formatBytes(trafficTotals.download)}
-            </span>
-            <span className="rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
-              Up: {formatBytes(trafficTotals.upload)}
+              Total: {formatBytes(trafficTotal)}
             </span>
           </div>
         </div>
@@ -200,19 +176,9 @@ export function DashboardTraffic({
                 />
 
                 <Bar
-                  dataKey="download"
-                  name="Download"
-                  stackId="traffic"
+                  dataKey="total"
+                  name="Total"
                   fill="var(--data-1)"
-                  maxBarSize={42}
-                  radius={[4, 4, 0, 0]}
-                  isAnimationActive={false}
-                />
-                <Bar
-                  dataKey="upload"
-                  name="Upload"
-                  stackId="traffic"
-                  fill="var(--data-2)"
                   maxBarSize={42}
                   radius={[4, 4, 0, 0]}
                   isAnimationActive={false}
