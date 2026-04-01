@@ -1,20 +1,17 @@
-import { Code, Download, Gauge, Globe, Lock, Shield, SlidersHorizontal, Upload } from "lucide-react";
+import { Download, Gauge, Globe, Lock, Shield, SlidersHorizontal, Upload } from "lucide-react";
 import { useEffect, useMemo } from "react";
 
 import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
 import { type Hy2Settings } from "@/domain/settings/types";
 import { buildSnapshotItems } from "@/src/features/settings/server-settings-utils";
-import { YamlPreview } from "@/src/features/settings/yaml-preview";
 import { Button, Input, SectionCard, SectionTitle, SelectField, ToggleField } from "@/src/components/ui";
 
 export function ServerSettingsForm({
   draft,
-  rawYaml,
   onDraftChange,
   snapshotStorage,
 }: {
   draft: Hy2Settings;
-  rawYaml: string;
   onDraftChange: (next: Hy2Settings) => void;
   snapshotStorage?: {
     busy: boolean;
@@ -41,8 +38,8 @@ export function ServerSettingsForm({
   );
 
   return (
-    <div className="grid gap-4 xl:grid-cols-12">
-      <div className="min-w-0 space-y-4 xl:col-span-8">
+    <div className="grid gap-4">
+      <div className="min-w-0 space-y-4 xl:grid xl:grid-cols-2 xl:gap-4 xl:space-y-0">
         <SectionCard title="General" icon={<Globe size={17} strokeWidth={1.7} />}>
           <div className="grid gap-3 md:grid-cols-2">
             <Input
@@ -137,7 +134,7 @@ export function ServerSettingsForm({
         </SectionCard>
 
         <SectionCard title="Network" icon={<Shield size={17} strokeWidth={1.7} />}>
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2">
             <Input
               label="Bandwidth Up"
               value={draft.bandwidth?.up || ""}
@@ -353,7 +350,7 @@ export function ServerSettingsForm({
           )}
         </SectionCard>
 
-        <SectionCard title="Performance" icon={<SlidersHorizontal size={17} strokeWidth={1.7} />}>
+        <SectionCard title="Performance" icon={<SlidersHorizontal size={17} strokeWidth={1.7} />} className="xl:col-span-2">
           <ToggleField
             label="Custom QUIC"
             checked={draft.quicEnabled}
@@ -387,7 +384,7 @@ export function ServerSettingsForm({
         </SectionCard>
       </div>
 
-      <aside className="min-w-0 space-y-4 xl:sticky xl:top-6 xl:col-span-4 xl:self-start">
+      <aside className="min-w-0">
         <section className="panel-card-compact space-y-3">
           <SectionTitle icon={<Gauge size={16} strokeWidth={1.7} />} title="Snapshot" />
           <div className="grid gap-2">
@@ -433,11 +430,6 @@ export function ServerSettingsForm({
               )}
             </div>
           ) : null}
-        </section>
-
-        <section className="panel-card-compact space-y-3">
-          <SectionTitle icon={<Code size={16} strokeWidth={1.7} />} title="YAML" />
-          <YamlPreview value={rawYaml} />
         </section>
       </aside>
     </div>

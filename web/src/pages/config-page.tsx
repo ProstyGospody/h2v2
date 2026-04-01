@@ -356,9 +356,9 @@ export default function ConfigPage() {
       <ErrorBanner message={error} onDismiss={() => setError("")} />
 
       {loading ? (
-        <div className="grid gap-4 xl:grid-cols-12">
-          <div className="min-w-0 space-y-4 xl:col-span-8">
-            {Array.from({ length: 4 }, (_, index) => (
+        <div className="grid gap-4">
+          <div className="grid gap-4 xl:grid-cols-2">
+            {Array.from({ length: 5 }, (_, index) => (
               <section key={index} className="panel-card min-h-[168px] animate-pulse space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="h-9 w-9 rounded-xl bg-surface-3/55" />
@@ -371,30 +371,20 @@ export default function ConfigPage() {
               </section>
             ))}
           </div>
-          <aside className="min-w-0 space-y-4 xl:col-span-4">
-            <section className="panel-card-compact animate-pulse space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-surface-3/55" />
-                <div className="h-4 w-20 rounded bg-surface-3/55" />
-              </div>
-              <div className="space-y-2">
-                {Array.from({ length: 4 }, (_, i) => <div key={i} className="h-8 w-full rounded-lg bg-surface-3/35" />)}
-              </div>
-              <div className="h-9 w-full rounded-lg bg-surface-3/45" />
-            </section>
-            <section className="panel-card-compact animate-pulse space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-xl bg-surface-3/55" />
-                <div className="h-4 w-16 rounded bg-surface-3/55" />
-              </div>
-              <div className="h-40 w-full rounded-xl bg-surface-3/35" />
-            </section>
-          </aside>
+          <section className="panel-card-compact animate-pulse space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-surface-3/55" />
+              <div className="h-4 w-20 rounded bg-surface-3/55" />
+            </div>
+            <div className="space-y-2">
+              {Array.from({ length: 4 }, (_, i) => <div key={i} className="h-8 w-full rounded-lg bg-surface-3/35" />)}
+            </div>
+            <div className="h-9 w-full rounded-lg bg-surface-3/45" />
+          </section>
         </div>
       ) : (
         <ServerSettingsForm
           draft={draft}
-          rawYaml={rawYaml}
           onDraftChange={setDraft}
           snapshotStorage={{
             busy: isBusy,

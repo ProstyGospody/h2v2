@@ -1,9 +1,9 @@
-import { ChevronDown, Loader2 } from "lucide-react";
-import { FormEvent, useEffect, useId, useMemo, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { FormEvent, useEffect, useId, useState } from "react";
 
-import { buildClientConfigPreview, defaultsSummary, formFromClient, type ClientFormValues } from "@/domain/clients/adapters";
+import { defaultsSummary, formFromClient, type ClientFormValues } from "@/domain/clients/adapters";
 import { HysteriaClient, HysteriaClientDefaults } from "@/domain/clients/types";
-import { Button, Dialog, Input, cn } from "@/src/components/ui";
+import { Button, Dialog, Input } from "@/src/components/ui";
 
 export function ClientFormDialog({
   open, mode, busy, client, defaults, error, onClose, onSubmit,
@@ -18,15 +18,9 @@ export function ClientFormDialog({
   onSubmit: (values: ClientFormValues) => Promise<void>;
 }) {
   const [values, setValues] = useState<ClientFormValues>(formFromClient(client));
-  const [previewOpen, setPreviewOpen] = useState(true);
   const formID = useId();
 
-  useEffect(() => { if (!open) return; setValues(formFromClient(client)); setPreviewOpen(true); }, [client, mode, open]);
-
-  const previewConfig = useMemo(
-    () => (open ? buildClientConfigPreview(values, defaults, mode, client) : ""),
-    [open, values, defaults, mode, client],
-  );
+  useEffect(() => { if (!open) return; setValues(formFromClient(client)); }, [client, mode, open]);
 
   async function submit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); await onSubmit(values); }
 
@@ -62,20 +56,6 @@ export function ClientFormDialog({
         </div>
 
         <Input label="Auth Secret" value={values.authSecret} onChange={(e) => setValues((p) => ({ ...p, authSecret: e.target.value }))} />
-
-        <div className="overflow-hidden rounded-xl border border-border/50 bg-surface-2/65">
-          <button type="button" className="flex w-full items-center justify-between px-4 py-3 text-left text-[14px] font-semibold text-txt-primary transition-colors hover:bg-[var(--control-bg-hover)]"
-            onClick={() => setPreviewOpen((p) => !p)}>
-            <span>Advanced YAML</span>
-            <ChevronDown size={16} strokeWidth={1.6} className={cn("text-txt-tertiary transition-transform duration-200", previewOpen && "rotate-180")} />
-          </button>
-          {previewOpen && (
-            <div className="border-t border-border/40 bg-surface-1/30 p-4">
-              <textarea readOnly value={previewConfig} rows={12}
-                className="w-full rounded-lg border border-[var(--control-border)] bg-[var(--control-bg)] px-4 py-2.5 font-mono text-[13px] leading-6 text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)] outline-none" />
-            </div>
-          )}
-        </div>
       </form>
     </Dialog>
   );
