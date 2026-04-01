@@ -5,9 +5,41 @@ export function clampPercent(value: number): number {
   return Math.max(0, Math.min(100, value));
 }
 
+function parseDate(value: unknown): Date | null {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    if (/^\d+$/.test(trimmed)) {
+      const numeric = Number(trimmed);
+      if (Number.isFinite(numeric)) {
+        const numericDate = new Date(numeric);
+        if (!Number.isNaN(numericDate.getTime())) {
+          return numericDate;
+        }
+      }
+    }
+
+    const date = new Date(trimmed);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  return null;
+}
+
 export function formatTooltipDate(value: unknown): string {
-  const date = value instanceof Date ? value : new Date(String(value));
-  if (Number.isNaN(date.getTime())) return "--";
+  const date = parseDate(value);
+  if (!date) return "--";
   return `${date.toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" })} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 }
 
@@ -17,8 +49,8 @@ export function formatTrafficTick(value: Date): string {
 }
 
 export function formatTrafficTooltipLabel(value: unknown, window: HistoryWindow): string {
-  const date = value instanceof Date ? value : new Date(String(value));
-  if (Number.isNaN(date.getTime())) return "--";
+  const date = parseDate(value);
+  if (!date) return "--";
   if (window === "24h") {
     return `${date.toLocaleDateString([], { day: "2-digit", month: "short" })} ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
   }
