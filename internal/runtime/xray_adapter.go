@@ -399,6 +399,9 @@ func buildXrayConfig(inbounds []repository.Inbound, users []repository.UserWithC
 			stream["grpcSettings"] = map[string]any{"serviceName": firstNonEmpty(readString(params, "serviceName"), "grpc")}
 		}
 		if security == "reality" {
+			if err := normalizeRealityParams("reality", params); err != nil {
+				return nil, fmt.Errorf("vless reality inbound %s is invalid: %w", firstNonEmpty(inbound.Name, inbound.ID, "vless"), err)
+			}
 			serverNames := readStringSlice(params, "sni")
 			if len(serverNames) == 0 {
 				if fallback := readString(params, "serverName"); fallback != "" {
@@ -410,7 +413,7 @@ func buildXrayConfig(inbounds []repository.Inbound, users []repository.UserWithC
 			}
 			privateKey := readString(params, "privateKey")
 			if privateKey == "" || len(serverNames) == 0 {
-				continue
+				return nil, fmt.Errorf("vless reality inbound %s is invalid: privateKey and sni/serverName are required", firstNonEmpty(inbound.Name, inbound.ID, "vless"))
 			}
 			stream["realitySettings"] = map[string]any{
 				"show":        false,

@@ -19,7 +19,7 @@ func TestBuildXrayConfigFiltersDisabledAndExpiredUsers(t *testing.T) {
 			Host:      "example.com",
 			Port:      443,
 			Enabled:   true,
-			ParamsJSON: `{"flow":"xtls-rprx-vision","sni":"cdn.example.com","privateKey":"priv","sid":"ab12"}`,
+			ParamsJSON: `{"flow":"xtls-rprx-vision","sni":"cdn.example.com","privateKey":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","sid":"ab12"}`,
 		},
 	}
 

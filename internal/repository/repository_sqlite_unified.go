@@ -3,6 +3,7 @@
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -580,6 +581,9 @@ func (r *SQLiteRepository) UpsertInbound(ctx context.Context, inbound Inbound) (
 	inbound.RuntimeJSON = strings.TrimSpace(inbound.RuntimeJSON)
 	if inbound.RuntimeJSON == "" {
 		inbound.RuntimeJSON = "{}"
+	}
+	if err := normalizeInboundParamsForStorage(&inbound); err != nil {
+		return Inbound{}, err
 	}
 
 	now := time.Now().UTC()
@@ -1390,6 +1394,33 @@ func (r *SQLiteRepository) nodeAddressByID(ctx context.Context, id string) (stri
 		return "", translateSQLiteErr(err)
 	}
 	return strings.TrimSpace(address), nil
+}
+
+func normalizeInboundParamsForStorage(inbound *Inbound) error {
+	if inbound == nil {
+		return nil
+	}
+	raw := strings.TrimSpace(inbound.ParamsJSON)
+	if raw == "" {
+		raw = "{}"
+	}
+	params := make(map[string]any)
+	if err := json.Unmarshal([]byte(raw), &params); err != nil {
+		return fmt.Errorf("inbound params_json is invalid")
+	}
+	if inbound.Protocol == ProtocolVLESS && strings.EqualFold(strings.TrimSpace(inbound.Security), "reality") {
+		normalized, _, err := normalizeLegacyRealityParams(params)
+		if err != nil {
+			return fmt.Errorf("vless reality params are invalid: %w", err)
+		}
+		params = normalized
+	}
+	encoded, err := json.Marshal(params)
+	if err != nil {
+		return err
+	}
+	inbound.ParamsJSON = string(encoded)
+	return nil
 }
 
 func protocolsFromCredentials(credentials []Credential, filter *Protocol) []Protocol {

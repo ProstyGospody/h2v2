@@ -135,6 +135,9 @@ func (r *SQLiteRepository) ensureSchema(ctx context.Context) error {
 	if err := r.ensureUnifiedSchema(ctx); err != nil {
 		return err
 	}
+	if err := r.migrateVLESSRealityDefaults(ctx); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -682,13 +685,15 @@ func normalizeLegacyRealityParams(params map[string]any) (map[string]any, bool, 
 			publicKey = encodeLegacyRealityKey(decoded)
 		}
 	}
-	if privateKey != "" && publicKey == "" {
+	if privateKey != "" {
 		derivedPublic, derivedErr := deriveLegacyRealityPublicKey(privateKey)
 		if derivedErr != nil {
 			return params, false, derivedErr
 		}
-		publicKey = derivedPublic
-		changed = true
+		if publicKey != derivedPublic {
+			publicKey = derivedPublic
+			changed = true
+		}
 	}
 	if privateKey == "" || publicKey == "" {
 		var pairErr error
