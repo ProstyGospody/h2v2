@@ -342,6 +342,7 @@ func buildSingBoxVLESSURI(uuidValue string, serverHost string, serverPort int, t
 	query := url.Values{}
 	query.Set("type", transport)
 	query.Set("encryption", "none")
+	query.Set("packetEncoding", "xudp")
 	if security == "tls" || security == "reality" {
 		query.Set("security", security)
 	}
@@ -402,6 +403,7 @@ func renderSingBoxVLESSOutbound(
 	if flow != "" {
 		out["flow"] = flow
 	}
+	out["packet_encoding"] = "xudp"
 	if security == "tls" || security == "reality" {
 		tls := map[string]any{"enabled": true}
 		if strings.TrimSpace(sni) != "" {
@@ -500,6 +502,7 @@ func renderClashVLESSNode(
 		lines = append(lines, "  grpc-opts:")
 		lines = append(lines, "    grpc-service-name: "+firstNonEmpty(readString(params, "service_name"), readString(params, "serviceName"), "grpc"))
 	}
+	lines = append(lines, "  packet-encoding: xudp")
 	return strings.Join(lines, "\n")
 }
 
@@ -587,30 +590,26 @@ func resolveOutboundServerName(params map[string]any, security string, serverHos
 	if security != "reality" {
 		return ""
 	}
-	fallback := normalizePublicEndpointHost(serverHost)
-	if fallback == "" || net.ParseIP(fallback) != nil {
-		return "www.cloudflare.com"
-	}
-	return fallback
+	_ = serverHost
+	return "www.cloudflare.com"
 }
 
 func defaultRealityHandshakeServer(params map[string]any, inboundHost string, artifactHost string) string {
 	candidates := []string{
+		readString(params, "handshake_server"),
+		readString(params, "handshakeServer"),
 		readString(params, "sni"),
 		readString(params, "server_name"),
 		readString(params, "serverName"),
-		inboundHost,
-		artifactHost,
 	}
-	for idx, candidate := range candidates {
+	for _, candidate := range candidates {
 		host := normalizePublicEndpointHost(candidate)
 		if host != "" {
-			if idx >= 3 && net.ParseIP(host) != nil {
-				continue
-			}
 			return host
 		}
 	}
+	_ = inboundHost
+	_ = artifactHost
 	return "www.cloudflare.com"
 }
 

@@ -119,6 +119,12 @@ func TestSingBoxAdapterBuildArtifactsUsesEnabledInbound(t *testing.T) {
 	if strings.Contains(artifact.AccessURI, "disabled.example.com") {
 		t.Fatalf("disabled inbound leaked into uri: %s", artifact.AccessURI)
 	}
+	if !strings.Contains(artifact.AccessURI, "packetEncoding=xudp") {
+		t.Fatalf("expected xudp packet encoding in uri: %s", artifact.AccessURI)
+	}
+	if !strings.Contains(artifact.AccessURI, "sni=cdn.example.com") {
+		t.Fatalf("expected sni in uri: %s", artifact.AccessURI)
+	}
 }
 
 func TestSingBoxAdapterBuildArtifactsRequiresEnabledInbound(t *testing.T) {
@@ -145,5 +151,36 @@ func TestSingBoxAdapterBuildArtifactsRequiresEnabledInbound(t *testing.T) {
 	_, err := adapter.BuildArtifacts(nil, user, inbounds, "https://sub.example.com/api/subscriptions/token")
 	if err == nil {
 		t.Fatalf("expected an error when enabled inbound is missing")
+	}
+}
+
+func TestSingBoxAdapterBuildArtifactsRealityDefaultsToCloudflareSNI(t *testing.T) {
+	adapter := NewSingBoxAdapter("", "", nil, "", "panel.example.com")
+	user := repository.UserWithCredentials{
+		User: repository.User{ID: "u1", Name: "demo", Enabled: true},
+		Credentials: []repository.Credential{
+			{Protocol: repository.ProtocolVLESS, Identity: "2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad"},
+		},
+	}
+	inbounds := []repository.Inbound{
+		{
+			ID:        "vless-enabled",
+			Name:      "Enabled",
+			Protocol:  repository.ProtocolVLESS,
+			Transport: "tcp",
+			Security:  "reality",
+			Host:      "edge.example.com",
+			Port:      443,
+			Enabled:   true,
+			ParamsJSON: `{"privateKey":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","pbk":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","sid":"ab12"}`,
+		},
+	}
+
+	artifact, err := adapter.BuildArtifacts(nil, user, inbounds, "https://sub.example.com/api/subscriptions/token")
+	if err != nil {
+		t.Fatalf("build artifacts: %v", err)
+	}
+	if !strings.Contains(artifact.AccessURI, "sni=www.cloudflare.com") {
+		t.Fatalf("expected cloudflare sni fallback, got: %s", artifact.AccessURI)
 	}
 }
