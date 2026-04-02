@@ -275,3 +275,31 @@ func TestBuildSingBoxVLESSConfigRejectsRealityWithWSTransport(t *testing.T) {
 		t.Fatalf("expected reality transport validation error")
 	}
 }
+
+func TestSingBoxAdapterBuildArtifactsRejectsLoopbackHostWithoutPublicFallback(t *testing.T) {
+	adapter := NewSingBoxAdapter("", "", nil, "", "")
+	user := repository.UserWithCredentials{
+		User: repository.User{ID: "u1", Name: "demo", Enabled: true},
+		Credentials: []repository.Credential{
+			{Protocol: repository.ProtocolVLESS, Identity: "2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad"},
+		},
+	}
+	inbounds := []repository.Inbound{
+		{
+			ID:        "vless-enabled",
+			Name:      "Enabled",
+			Protocol:  repository.ProtocolVLESS,
+			Transport: "tcp",
+			Security:  "reality",
+			Host:      "127.0.0.1",
+			Port:      443,
+			Enabled:   true,
+			ParamsJSON: `{"privateKey":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","pbk":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","sid":"ab12","dest":"www.cloudflare.com:443"}`,
+		},
+	}
+
+	_, err := adapter.BuildArtifacts(nil, user, inbounds, "https://sub.example.com/api/subscriptions/token")
+	if err == nil {
+		t.Fatalf("expected public endpoint host validation error")
+	}
+}

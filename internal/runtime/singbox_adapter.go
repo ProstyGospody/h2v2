@@ -145,6 +145,9 @@ func (a *SingBoxAdapter) BuildArtifacts(_ context.Context, user repository.UserW
 	}
 
 	serverHost := a.resolveArtifactHost(inbound.Host)
+	if serverHost == "" {
+		return UserArtifacts{}, fmt.Errorf("public endpoint host is missing for vless artifacts")
+	}
 	serverName := resolveVLESSAccessServerName(runtimeConfig)
 
 	uri, err := buildSingBoxVLESSURI(credential.Identity, serverHost, runtimeConfig.Port, runtimeConfig, serverName)
@@ -175,11 +178,7 @@ func (a *SingBoxAdapter) resolveArtifactHost(raw string) string {
 	if a != nil && strings.TrimSpace(a.artifactHost) != "" {
 		return a.artifactHost
 	}
-	host = normalizeHostOnly(raw)
-	if host != "" {
-		return host
-	}
-	return "127.0.0.1"
+	return ""
 }
 
 func (a *SingBoxAdapter) applyConfig(config map[string]any) error {
@@ -285,7 +284,10 @@ func buildSingBoxVLESSConfig(inbounds []repository.Inbound, users []repository.U
 			{"type": "direct", "tag": "direct"},
 			{"type": "block", "tag": "block"},
 		},
-		"route": map[string]any{"final": "direct"},
+		"route": map[string]any{
+			"auto_detect_interface": true,
+			"final":                 "direct",
+		},
 	}, nil
 }
 

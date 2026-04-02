@@ -509,6 +509,7 @@ func (h *Handler) serializeUnifiedUser(ctx context.Context, user repository.User
 	if err != nil {
 		response["artifacts"] = map[string]any{}
 		response["subscription_url"] = ""
+		response["artifacts_error"] = err.Error()
 		return response
 	}
 	response["artifacts"] = artifacts

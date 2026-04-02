@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net"
+	"net/url"
 	"net/http"
+	"strings"
 	"time"
 
 	"h2v2/internal/config"
@@ -110,7 +113,7 @@ func NewServer(cfg config.Config, logger *slog.Logger, repo repository.Repositor
 	hy2RuntimeClient := hy2ClientRuntimeAdapter{inner: hy2Client}
 	runtime := runtimecore.NewRuntime(
 		runtimecore.NewHY2Adapter(hy2RuntimeAccess, hy2RuntimeClient, serviceManager, "hysteria-server"),
-		runtimecore.NewSingBoxAdapter(cfg.SingBoxBinaryPath, cfg.SingBoxConfigPath, serviceManager, cfg.SingBoxServiceName, cfg.PanelPublicHost),
+		runtimecore.NewSingBoxAdapter(cfg.SingBoxBinaryPath, cfg.SingBoxConfigPath, serviceManager, cfg.SingBoxServiceName, resolveRuntimeArtifactHost(cfg)),
 	)
 	userManager := services.NewUserManager(cfg, repo, runtime)
 	systemMetrics := services.NewSystemMetricsCollector()
@@ -139,6 +142,63 @@ func NewServer(cfg config.Config, logger *slog.Logger, repo repository.Repositor
 		userManager:    userManager,
 		serviceManager: serviceManager,
 	}
+}
+
+func resolveRuntimeArtifactHost(cfg config.Config) string {
+	candidates := []string{
+		strings.TrimSpace(cfg.SubscriptionPublicURL),
+		strings.TrimSpace(cfg.PublicPanelURL),
+		strings.TrimSpace(cfg.PanelPublicHost),
+	}
+	for _, candidate := range candidates {
+		host := normalizeRuntimeHost(candidate)
+		if host == "" {
+			continue
+		}
+		if isLoopbackOrUnspecifiedHost(host) {
+			continue
+		}
+		return host
+	}
+	return normalizeRuntimeHost(strings.TrimSpace(cfg.PanelPublicHost))
+}
+
+func normalizeRuntimeHost(raw string) string {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return ""
+	}
+	if strings.Contains(value, "://") {
+		parsed, err := url.Parse(value)
+		if err != nil {
+			return ""
+		}
+		value = strings.TrimSpace(parsed.Host)
+	}
+	if value == "" {
+		return ""
+	}
+	if host, _, err := net.SplitHostPort(value); err == nil {
+		value = host
+	}
+	value = strings.TrimSpace(strings.Trim(value, "[]"))
+	value = strings.TrimSuffix(value, ".")
+	return strings.ToLower(value)
+}
+
+func isLoopbackOrUnspecifiedHost(raw string) bool {
+	host := strings.TrimSpace(raw)
+	if host == "" {
+		return true
+	}
+	switch host {
+	case "localhost", "127.0.0.1", "::1", "0.0.0.0", "::":
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.IsLoopback() || ip.IsUnspecified()
+	}
+	return false
 }
 
 func (s *Server) Run(ctx context.Context) error {
