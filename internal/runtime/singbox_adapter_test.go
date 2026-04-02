@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -301,5 +302,162 @@ func TestSingBoxAdapterBuildArtifactsRejectsLoopbackHostWithoutPublicFallback(t 
 	_, err := adapter.BuildArtifacts(nil, user, inbounds, "https://sub.example.com/api/subscriptions/token")
 	if err == nil {
 		t.Fatalf("expected public endpoint host validation error")
+	}
+}
+
+func TestBuildSingBoxVLESSConfigWithStatsIncludesUsersAndInbounds(t *testing.T) {
+	inbounds := []repository.Inbound{
+		{
+			ID:         "vless-main",
+			Name:       "vless-main",
+			Protocol:   repository.ProtocolVLESS,
+			Transport:  "tcp",
+			Security:   "reality",
+			Host:       "example.com",
+			Port:       443,
+			Enabled:    true,
+			ParamsJSON: `{"flow":"xtls-rprx-vision","privateKey":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","pbk":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","sid":"ab12","dest":"www.cloudflare.com:443"}`,
+		},
+	}
+	users := []repository.UserWithCredentials{
+		{
+			User: repository.User{ID: "u1", Name: "alpha", Enabled: true},
+			Credentials: []repository.Credential{
+				{Protocol: repository.ProtocolVLESS, Identity: "2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad"},
+			},
+		},
+		{
+			User: repository.User{ID: "u2", Name: "beta", Enabled: false},
+			Credentials: []repository.Credential{
+				{Protocol: repository.ProtocolVLESS, Identity: "ae299911-bf1c-45d4-a6f5-23395f8f731a"},
+			},
+		},
+	}
+
+	config, err := buildSingBoxVLESSConfigWithStats(inbounds, users, "panel.example.com", true, "127.0.0.1:10086")
+	if err != nil {
+		t.Fatalf("build config with stats: %v", err)
+	}
+
+	experimental, ok := config["experimental"].(map[string]any)
+	if !ok {
+		t.Fatalf("experimental block is missing: %+v", config)
+	}
+	v2rayAPI, ok := experimental["v2ray_api"].(map[string]any)
+	if !ok {
+		t.Fatalf("v2ray_api block is missing: %+v", experimental)
+	}
+	if v2rayAPI["listen"] != "127.0.0.1:10086" {
+		t.Fatalf("unexpected stats listen endpoint: %+v", v2rayAPI["listen"])
+	}
+	stats, ok := v2rayAPI["stats"].(map[string]any)
+	if !ok {
+		t.Fatalf("stats block is missing: %+v", v2rayAPI)
+	}
+	enabled, ok := stats["enabled"].(bool)
+	if !ok || !enabled {
+		t.Fatalf("expected stats.enabled=true, got %+v", stats["enabled"])
+	}
+	inboundTags, ok := stats["inbounds"].([]string)
+	if !ok {
+		t.Fatalf("stats.inbounds has invalid type: %+v", stats["inbounds"])
+	}
+	if !reflect.DeepEqual(inboundTags, []string{"vless-main"}) {
+		t.Fatalf("unexpected stats.inbounds: %+v", inboundTags)
+	}
+	usersList, ok := stats["users"].([]string)
+	if !ok {
+		t.Fatalf("stats.users has invalid type: %+v", stats["users"])
+	}
+	if !reflect.DeepEqual(usersList, []string{"alpha"}) {
+		t.Fatalf("unexpected stats.users: %+v", usersList)
+	}
+}
+
+func TestParseSingBoxUserTrafficName(t *testing.T) {
+	tests := []struct {
+		name      string
+		raw       string
+		wantUser  string
+		wantDir   string
+		wantValid bool
+	}{
+		{
+			name:      "uplink",
+			raw:       "user>>>demo>>>traffic>>>uplink",
+			wantUser:  "demo",
+			wantDir:   "uplink",
+			wantValid: true,
+		},
+		{
+			name:      "downlink",
+			raw:       "user>>>demo>>>traffic>>>downlink",
+			wantUser:  "demo",
+			wantDir:   "downlink",
+			wantValid: true,
+		},
+		{
+			name:      "invalid-prefix",
+			raw:       "inbound>>>demo>>>traffic>>>uplink",
+			wantValid: false,
+		},
+		{
+			name:      "invalid-direction",
+			raw:       "user>>>demo>>>traffic>>>unknown",
+			wantValid: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gotUser, gotDir, gotValid := parseSingBoxUserTrafficName(tc.raw)
+			if gotValid != tc.wantValid {
+				t.Fatalf("valid mismatch: want=%v got=%v", tc.wantValid, gotValid)
+			}
+			if !tc.wantValid {
+				return
+			}
+			if gotUser != tc.wantUser || gotDir != tc.wantDir {
+				t.Fatalf("unexpected parse result: user=%q dir=%q", gotUser, gotDir)
+			}
+		})
+	}
+}
+
+func TestUnmarshalSingBoxQueryStatsResponse(t *testing.T) {
+	encodeStat := func(name string, value int64) []byte {
+		stat := make([]byte, 0, 64)
+		stat = appendProtoStringField(stat, 1, name)
+		stat = appendProtoTag(stat, 2, 0)
+		stat = appendProtoVarint(stat, uint64(value))
+		return stat
+	}
+
+	payload := make([]byte, 0, 256)
+	for _, item := range []struct {
+		name  string
+		value int64
+	}{
+		{name: "user>>>alpha>>>traffic>>>uplink", value: 100},
+		{name: "user>>>alpha>>>traffic>>>downlink", value: 200},
+	} {
+		encoded := encodeStat(item.name, item.value)
+		payload = appendProtoTag(payload, 1, 2)
+		payload = appendProtoVarint(payload, uint64(len(encoded)))
+		payload = append(payload, encoded...)
+	}
+
+	stats, err := unmarshalSingBoxQueryStatsResponse(payload)
+	if err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if len(stats) != 2 {
+		t.Fatalf("unexpected stats length: %d", len(stats))
+	}
+	if stats[0].Name != "user>>>alpha>>>traffic>>>uplink" || stats[0].Value != 100 {
+		t.Fatalf("unexpected first stat: %+v", stats[0])
+	}
+	if stats[1].Name != "user>>>alpha>>>traffic>>>downlink" || stats[1].Value != 200 {
+		t.Fatalf("unexpected second stat: %+v", stats[1])
 	}
 }

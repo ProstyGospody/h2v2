@@ -10,12 +10,17 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"h2v2/internal/fsutil"
 	"h2v2/internal/repository"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -27,14 +32,22 @@ const (
 	defaultVLESSFingerprint     = "chrome"
 	defaultVLESSWSPath          = "/"
 	defaultVLESSGRPCServiceName = "grpc"
+	defaultSingBoxV2RayAPIListen = "127.0.0.1:10086"
+	singBoxStatsQueryMethod      = "/v2ray.core.app.stats.command.StatsService/QueryStats"
+	singBoxUserStatPrefix        = "user>>>"
+	singBoxUserTrafficToken      = ">>>traffic>>>"
+	singBoxFeatureV2RayAPI       = "with_v2ray_api"
 )
 
 type SingBoxAdapter struct {
-	binaryPath   string
-	configPath   string
-	services     ServiceRestarter
-	serviceName  string
-	artifactHost string
+	binaryPath      string
+	configPath      string
+	services        ServiceRestarter
+	serviceName     string
+	artifactHost    string
+	v2rayAPIListen  string
+	v2rayAPIEnabled bool
+	v2rayAPIOnce    sync.Once
 }
 
 type singBoxVLESSRuntimeConfig struct {
@@ -78,11 +91,12 @@ func NewSingBoxAdapter(binaryPath string, configPath string, svc ServiceRestarte
 		bin = defaultSingBoxBinaryPath
 	}
 	return &SingBoxAdapter{
-		binaryPath:   bin,
-		configPath:   strings.TrimSpace(configPath),
-		services:     svc,
-		serviceName:  name,
-		artifactHost: normalizePublicEndpointHost(artifactHost),
+		binaryPath:     bin,
+		configPath:     strings.TrimSpace(configPath),
+		services:       svc,
+		serviceName:    name,
+		artifactHost:   normalizePublicEndpointHost(artifactHost),
+		v2rayAPIListen: defaultSingBoxV2RayAPIListen,
 	}
 }
 
@@ -91,7 +105,7 @@ func (a *SingBoxAdapter) Protocol() repository.Protocol {
 }
 
 func (a *SingBoxAdapter) SyncConfig(ctx context.Context, inbounds []repository.Inbound, users []repository.UserWithCredentials) error {
-	config, err := buildSingBoxVLESSConfig(inbounds, users, a.artifactHost)
+	config, err := buildSingBoxVLESSConfigWithStats(inbounds, users, a.artifactHost, a.v2rayStatsAvailable(), a.v2rayAPIListen)
 	if err != nil {
 		return err
 	}
@@ -121,8 +135,49 @@ func (a *SingBoxAdapter) KickUser(context.Context, repository.UserWithCredential
 	return fmt.Errorf("vless kick is not supported for sing-box runtime")
 }
 
-func (a *SingBoxAdapter) CollectTraffic(context.Context, []repository.UserWithCredentials) ([]repository.TrafficCounter, error) {
-	return nil, nil
+func (a *SingBoxAdapter) CollectTraffic(ctx context.Context, users []repository.UserWithCredentials) ([]repository.TrafficCounter, error) {
+	if !a.v2rayStatsAvailable() || len(users) == 0 {
+		return nil, nil
+	}
+
+	identityByName := make(map[string]string, len(users))
+	for _, user := range users {
+		credential, ok := userCredential(user, repository.ProtocolVLESS)
+		if !ok {
+			continue
+		}
+		statsUserName := firstNonEmpty(user.Name, credential.Identity)
+		if strings.TrimSpace(statsUserName) == "" {
+			continue
+		}
+		identityByName[statsUserName] = user.ID
+	}
+	if len(identityByName) == 0 {
+		return nil, nil
+	}
+
+	statsByUser, err := a.queryV2RayUserStats(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC()
+	counters := make([]repository.TrafficCounter, 0, len(statsByUser))
+	for statsUserName, traffic := range statsByUser {
+		userID, ok := identityByName[statsUserName]
+		if !ok {
+			continue
+		}
+		counters = append(counters, repository.TrafficCounter{
+			UserID:     userID,
+			Protocol:   repository.ProtocolVLESS,
+			TxBytes:    traffic.TxBytes,
+			RxBytes:    traffic.RxBytes,
+			SnapshotAt: now,
+		})
+	}
+
+	return counters, nil
 }
 
 func (a *SingBoxAdapter) CollectOnline(context.Context, []repository.UserWithCredentials) (map[string]int, error) {
@@ -234,9 +289,126 @@ func (a *SingBoxAdapter) restart(ctx context.Context) error {
 	return a.services.Restart(ctx, a.serviceName)
 }
 
+func (a *SingBoxAdapter) v2rayStatsAvailable() bool {
+	if a == nil {
+		return false
+	}
+	a.v2rayAPIOnce.Do(func() {
+		a.v2rayAPIEnabled = detectSingBoxFeature(a.binaryPath, singBoxFeatureV2RayAPI)
+	})
+	return a.v2rayAPIEnabled
+}
+
+type singBoxUserTrafficStats struct {
+	TxBytes int64
+	RxBytes int64
+}
+
+func (a *SingBoxAdapter) queryV2RayUserStats(ctx context.Context) (map[string]singBoxUserTrafficStats, error) {
+	listen := strings.TrimSpace(a.v2rayAPIListen)
+	if listen == "" {
+		listen = defaultSingBoxV2RayAPIListen
+	}
+
+	codec := singBoxV2RayCodec{}
+	conn, err := grpc.DialContext(
+		ctx,
+		listen,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+		grpc.WithDefaultCallOptions(grpc.ForceCodec(codec)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	request := &singBoxV2RayQueryStatsRequest{
+		Patterns: []string{singBoxUserStatPrefix},
+	}
+	response := &singBoxV2RayQueryStatsResponse{}
+	if err := conn.Invoke(ctx, singBoxStatsQueryMethod, request, response); err != nil {
+		return nil, err
+	}
+
+	stats := make(map[string]singBoxUserTrafficStats, len(response.Stats))
+	for _, item := range response.Stats {
+		userName, direction, ok := parseSingBoxUserTrafficName(item.Name)
+		if !ok {
+			continue
+		}
+		current := stats[userName]
+		switch direction {
+		case "uplink":
+			current.TxBytes = item.Value
+		case "downlink":
+			current.RxBytes = item.Value
+		default:
+			continue
+		}
+		stats[userName] = current
+	}
+	return stats, nil
+}
+
+type singBoxV2RayQueryStatsRequest struct {
+	Pattern  string
+	Reset    bool
+	Patterns []string
+	Regexp   bool
+}
+
+type singBoxV2RayQueryStatsResponse struct {
+	Stats []singBoxV2RayStat
+}
+
+type singBoxV2RayStat struct {
+	Name  string
+	Value int64
+}
+
+type singBoxV2RayCodec struct{}
+
+func (singBoxV2RayCodec) Name() string {
+	return "proto"
+}
+
+func (singBoxV2RayCodec) Marshal(value any) ([]byte, error) {
+	request, ok := value.(*singBoxV2RayQueryStatsRequest)
+	if !ok {
+		return nil, fmt.Errorf("unsupported v2ray request type")
+	}
+	return marshalSingBoxQueryStatsRequest(*request), nil
+}
+
+func (singBoxV2RayCodec) Unmarshal(data []byte, value any) error {
+	response, ok := value.(*singBoxV2RayQueryStatsResponse)
+	if !ok {
+		return fmt.Errorf("unsupported v2ray response type")
+	}
+	stats, err := unmarshalSingBoxQueryStatsResponse(data)
+	if err != nil {
+		return err
+	}
+	response.Stats = stats
+	return nil
+}
+
 func buildSingBoxVLESSConfig(inbounds []repository.Inbound, users []repository.UserWithCredentials, artifactHost string) (map[string]any, error) {
+	return buildSingBoxVLESSConfigWithStats(inbounds, users, artifactHost, false, "")
+}
+
+func buildSingBoxVLESSConfigWithStats(
+	inbounds []repository.Inbound,
+	users []repository.UserWithCredentials,
+	artifactHost string,
+	enableV2RayStats bool,
+	v2rayStatsListen string,
+) (map[string]any, error) {
 	now := time.Now().UTC()
 	renderedInbounds := make([]map[string]any, 0, len(inbounds))
+	statsUsers := make(map[string]struct{}, len(users))
+	statsInbounds := make(map[string]struct{}, len(inbounds))
 
 	for _, inbound := range inbounds {
 		if inbound.Protocol != repository.ProtocolVLESS || !inbound.Enabled {
@@ -265,6 +437,9 @@ func buildSingBoxVLESSConfig(inbounds []repository.Inbound, users []repository.U
 				entry["flow"] = runtimeConfig.Flow
 			}
 			userEntries = append(userEntries, entry)
+			if enableV2RayStats {
+				statsUsers[firstNonEmpty(user.Name, credential.Identity)] = struct{}{}
+			}
 		}
 		if len(userEntries) == 0 {
 			continue
@@ -275,9 +450,12 @@ func buildSingBoxVLESSConfig(inbounds []repository.Inbound, users []repository.U
 			return nil, fmt.Errorf("vless inbound %s is invalid: %w", runtimeConfig.Tag, err)
 		}
 		renderedInbounds = append(renderedInbounds, inboundPayload)
+		if enableV2RayStats {
+			statsInbounds[runtimeConfig.Tag] = struct{}{}
+		}
 	}
 
-	return map[string]any{
+	payload := map[string]any{
 		"log": map[string]any{"level": "warn"},
 		"inbounds": renderedInbounds,
 		"outbounds": []map[string]any{
@@ -288,7 +466,26 @@ func buildSingBoxVLESSConfig(inbounds []repository.Inbound, users []repository.U
 			"auto_detect_interface": true,
 			"final":                 "direct",
 		},
-	}, nil
+	}
+
+	if enableV2RayStats {
+		listen := strings.TrimSpace(v2rayStatsListen)
+		if listen == "" {
+			listen = defaultSingBoxV2RayAPIListen
+		}
+		payload["experimental"] = map[string]any{
+			"v2ray_api": map[string]any{
+				"listen": listen,
+				"stats": map[string]any{
+					"enabled":  true,
+					"inbounds": sortedKeys(statsInbounds),
+					"users":    sortedKeys(statsUsers),
+				},
+			},
+		}
+	}
+
+	return payload, nil
 }
 
 func parseSingBoxVLESSInbound(inbound repository.Inbound, _ string) (singBoxVLESSRuntimeConfig, error) {
@@ -897,4 +1094,259 @@ func readStringOrFirst(source map[string]any, key string) string {
 		return ""
 	}
 	return strings.TrimSpace(parts[0])
+}
+
+func detectSingBoxFeature(binaryPath string, feature string) bool {
+	bin := strings.TrimSpace(binaryPath)
+	required := strings.ToLower(strings.TrimSpace(feature))
+	if bin == "" || required == "" {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	output, err := exec.CommandContext(ctx, bin, "version").CombinedOutput()
+	if err != nil {
+		return false
+	}
+	normalized := strings.ToLower(string(output))
+	if strings.Contains(normalized, required) {
+		return true
+	}
+	return false
+}
+
+func parseSingBoxUserTrafficName(raw string) (string, string, bool) {
+	value := strings.TrimSpace(raw)
+	if !strings.HasPrefix(value, singBoxUserStatPrefix) {
+		return "", "", false
+	}
+	remaining := strings.TrimPrefix(value, singBoxUserStatPrefix)
+	parts := strings.SplitN(remaining, singBoxUserTrafficToken, 2)
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	userName := strings.TrimSpace(parts[0])
+	direction := strings.TrimSpace(parts[1])
+	if userName == "" {
+		return "", "", false
+	}
+	switch direction {
+	case "uplink", "downlink":
+		return userName, direction, true
+	default:
+		return "", "", false
+	}
+}
+
+func sortedKeys(items map[string]struct{}) []string {
+	if len(items) == 0 {
+		return []string{}
+	}
+	out := make([]string, 0, len(items))
+	for key := range items {
+		trimmed := strings.TrimSpace(key)
+		if trimmed == "" {
+			continue
+		}
+		out = append(out, trimmed)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func marshalSingBoxQueryStatsRequest(request singBoxV2RayQueryStatsRequest) []byte {
+	out := make([]byte, 0, 96)
+	if pattern := strings.TrimSpace(request.Pattern); pattern != "" {
+		out = appendProtoStringField(out, 1, pattern)
+	}
+	if request.Reset {
+		out = appendProtoBoolField(out, 2, true)
+	}
+	for _, raw := range request.Patterns {
+		pattern := strings.TrimSpace(raw)
+		if pattern == "" {
+			continue
+		}
+		out = appendProtoStringField(out, 3, pattern)
+	}
+	if request.Regexp {
+		out = appendProtoBoolField(out, 4, true)
+	}
+	return out
+}
+
+func unmarshalSingBoxQueryStatsResponse(data []byte) ([]singBoxV2RayStat, error) {
+	cursor := data
+	stats := make([]singBoxV2RayStat, 0, 8)
+
+	for len(cursor) > 0 {
+		fieldNumber, wireType, tagBytes, err := consumeProtoTag(cursor)
+		if err != nil {
+			return nil, err
+		}
+		cursor = cursor[tagBytes:]
+
+		if fieldNumber == 1 && wireType == 2 {
+			encodedStat, consumed, err := consumeProtoBytes(cursor)
+			if err != nil {
+				return nil, err
+			}
+			stat, err := unmarshalSingBoxStat(encodedStat)
+			if err != nil {
+				return nil, err
+			}
+			stats = append(stats, stat)
+			cursor = cursor[consumed:]
+			continue
+		}
+
+		consumed, err := skipProtoField(cursor, wireType)
+		if err != nil {
+			return nil, err
+		}
+		cursor = cursor[consumed:]
+	}
+
+	return stats, nil
+}
+
+func unmarshalSingBoxStat(data []byte) (singBoxV2RayStat, error) {
+	cursor := data
+	stat := singBoxV2RayStat{}
+
+	for len(cursor) > 0 {
+		fieldNumber, wireType, tagBytes, err := consumeProtoTag(cursor)
+		if err != nil {
+			return singBoxV2RayStat{}, err
+		}
+		cursor = cursor[tagBytes:]
+
+		switch {
+		case fieldNumber == 1 && wireType == 2:
+			name, consumed, err := consumeProtoString(cursor)
+			if err != nil {
+				return singBoxV2RayStat{}, err
+			}
+			stat.Name = name
+			cursor = cursor[consumed:]
+		case fieldNumber == 2 && wireType == 0:
+			value, consumed, err := consumeProtoVarint(cursor)
+			if err != nil {
+				return singBoxV2RayStat{}, err
+			}
+			stat.Value = int64(value)
+			cursor = cursor[consumed:]
+		default:
+			consumed, err := skipProtoField(cursor, wireType)
+			if err != nil {
+				return singBoxV2RayStat{}, err
+			}
+			cursor = cursor[consumed:]
+		}
+	}
+
+	return stat, nil
+}
+
+func appendProtoStringField(dst []byte, fieldNumber int, value string) []byte {
+	dst = appendProtoTag(dst, fieldNumber, 2)
+	dst = appendProtoVarint(dst, uint64(len(value)))
+	dst = append(dst, value...)
+	return dst
+}
+
+func appendProtoBoolField(dst []byte, fieldNumber int, value bool) []byte {
+	dst = appendProtoTag(dst, fieldNumber, 0)
+	if value {
+		return append(dst, 1)
+	}
+	return append(dst, 0)
+}
+
+func appendProtoTag(dst []byte, fieldNumber int, wireType byte) []byte {
+	tag := uint64(fieldNumber<<3) | uint64(wireType)
+	return appendProtoVarint(dst, tag)
+}
+
+func appendProtoVarint(dst []byte, value uint64) []byte {
+	for value >= 0x80 {
+		dst = append(dst, byte(value)|0x80)
+		value >>= 7
+	}
+	return append(dst, byte(value))
+}
+
+func consumeProtoTag(data []byte) (int, byte, int, error) {
+	rawTag, consumed, err := consumeProtoVarint(data)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	fieldNumber := int(rawTag >> 3)
+	if fieldNumber <= 0 {
+		return 0, 0, 0, fmt.Errorf("invalid protobuf field number")
+	}
+	return fieldNumber, byte(rawTag & 0x7), consumed, nil
+}
+
+func consumeProtoBytes(data []byte) ([]byte, int, error) {
+	length, consumed, err := consumeProtoVarint(data)
+	if err != nil {
+		return nil, 0, err
+	}
+	remaining := data[consumed:]
+	if length > uint64(len(remaining)) {
+		return nil, 0, fmt.Errorf("invalid protobuf bytes length")
+	}
+	size := int(length)
+	total := consumed + size
+	return remaining[:size], total, nil
+}
+
+func consumeProtoString(data []byte) (string, int, error) {
+	value, consumed, err := consumeProtoBytes(data)
+	if err != nil {
+		return "", 0, err
+	}
+	return string(value), consumed, nil
+}
+
+func consumeProtoVarint(data []byte) (uint64, int, error) {
+	var (
+		value uint64
+		shift uint
+	)
+	for index, current := range data {
+		if index >= 10 {
+			return 0, 0, fmt.Errorf("protobuf varint overflow")
+		}
+		value |= uint64(current&0x7f) << shift
+		if current < 0x80 {
+			return value, index + 1, nil
+		}
+		shift += 7
+	}
+	return 0, 0, fmt.Errorf("truncated protobuf varint")
+}
+
+func skipProtoField(data []byte, wireType byte) (int, error) {
+	switch wireType {
+	case 0:
+		_, consumed, err := consumeProtoVarint(data)
+		return consumed, err
+	case 1:
+		if len(data) < 8 {
+			return 0, fmt.Errorf("truncated protobuf fixed64 field")
+		}
+		return 8, nil
+	case 2:
+		_, consumed, err := consumeProtoBytes(data)
+		return consumed, err
+	case 5:
+		if len(data) < 4 {
+			return 0, fmt.Errorf("truncated protobuf fixed32 field")
+		}
+		return 4, nil
+	default:
+		return 0, fmt.Errorf("unsupported protobuf wire type")
+	}
 }
