@@ -31,7 +31,7 @@ type Server struct {
 func NewServer(cfg config.Config, logger *slog.Logger, repo repository.Repository) *Server {
 	rateLimiter := middleware.NewLoginRateLimiter(cfg.RateLimitWindow, cfg.RateLimitBurst)
 	hy2Client := services.NewHysteriaClient(cfg.Hy2StatsURL, cfg.Hy2StatsSecret)
-	serviceManager := services.NewServiceManager(cfg.SystemctlPath, cfg.SudoPath, cfg.JournalctlPath, cfg.ManagedServices)
+	serviceManager := services.NewServiceManager(cfg.SystemctlPath, cfg.SudoPath, cfg.JournalctlPath, cfg.ManagedServices, cfg.ServiceCommandTimeout)
 	hy2ConfigManager := services.NewHysteriaConfigManager(cfg.Hy2ConfigPath)
 	hysteriaAccess := services.NewHysteriaAccessManager(repo, cfg, hy2ConfigManager)
 	systemMetrics := services.NewSystemMetricsCollector()

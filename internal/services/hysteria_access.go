@@ -192,7 +192,7 @@ func (m *HysteriaAccessManager) BuildSubscriptionURL(user repository.HysteriaUse
 	if base == "" {
 		return ""
 	}
-	token, err := buildSubscriptionToken(m.cfg.InternalAuthToken, user.ID, user.UpdatedAt)
+	token, err := buildSubscriptionToken(m.cfg.InternalAuthToken, user.ID)
 	if err != nil {
 		return ""
 	}
@@ -551,14 +551,14 @@ func (m *HysteriaAccessManager) buildSingBoxOutbound(user repository.HysteriaUse
 	return outbound
 }
 
-func buildSubscriptionToken(secret string, userID string, updatedAt time.Time) (string, error) {
+func buildSubscriptionToken(secret string, userID string) (string, error) {
 	subject := strings.TrimSpace(userID)
 	key := strings.TrimSpace(secret)
 	if subject == "" || key == "" {
 		return "", fmt.Errorf("subscription token key is empty")
 	}
 	payload := base64.RawURLEncoding.EncodeToString([]byte(subject))
-	signature := computeSubscriptionSignature(key, subject, updatedAt)
+	signature := computeSubscriptionSignature(key, subject)
 	return payload + "." + base64.RawURLEncoding.EncodeToString(signature), nil
 }
 
@@ -604,11 +604,23 @@ func verifySubscriptionToken(secret string, token string, userID string, updated
 	if err != nil {
 		return false
 	}
-	expected := computeSubscriptionSignature(key, subject, updatedAt)
-	return hmac.Equal(signature, expected)
+	expectedStable := computeSubscriptionSignature(key, subject)
+	if hmac.Equal(signature, expectedStable) {
+		return true
+	}
+	expectedLegacy := computeLegacySubscriptionSignature(key, subject, updatedAt)
+	return hmac.Equal(signature, expectedLegacy)
 }
 
-func computeSubscriptionSignature(secret string, userID string, updatedAt time.Time) []byte {
+func computeSubscriptionSignature(secret string, userID string) []byte {
+	mac := hmac.New(sha256.New, []byte(strings.TrimSpace(secret)))
+	mac.Write([]byte("hy2-sub-v1"))
+	mac.Write([]byte("|"))
+	mac.Write([]byte(strings.TrimSpace(userID)))
+	return mac.Sum(nil)
+}
+
+func computeLegacySubscriptionSignature(secret string, userID string, updatedAt time.Time) []byte {
 	mac := hmac.New(sha256.New, []byte(strings.TrimSpace(secret)))
 	mac.Write([]byte("hy2-sub-v1"))
 	mac.Write([]byte("|"))

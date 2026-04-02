@@ -33,7 +33,7 @@ type ServiceDetails struct {
 	StatusText string            `json:"status_text"`
 }
 
-func NewServiceManager(systemctlPath string, sudoPath string, journalctlPath string, services []string) *ServiceManager {
+func NewServiceManager(systemctlPath string, sudoPath string, journalctlPath string, services []string, commandTimeout time.Duration) *ServiceManager {
 	managed := make(map[string]struct{}, len(services))
 	for _, svc := range services {
 		svc = strings.TrimSpace(svc)
@@ -48,7 +48,7 @@ func NewServiceManager(systemctlPath string, sudoPath string, journalctlPath str
 		JournalctlPath:   journalctlPath,
 		ManagedServices:  managed,
 		UseSudo:          true,
-		CommandTimeout:   6 * time.Second,
+		CommandTimeout:   commandTimeout,
 		MaxLogLinesLimit: 200,
 	}
 }
@@ -60,7 +60,7 @@ func (m *ServiceManager) isAllowed(service string) bool {
 
 func (m *ServiceManager) command(ctx context.Context, bin string, args ...string) ([]byte, error) {
 	if m.CommandTimeout <= 0 {
-		m.CommandTimeout = 6 * time.Second
+		m.CommandTimeout = 30 * time.Second
 	}
 	timeoutCtx, cancel := context.WithTimeout(ctx, m.CommandTimeout)
 	defer cancel()

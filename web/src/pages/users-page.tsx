@@ -50,14 +50,29 @@ function resolveBulkStateErrorMessage(error: APIError): string {
   if (!error.details || typeof error.details !== "object") {
     return error.message;
   }
-  const details = error.details as { sync_error?: unknown; rollback_error?: unknown; rollback_sync_error?: unknown };
+  const details = error.details as {
+    sync_error?: unknown;
+    rollback_error?: unknown;
+    rollback_sync_error?: unknown;
+    sync_status?: unknown;
+    rollback_sync_status?: unknown;
+  };
   const parts = [details.sync_error, details.rollback_error, details.rollback_sync_error]
     .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
     .map((value) => value.trim());
+  const status = [details.sync_status, details.rollback_sync_status]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map((value) => value.trim());
   if (parts.length === 0) {
-    return error.message;
+    if (status.length === 0) {
+      return error.message;
+    }
+    return `${error.message}: ${status.join(" | ")}`;
   }
-  return `${error.message}: ${parts.join(" | ")}`;
+  if (status.length === 0) {
+    return `${error.message}: ${parts.join(" | ")}`;
+  }
+  return `${error.message}: ${parts.join(" | ")} | ${status.join(" | ")}`;
 }
 
 export default function UsersPage() {
@@ -333,7 +348,8 @@ export default function UsersPage() {
       await setClientEnabled(client.id, !client.enabled);
       await refreshUsers();
     } catch (err) {
-      setActionError(err instanceof APIError ? err.message : "Failed to change state");
+      const message = err instanceof APIError ? resolveBulkStateErrorMessage(err) : "Failed to change state";
+      setActionError(message);
     }
   }
 

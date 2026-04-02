@@ -4,7 +4,7 @@
 
 # The installer may append an additional HY2_DOMAIN site block so Caddy can
 # provision the certificate Hysteria consumes from synced files.
-{$PANEL_PUBLIC_HOST}:{$PANEL_PUBLIC_PORT} {
+{$CADDY_PUBLIC_HOSTS} {
   encode gzip zstd
 
   header {

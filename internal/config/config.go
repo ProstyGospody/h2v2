@@ -37,6 +37,7 @@ type Config struct {
 	SystemctlPath       string
 	SudoPath            string
 	JournalctlPath      string
+	ServiceCommandTimeout time.Duration
 	LogLinesMax         int
 	RateLimitWindow     time.Duration
 	RateLimitBurst      int
@@ -72,6 +73,7 @@ func Load() (Config, error) {
 		SystemctlPath:       getEnv("SYSTEMCTL_PATH", "/usr/bin/systemctl"),
 		SudoPath:            getEnv("SUDO_PATH", "/usr/bin/sudo"),
 		JournalctlPath:      getEnv("JOURNALCTL_PATH", "/usr/bin/journalctl"),
+		ServiceCommandTimeout: getEnvDuration("SERVICE_COMMAND_TIMEOUT", 30*time.Second),
 		LogLinesMax:         getEnvInt("SERVICE_LOG_LINES_MAX", 120),
 		RateLimitWindow:     getEnvDuration("AUTH_RATE_LIMIT_WINDOW", 15*time.Minute),
 		RateLimitBurst:      getEnvInt("AUTH_RATE_LIMIT_BURST", 10),
