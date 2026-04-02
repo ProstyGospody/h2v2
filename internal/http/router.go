@@ -93,6 +93,7 @@ func NewRouter(
 			secured.Get("/users/{id}", h.GetUser)
 			secured.Patch("/users/{id}", h.UpdateUser)
 			secured.Delete("/users/{id}", h.DeleteUser)
+			secured.Get("/users/{id}/qr", h.UserQR)
 			secured.Post("/users/{id}/kick", h.KickUser)
 			secured.Post("/users/kick", h.KickUsers)
 			secured.Get("/users/{id}/subscription-token", h.GetUserSubscriptionToken)

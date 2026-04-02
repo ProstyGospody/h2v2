@@ -628,6 +628,10 @@ func (h *Handler) HysteriaUserQR(w http.ResponseWriter, r *http.Request) {
 	item, err := h.repo.GetHysteriaUser(r.Context(), id)
 	if err != nil {
 		if repository.IsNotFound(err) {
+			if h.userManager != nil {
+				h.UserQR(w, r)
+				return
+			}
 			h.renderError(w, http.StatusNotFound, "not_found", "hysteria user not found", nil)
 			return
 		}

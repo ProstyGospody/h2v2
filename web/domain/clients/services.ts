@@ -360,5 +360,5 @@ export function deleteClientsBulk(clientIDs: string[]): Promise<HysteriaClientDe
 }
 
 export function qrURL(clientID: string, size = 360, kind: "access" | "subscription" = "access"): string {
-  return `/api/hysteria/users/${clientID}/qr?size=${size}&kind=${kind === "subscription" ? "subscription" : "access"}`;
+  return `/api/users/${clientID}/qr?size=${size}&kind=${kind === "subscription" ? "subscription" : "access"}`;
 }

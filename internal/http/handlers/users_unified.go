@@ -12,6 +12,7 @@ import (
 	auditdomain "h2v2/internal/domain/audit"
 	"h2v2/internal/http/render"
 	"h2v2/internal/repository"
+	runtimecore "h2v2/internal/runtime"
 )
 
 type credentialRequest struct {
@@ -330,6 +331,51 @@ func (h *Handler) GetUserSubscriptionToken(w http.ResponseWriter, r *http.Reques
 	}
 	url := strings.TrimRight(strings.TrimSpace(h.cfg.SubscriptionPublicURL), "/") + "/api/subscriptions/" + token
 	render.JSON(w, http.StatusOK, map[string]any{"token": token, "url": url, "state": state})
+}
+
+func (h *Handler) UserQR(w http.ResponseWriter, r *http.Request) {
+	if h.userManager == nil {
+		h.renderError(w, http.StatusServiceUnavailable, "service", "user manager is not configured", nil)
+		return
+	}
+
+	id := strings.TrimSpace(chi.URLParam(r, "id"))
+	user, err := h.userManager.GetUser(r.Context(), id)
+	if err != nil {
+		if repository.IsNotFound(err) {
+			h.renderError(w, http.StatusNotFound, "not_found", "user not found", nil)
+			return
+		}
+		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to load user", nil)
+		return
+	}
+	if !user.Enabled {
+		h.renderError(w, http.StatusConflict, "validation", "user is disabled; enable the user to generate an active QR code", nil)
+		return
+	}
+
+	artifacts, subscriptionURL, err := h.userManager.BuildUserArtifacts(r.Context(), user)
+	if err != nil {
+		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to generate user artifacts", nil)
+		return
+	}
+
+	qrKind := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("kind")))
+	qrValue := ""
+	if qrKind == "subscription" {
+		qrValue = strings.TrimSpace(subscriptionURL)
+	} else {
+		protocolHint := strings.TrimSpace(r.URL.Query().Get("protocol"))
+		qrValue = resolveUnifiedAccessQRValue(user, artifacts, protocolHint)
+	}
+	if qrValue == "" {
+		h.renderError(w, http.StatusNotFound, "not_found", "qr source is empty", nil)
+		return
+	}
+
+	if err := renderQRCodePNG(w, qrValue, parseQRSize(r.URL.Query().Get("size"), 320)); err != nil {
+		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to render qr code", nil)
+	}
 }
 
 func (h *Handler) RotateUserSubscriptionToken(w http.ResponseWriter, r *http.Request) {
@@ -728,4 +774,37 @@ func valueOrEmpty(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func resolveUnifiedAccessQRValue(
+	user repository.UserWithCredentials,
+	artifacts map[repository.Protocol]runtimecore.UserArtifacts,
+	protocolHint string,
+) string {
+	candidates := make([]repository.Protocol, 0, 4)
+
+	if parsed, err := parseProtocolOptional(protocolHint); err == nil && parsed != nil {
+		candidates = append(candidates, *parsed)
+	}
+	for _, credential := range user.Credentials {
+		candidates = append(candidates, credential.Protocol)
+	}
+	candidates = append(candidates, repository.ProtocolVLESS, repository.ProtocolHY2)
+
+	seen := make(map[repository.Protocol]struct{}, len(candidates))
+	for _, protocol := range candidates {
+		if _, ok := seen[protocol]; ok {
+			continue
+		}
+		seen[protocol] = struct{}{}
+		raw, ok := artifacts[protocol]
+		if !ok {
+			continue
+		}
+		uri := strings.TrimSpace(raw.AccessURI)
+		if uri != "" {
+			return uri
+		}
+	}
+	return ""
 }
