@@ -116,6 +116,23 @@ func decodeOptionalJSONBody(r *http.Request, dst any) error {
 	}
 	return render.DecodeJSON(r, dst)
 }
+
+func coreErrorStatus(err error) (int, string) {
+	if err == nil {
+		return http.StatusOK, ""
+	}
+	if core.IsNotFound(err) {
+		return http.StatusNotFound, "not_found"
+	}
+	if core.IsConflict(err) {
+		return http.StatusConflict, "validation"
+	}
+	message := strings.ToLower(strings.TrimSpace(err.Error()))
+	if strings.Contains(message, "invalid") || strings.Contains(message, "required") || strings.Contains(message, "unsupported") {
+		return http.StatusBadRequest, "validation"
+	}
+	return http.StatusInternalServerError, "runtime"
+}
 func (h *Handler) ListCoreServers(w http.ResponseWriter, r *http.Request) {
 	service := h.ensureCoreService(w)
 	if service == nil {
@@ -295,12 +312,7 @@ func (h *Handler) CreateCoreInbound(w http.ResponseWriter, r *http.Request) {
 	}
 	saved, err := service.UpsertInbound(r.Context(), inbound)
 	if err != nil {
-		status := http.StatusInternalServerError
-		errorType := "runtime"
-		if core.IsConflict(err) {
-			status = http.StatusConflict
-			errorType = "validation"
-		}
+		status, errorType := coreErrorStatus(err)
 		h.renderError(w, status, errorType, err.Error(), nil)
 		return
 	}
@@ -382,12 +394,7 @@ func (h *Handler) UpdateCoreInbound(w http.ResponseWriter, r *http.Request) {
 	}
 	saved, err := service.UpsertInbound(r.Context(), updated)
 	if err != nil {
-		status := http.StatusInternalServerError
-		errorType := "runtime"
-		if core.IsConflict(err) {
-			status = http.StatusConflict
-			errorType = "validation"
-		}
+		status, errorType := coreErrorStatus(err)
 		h.renderError(w, status, errorType, err.Error(), nil)
 		return
 	}

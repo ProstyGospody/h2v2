@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/base64"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/skip2/go-qrcode"
+	"golang.org/x/crypto/curve25519"
 
 	"h2v2/internal/config"
 	"h2v2/internal/fsutil"
@@ -174,6 +176,84 @@ func sanitizeVLESSUUID(value string) (string, error) {
 	return strings.ToLower(parsed.String()), nil
 }
 
+func decodeRealityKey(value string) ([]byte, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil, fmt.Errorf("key is empty")
+	}
+	encodings := []*base64.Encoding{
+		base64.RawURLEncoding,
+		base64.URLEncoding,
+		base64.RawStdEncoding,
+		base64.StdEncoding,
+	}
+	for _, enc := range encodings {
+		decoded, err := enc.DecodeString(trimmed)
+		if err != nil {
+			continue
+		}
+		if len(decoded) == 32 {
+			return decoded, nil
+		}
+	}
+	return nil, fmt.Errorf("key must decode to 32 bytes")
+}
+
+func encodeRealityKey(value []byte) string {
+	return base64.RawURLEncoding.EncodeToString(value)
+}
+
+func deriveRealityPublicKey(privateKey string) (string, error) {
+	privateDecoded, err := decodeRealityKey(privateKey)
+	if err != nil {
+		return "", err
+	}
+	derived, err := curve25519.X25519(privateDecoded, curve25519.Basepoint)
+	if err != nil {
+		return "", err
+	}
+	return encodeRealityKey(derived), nil
+}
+
+func normalizeRealitySettings(value *VLESSInboundSettings) error {
+	if value == nil || !value.RealityEnabled {
+		return nil
+	}
+	privateDecoded, err := decodeRealityKey(value.RealityPrivateKey)
+	if err != nil {
+		return fmt.Errorf("reality private key is invalid")
+	}
+	value.RealityPrivateKey = encodeRealityKey(privateDecoded)
+
+	publicTrimmed := strings.TrimSpace(value.RealityPublicKey)
+	if publicTrimmed == "" {
+		derived, err := deriveRealityPublicKey(value.RealityPrivateKey)
+		if err != nil {
+			return fmt.Errorf("reality public key is invalid")
+		}
+		value.RealityPublicKey = derived
+	} else {
+		publicDecoded, err := decodeRealityKey(publicTrimmed)
+		if err != nil {
+			return fmt.Errorf("reality public key is invalid")
+		}
+		value.RealityPublicKey = encodeRealityKey(publicDecoded)
+	}
+
+	shortID := strings.ToLower(strings.TrimSpace(value.RealityShortID))
+	if shortID != "" {
+		if len(shortID) > 32 || len(shortID)%2 != 0 {
+			return fmt.Errorf("reality short id is invalid")
+		}
+		if _, err := hex.DecodeString(shortID); err != nil {
+			return fmt.Errorf("reality short id is invalid")
+		}
+	}
+	value.RealityShortID = shortID
+	value.TLSEnabled = true
+	return nil
+}
+
 func defaultHY2Password(username string) string {
 	randPart, err := randomHex(8)
 	if err != nil {
@@ -216,6 +296,9 @@ func (s *Service) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, 
 		}
 		if strings.TrimSpace(inbound.VLESS.TransportType) == "" {
 			inbound.VLESS.TransportType = "tcp"
+		}
+		if err := normalizeRealitySettings(inbound.VLESS); err != nil {
+			return Inbound{}, err
 		}
 	} else if inbound.Protocol == InboundProtocolHysteria2 {
 		if inbound.Hysteria2 == nil {
@@ -557,6 +640,9 @@ func buildVLESSClientArtifacts(user User, access UserAccess, inbound Inbound, ho
 	if inbound.VLESS == nil {
 		return "", nil, fmt.Errorf("vless settings are missing")
 	}
+	if err := normalizeRealitySettings(inbound.VLESS); err != nil {
+		return "", nil, err
+	}
 	uuidValue, err := sanitizeVLESSUUID(access.VLESSUUID)
 	if err != nil {
 		return "", nil, err
@@ -577,9 +663,7 @@ func buildVLESSClientArtifacts(user User, access UserAccess, inbound Inbound, ho
 		if strings.TrimSpace(inbound.VLESS.TLSServerName) != "" {
 			query.Set("sni", strings.TrimSpace(inbound.VLESS.TLSServerName))
 		}
-		if strings.TrimSpace(inbound.VLESS.RealityPublicKey) != "" {
-			query.Set("pbk", strings.TrimSpace(inbound.VLESS.RealityPublicKey))
-		}
+		query.Set("pbk", strings.TrimSpace(inbound.VLESS.RealityPublicKey))
 		if strings.TrimSpace(inbound.VLESS.RealityShortID) != "" {
 			query.Set("sid", strings.TrimSpace(inbound.VLESS.RealityShortID))
 		}
@@ -625,9 +709,7 @@ func buildVLESSClientArtifacts(user User, access UserAccess, inbound Inbound, ho
 		}
 		if inbound.VLESS.RealityEnabled {
 			reality := map[string]any{"enabled": true}
-			if strings.TrimSpace(inbound.VLESS.RealityPublicKey) != "" {
-				reality["public_key"] = strings.TrimSpace(inbound.VLESS.RealityPublicKey)
-			}
+			reality["public_key"] = strings.TrimSpace(inbound.VLESS.RealityPublicKey)
 			if strings.TrimSpace(inbound.VLESS.RealityShortID) != "" {
 				reality["short_id"] = strings.TrimSpace(inbound.VLESS.RealityShortID)
 			}
@@ -955,6 +1037,9 @@ func renderInboundForServer(inbound Inbound, users []map[string]any) (map[string
 	case InboundProtocolVLESS:
 		if inbound.VLESS == nil {
 			return nil, fmt.Errorf("vless settings are missing")
+		}
+		if err := normalizeRealitySettings(inbound.VLESS); err != nil {
+			return nil, err
 		}
 		transportType := strings.TrimSpace(inbound.VLESS.TransportType)
 		if transportType == "" {
