@@ -1,5 +1,6 @@
-﻿import { Copy, Link2 } from "lucide-react";
+import { Copy, Link2 } from "lucide-react";
 
+import { qrURL } from "@/domain/clients/services";
 import { HysteriaClient, HysteriaUserPayload, Protocol } from "@/domain/clients/types";
 import { Button, Dialog, Input } from "@/src/components/ui";
 
@@ -52,9 +53,10 @@ export function ClientArtifactsDialog({
   const preferredProtocol: Protocol = (currentClient?.preferred_protocol || "hy2") as Protocol;
   const accessURI = resolveAccessURI(payload, preferredProtocol);
   const subscriptionURL = payload?.artifacts?.subscription_url || "";
-  const configBody = preferredProtocol === "vless"
-    ? (payload?.artifacts?.unified?.vless?.config || payload?.artifacts?.client_config || "")
-    : (payload?.artifacts?.client_config || payload?.artifacts?.unified?.hy2?.config || payload?.artifacts?.unified?.vless?.config || "");
+  const qrKind: "access" | "subscription" = accessURI ? "access" : "subscription";
+  const qrSource = currentClient?.id
+    ? `${qrURL(currentClient.id, 320, qrKind)}&protocol=${preferredProtocol}`
+    : "";
 
   return (
     <Dialog
@@ -68,6 +70,21 @@ export function ClientArtifactsDialog({
         <div className="flex min-h-[260px] items-center justify-center text-[14px] text-txt-secondary">Loading</div>
       ) : (
         <div className="space-y-4">
+          {qrSource ? (
+            <div className="space-y-2">
+              <label className="text-[12px] font-semibold uppercase tracking-wide text-txt-secondary">QR</label>
+              <div className="w-fit rounded-lg bg-surface-2/65 p-2">
+                <img
+                  src={qrSource}
+                  alt="QR"
+                  width={320}
+                  height={320}
+                  className="h-[220px] w-[220px] rounded-md object-contain sm:h-[320px] sm:w-[320px]"
+                />
+              </div>
+            </div>
+          ) : null}
+
           <div className="space-y-2">
             <label className="text-[12px] font-semibold uppercase tracking-wide text-txt-secondary">URI</label>
             <Input value={accessURI} readOnly />
@@ -83,18 +100,6 @@ export function ClientArtifactsDialog({
               <Link2 size={16} strokeWidth={1.6} />Copy URL
             </Button>
           </div>
-
-          {configBody ? (
-            <div className="space-y-2">
-              <label className="text-[12px] font-semibold uppercase tracking-wide text-txt-secondary">Config</label>
-              <textarea
-                readOnly
-                value={configBody}
-                rows={10}
-                className="w-full rounded-lg bg-surface-2/65 px-4 py-3 text-[13px] text-txt-primary outline-none"
-              />
-            </div>
-          ) : null}
         </div>
       )}
     </Dialog>

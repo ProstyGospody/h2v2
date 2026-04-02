@@ -1,7 +1,7 @@
-﻿import { Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { FormEvent, useEffect, useId, useState } from "react";
 
-import { defaultsSummary, formFromClient, type ClientFormValues } from "@/domain/clients/adapters";
+import { formFromClient, type ClientFormValues } from "@/domain/clients/adapters";
 import { HysteriaClient, HysteriaClientDefaults } from "@/domain/clients/types";
 import { Button, Dialog, Input, SelectField } from "@/src/components/ui";
 
@@ -19,6 +19,7 @@ export function ClientFormDialog({
 }) {
   const [values, setValues] = useState<ClientFormValues>(formFromClient(client));
   const formID = useId();
+  void defaults;
 
   useEffect(() => {
     if (!open) return;
@@ -47,10 +48,6 @@ export function ClientFormDialog({
       }
     >
       <form id={formID} className="space-y-5" onSubmit={submit}>
-        <p className="rounded-xl bg-surface-2/65 px-4 py-3 text-[13px] text-txt-secondary">
-          {defaultsSummary(defaults)}
-        </p>
-
         {error && <div className="rounded-xl bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
 
         <Input
