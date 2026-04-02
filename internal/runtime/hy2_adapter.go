@@ -9,17 +9,47 @@ import (
 
 	hysteriadomain "h2v2/internal/domain/hysteria"
 	"h2v2/internal/repository"
-	"h2v2/internal/services"
 )
 
+type HY2Traffic struct {
+	TxBytes int64
+	RxBytes int64
+}
+
+type HY2ClientParams struct {
+	Server string
+	Port   int
+	SNI    string
+}
+
+type HY2UserArtifacts struct {
+	URI             string
+	URIHy2          string
+	SubscriptionURL string
+	ClientYAML      string
+	ClientParams    HY2ClientParams
+	SingBoxOutbound map[string]any
+}
+
+type HY2Access interface {
+	Sync(context.Context) error
+	BuildUserArtifacts(repository.HysteriaUserView) (HY2UserArtifacts, error)
+}
+
+type HY2Client interface {
+	Kick(context.Context, string) error
+	FetchTraffic(context.Context) (map[string]HY2Traffic, error)
+	FetchOnline(context.Context) (map[string]int, error)
+}
+
 type HY2Adapter struct {
-	access      *services.HysteriaAccessManager
-	client      *services.HysteriaClient
-	services    *services.ServiceManager
+	access      HY2Access
+	client      HY2Client
+	services    ServiceRestarter
 	serviceName string
 }
 
-func NewHY2Adapter(access *services.HysteriaAccessManager, client *services.HysteriaClient, svc *services.ServiceManager, serviceName string) *HY2Adapter {
+func NewHY2Adapter(access HY2Access, client HY2Client, svc ServiceRestarter, serviceName string) *HY2Adapter {
 	name := strings.TrimSpace(serviceName)
 	if name == "" {
 		name = "hysteria-server"
@@ -134,7 +164,7 @@ func (a *HY2Adapter) BuildArtifacts(ctx context.Context, user repository.UserWit
 		LastSeenAt:      user.LastSeenAt,
 	}}
 
-	artifacts, _, err := a.access.BuildUserArtifacts(legacy)
+	artifacts, err := a.access.BuildUserArtifacts(legacy)
 	if err != nil {
 		return UserArtifacts{}, err
 	}
@@ -156,7 +186,7 @@ func (a *HY2Adapter) sync(ctx context.Context) error {
 	if a.access == nil {
 		return nil
 	}
-	if _, err := a.access.Sync(ctx); err != nil {
+	if err := a.access.Sync(ctx); err != nil {
 		return err
 	}
 	if a.services == nil {
@@ -196,7 +226,7 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func renderHY2ClashNode(user repository.UserWithCredentials, artifacts services.HysteriaUserArtifacts) string {
+func renderHY2ClashNode(user repository.UserWithCredentials, artifacts HY2UserArtifacts) string {
 	params := artifacts.ClientParams
 	if strings.TrimSpace(params.Server) == "" || params.Port <= 0 {
 		return ""

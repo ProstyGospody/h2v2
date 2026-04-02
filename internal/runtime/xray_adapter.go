@@ -16,19 +16,18 @@ import (
 
 	"h2v2/internal/fsutil"
 	"h2v2/internal/repository"
-	"h2v2/internal/services"
 )
 
 type XrayAdapter struct {
 	configPath   string
 	runtimeURL   string
 	runtimeToken string
-	services     *services.ServiceManager
+	services     ServiceRestarter
 	serviceName  string
 	httpClient   *http.Client
 }
 
-func NewXrayAdapter(configPath string, runtimeURL string, runtimeToken string, svc *services.ServiceManager, serviceName string) *XrayAdapter {
+func NewXrayAdapter(configPath string, runtimeURL string, runtimeToken string, svc ServiceRestarter, serviceName string) *XrayAdapter {
 	name := strings.TrimSpace(serviceName)
 	if name == "" {
 		name = "xray"

@@ -30,14 +30,86 @@ type Server struct {
 	cancelJobs     context.CancelFunc
 }
 
+type hy2AccessRuntimeAdapter struct {
+	inner *services.HysteriaAccessManager
+}
+
+func (a hy2AccessRuntimeAdapter) Sync(ctx context.Context) error {
+	if a.inner == nil {
+		return nil
+	}
+	_, err := a.inner.Sync(ctx)
+	return err
+}
+
+func (a hy2AccessRuntimeAdapter) BuildUserArtifacts(user repository.HysteriaUserView) (runtimecore.HY2UserArtifacts, error) {
+	if a.inner == nil {
+		return runtimecore.HY2UserArtifacts{}, fmt.Errorf("hysteria access manager is not configured")
+	}
+	artifacts, _, err := a.inner.BuildUserArtifacts(user)
+	if err != nil {
+		return runtimecore.HY2UserArtifacts{}, err
+	}
+	return runtimecore.HY2UserArtifacts{
+		URI:             artifacts.URI,
+		URIHy2:          artifacts.URIHy2,
+		SubscriptionURL: artifacts.SubscriptionURL,
+		ClientYAML:      artifacts.ClientYAML,
+		ClientParams: runtimecore.HY2ClientParams{
+			Server: artifacts.ClientParams.Server,
+			Port:   artifacts.ClientParams.Port,
+			SNI:    artifacts.ClientParams.SNI,
+		},
+		SingBoxOutbound: artifacts.SingBoxOutbound,
+	}, nil
+}
+
+type hy2ClientRuntimeAdapter struct {
+	inner *services.HysteriaClient
+}
+
+func (a hy2ClientRuntimeAdapter) Kick(ctx context.Context, identity string) error {
+	if a.inner == nil {
+		return fmt.Errorf("hy2 client is not configured")
+	}
+	return a.inner.Kick(ctx, identity)
+}
+
+func (a hy2ClientRuntimeAdapter) FetchTraffic(ctx context.Context) (map[string]runtimecore.HY2Traffic, error) {
+	if a.inner == nil {
+		return map[string]runtimecore.HY2Traffic{}, nil
+	}
+	traffic, err := a.inner.FetchTraffic(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]runtimecore.HY2Traffic, len(traffic))
+	for identity, value := range traffic {
+		out[identity] = runtimecore.HY2Traffic{
+			TxBytes: value.TxBytes,
+			RxBytes: value.RxBytes,
+		}
+	}
+	return out, nil
+}
+
+func (a hy2ClientRuntimeAdapter) FetchOnline(ctx context.Context) (map[string]int, error) {
+	if a.inner == nil {
+		return map[string]int{}, nil
+	}
+	return a.inner.FetchOnline(ctx)
+}
+
 func NewServer(cfg config.Config, logger *slog.Logger, repo repository.Repository) *Server {
 	rateLimiter := middleware.NewLoginRateLimiter(cfg.RateLimitWindow, cfg.RateLimitBurst)
 	hy2Client := services.NewHysteriaClient(cfg.Hy2StatsURL, cfg.Hy2StatsSecret)
 	serviceManager := services.NewServiceManager(cfg.SystemctlPath, cfg.SudoPath, cfg.JournalctlPath, cfg.ManagedServices, cfg.ServiceCommandTimeout)
 	hy2ConfigManager := services.NewHysteriaConfigManager(cfg.Hy2ConfigPath)
 	hysteriaAccess := services.NewHysteriaAccessManager(repo, cfg, hy2ConfigManager)
+	hy2RuntimeAccess := hy2AccessRuntimeAdapter{inner: hysteriaAccess}
+	hy2RuntimeClient := hy2ClientRuntimeAdapter{inner: hy2Client}
 	runtime := runtimecore.NewRuntime(
-		runtimecore.NewHY2Adapter(hysteriaAccess, hy2Client, serviceManager, "hysteria-server"),
+		runtimecore.NewHY2Adapter(hy2RuntimeAccess, hy2RuntimeClient, serviceManager, "hysteria-server"),
 		runtimecore.NewXrayAdapter(cfg.XrayConfigPath, cfg.XrayRuntimeURL, cfg.XrayRuntimeToken, serviceManager, cfg.XrayServiceName),
 	)
 	userManager := services.NewUserManager(cfg, repo, runtime)

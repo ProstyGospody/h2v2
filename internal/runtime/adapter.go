@@ -32,6 +32,10 @@ type Runtime struct {
 	adapters map[repository.Protocol]Adapter
 }
 
+type ServiceRestarter interface {
+	Restart(context.Context, string) error
+}
+
 func NewRuntime(adapters ...Adapter) *Runtime {
 	indexed := make(map[repository.Protocol]Adapter, len(adapters))
 	for _, adapter := range adapters {
