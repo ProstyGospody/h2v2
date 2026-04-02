@@ -145,23 +145,39 @@ func (r *SQLiteRepository) ListUsers(ctx context.Context, limit int, offset int,
 	}
 	defer rows.Close()
 
-	items := make([]UserWithCredentials, 0)
+	users := make([]User, 0)
+	userIDs := make([]string, 0)
 	for rows.Next() {
 		user, err := r.scanUser(rows)
 		if err != nil {
 			return nil, err
 		}
-		credentials, err := r.listCredentialsForUser(ctx, user.ID, protocol)
-		if err != nil {
-			return nil, err
+		users = append(users, user)
+		userIDs = append(userIDs, user.ID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(users) == 0 {
+		return []UserWithCredentials{}, nil
+	}
+
+	credentialsByUser, err := r.listCredentialsForUsers(ctx, userIDs, protocol)
+	if err != nil {
+		return nil, err
+	}
+	onlineByUser, err := r.listOnlineCountsForUsers(ctx, userIDs)
+	if err != nil {
+		onlineByUser = make(map[string]int, len(userIDs))
+		for _, userID := range userIDs {
+			onlineByUser[userID] = 0
 		}
-		metrics, err := r.collectUserMetrics(ctx, user.ID, protocolsFromCredentials(credentials, protocol))
-		if err != nil {
-			return nil, err
-		}
-		user.TrafficUsedTxBytes = metrics.TxBytes
-		user.TrafficUsedRxBytes = metrics.RxBytes
-		if user.ExpireAt != nil && !user.ExpireAt.After(time.Now().UTC()) {
+	}
+
+	now := time.Now().UTC()
+	items := make([]UserWithCredentials, 0, len(users))
+	for _, user := range users {
+		if user.ExpireAt != nil && !user.ExpireAt.After(now) {
 			user.Enabled = false
 		}
 		if user.TrafficLimitBytes > 0 && (user.TrafficUsedTxBytes+user.TrafficUsedRxBytes) >= user.TrafficLimitBytes {
@@ -169,14 +185,11 @@ func (r *SQLiteRepository) ListUsers(ctx context.Context, limit int, offset int,
 		}
 		items = append(items, UserWithCredentials{
 			User:        user,
-			Credentials: credentials,
-			OnlineCount: metrics.Online,
-			DownloadBps: metrics.DownloadBps,
-			UploadBps:   metrics.UploadBps,
+			Credentials: credentialsByUser[user.ID],
+			OnlineCount: onlineByUser[user.ID],
+			DownloadBps: 0,
+			UploadBps:   0,
 		})
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
 	}
 	if limit <= 0 {
 		items = paginate(items, limit, offset)
@@ -215,12 +228,10 @@ func (r *SQLiteRepository) GetUser(ctx context.Context, id string) (UserWithCred
 	if err != nil {
 		return UserWithCredentials{}, err
 	}
-	metrics, err := r.collectUserMetrics(ctx, user.ID, protocolsFromCredentials(credentials, nil))
+	onlineByUser, err := r.listOnlineCountsForUsers(ctx, []string{user.ID})
 	if err != nil {
-		return UserWithCredentials{}, err
+		onlineByUser = map[string]int{user.ID: 0}
 	}
-	user.TrafficUsedTxBytes = metrics.TxBytes
-	user.TrafficUsedRxBytes = metrics.RxBytes
 	if user.ExpireAt != nil && !user.ExpireAt.After(time.Now().UTC()) {
 		user.Enabled = false
 	}
@@ -231,9 +242,9 @@ func (r *SQLiteRepository) GetUser(ctx context.Context, id string) (UserWithCred
 	return UserWithCredentials{
 		User:        user,
 		Credentials: credentials,
-		OnlineCount: metrics.Online,
-		DownloadBps: metrics.DownloadBps,
-		UploadBps:   metrics.UploadBps,
+		OnlineCount: onlineByUser[user.ID],
+		DownloadBps: 0,
+		UploadBps:   0,
 	}, nil
 }
 
@@ -735,6 +746,16 @@ func (r *SQLiteRepository) InsertTrafficCounters(ctx context.Context, counters [
 
 	now := time.Now().UTC()
 	touchedUsers := make(map[string]struct{}, len(counters))
+	type stateKey struct {
+		UserID   string
+		Protocol Protocol
+	}
+	type stateValue struct {
+		Online     int64
+		SnapshotAt int64
+	}
+	runtimeState := make(map[stateKey]stateValue, len(counters))
+
 	for _, item := range counters {
 		ts := item.SnapshotAt
 		if ts.IsZero() {
@@ -744,54 +765,131 @@ func (r *SQLiteRepository) InsertTrafficCounters(ctx context.Context, counters [
 		if userID == "" {
 			continue
 		}
-		if _, err = stmt.ExecContext(resolveCtx(ctx), userID, string(item.Protocol), item.TxBytes, item.RxBytes, item.Online, toUnixNano(ts)); err != nil {
+		protocol := item.Protocol
+		if protocol == "" {
+			protocol = ProtocolHY2
+		}
+		snapshotAt := toUnixNano(ts)
+		if _, err = stmt.ExecContext(resolveCtx(ctx), userID, string(protocol), item.TxBytes, item.RxBytes, item.Online, snapshotAt); err != nil {
 			return err
 		}
 		touchedUsers[userID] = struct{}{}
+		key := stateKey{UserID: userID, Protocol: protocol}
+		current, exists := runtimeState[key]
+		if !exists || snapshotAt >= current.SnapshotAt {
+			runtimeState[key] = stateValue{
+				Online:     int64(item.Online),
+				SnapshotAt: snapshotAt,
+			}
+		}
+	}
+	if len(touchedUsers) == 0 {
+		return tx.Commit()
 	}
 
+	userIDs := make([]string, 0, len(touchedUsers))
 	for userID := range touchedUsers {
+		userIDs = append(userIDs, userID)
+	}
+	query := `SELECT
+		tc.user_id,
+		COALESCE(SUM(tc.tx_bytes), 0),
+		COALESCE(SUM(tc.rx_bytes), 0),
+		COALESCE(SUM(tc.online_count), 0),
+		COALESCE(MAX(tc.snapshot_at_ns), 0)
+	FROM traffic_counters tc
+	JOIN (
+		SELECT user_id, protocol, MAX(id) AS max_id
+		FROM traffic_counters
+		WHERE user_id IN (` + placeholders(len(userIDs)) + `)
+		GROUP BY user_id, protocol
+	) latest ON latest.max_id = tc.id
+	GROUP BY tc.user_id`
+	args := make([]any, 0, len(userIDs))
+	for _, userID := range userIDs {
+		args = append(args, userID)
+	}
+
+	type userTotals struct {
+		TxBytes int64
+		RxBytes int64
+		Online  int64
+		SeenAt  int64
+	}
+	totalsByUser := make(map[string]userTotals, len(userIDs))
+	rows, err := tx.QueryContext(resolveCtx(ctx), query, args...)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
 		var (
-			txBytes int64
-			rxBytes int64
-			online  int64
-			seenAt  int64
+			userID string
+			total  userTotals
 		)
-		if err = tx.QueryRowContext(
-			resolveCtx(ctx),
-			`SELECT
-				COALESCE(SUM(tc.tx_bytes), 0),
-				COALESCE(SUM(tc.rx_bytes), 0),
-				COALESCE(SUM(tc.online_count), 0),
-				COALESCE(MAX(tc.snapshot_at_ns), 0)
-			FROM traffic_counters tc
-			JOIN (
-				SELECT protocol, MAX(id) AS max_id
-				FROM traffic_counters
-				WHERE user_id = ?
-				GROUP BY protocol
-			) latest ON latest.max_id = tc.id
-			WHERE tc.user_id = ?`,
-			userID,
-			userID,
-		).Scan(&txBytes, &rxBytes, &online, &seenAt); err != nil {
+		if err = rows.Scan(&userID, &total.TxBytes, &total.RxBytes, &total.Online, &total.SeenAt); err != nil {
+			_ = rows.Close()
 			return err
 		}
-		if _, err = tx.ExecContext(
+		totalsByUser[userID] = total
+	}
+	if err = rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	_ = rows.Close()
+
+	updateUserStmt, err := tx.PrepareContext(
+		resolveCtx(ctx),
+		`UPDATE users
+		 SET
+			traffic_used_tx_bytes = ?,
+			traffic_used_rx_bytes = ?,
+			last_seen_at_ns = CASE WHEN ? > 0 THEN ? ELSE last_seen_at_ns END,
+			updated_at_ns = ?
+		 WHERE id = ?`,
+	)
+	if err != nil {
+		return err
+	}
+	defer updateUserStmt.Close()
+
+	updatedAtNs := nowNano()
+	for _, userID := range userIDs {
+		total := totalsByUser[userID]
+		if _, err = updateUserStmt.ExecContext(
 			resolveCtx(ctx),
-			`UPDATE users
-			 SET
-				traffic_used_tx_bytes = ?,
-				traffic_used_rx_bytes = ?,
-				last_seen_at_ns = CASE WHEN ? > 0 THEN ? ELSE last_seen_at_ns END,
-				updated_at_ns = ?
-			 WHERE id = ?`,
-			txBytes,
-			rxBytes,
-			online,
-			seenAt,
-			nowNano(),
+			total.TxBytes,
+			total.RxBytes,
+			total.Online,
+			total.SeenAt,
+			updatedAtNs,
 			userID,
+		); err != nil {
+			return err
+		}
+	}
+
+	stateStmt, err := tx.PrepareContext(
+		resolveCtx(ctx),
+		`INSERT INTO runtime_user_state (user_id, protocol, online_count, last_sync_at_ns, last_error)
+		 VALUES (?, ?, ?, ?, NULL)
+		 ON CONFLICT(user_id, protocol) DO UPDATE SET
+			online_count = excluded.online_count,
+			last_sync_at_ns = excluded.last_sync_at_ns,
+			last_error = NULL`,
+	)
+	if err != nil {
+		return err
+	}
+	defer stateStmt.Close()
+
+	for key, state := range runtimeState {
+		if _, err = stateStmt.ExecContext(
+			resolveCtx(ctx),
+			key.UserID,
+			string(key.Protocol),
+			state.Online,
+			state.SnapshotAt,
 		); err != nil {
 			return err
 		}
@@ -934,6 +1032,88 @@ func (r *SQLiteRepository) listCredentialsForUser(ctx context.Context, userID st
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+func (r *SQLiteRepository) listCredentialsForUsers(ctx context.Context, userIDs []string, protocol *Protocol) (map[string][]Credential, error) {
+	ids := normalizeIDs(userIDs)
+	result := make(map[string][]Credential, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+	for _, id := range ids {
+		result[id] = []Credential{}
+	}
+
+	query := `SELECT id, user_id, protocol, credential_type, identity, secret, data_json, created_at_ns, updated_at_ns
+		FROM credentials
+		WHERE user_id IN (` + placeholders(len(ids)) + `)`
+	args := make([]any, 0, len(ids)+1)
+	for _, id := range ids {
+		args = append(args, id)
+	}
+	if protocol != nil {
+		query += ` AND protocol = ?`
+		args = append(args, string(*protocol))
+	}
+	query += ` ORDER BY user_id ASC, protocol ASC, created_at_ns ASC`
+
+	rows, err := r.db.QueryContext(resolveCtx(ctx), query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		item, err := r.scanCredential(rows)
+		if err != nil {
+			return nil, err
+		}
+		result[item.UserID] = append(result[item.UserID], item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (r *SQLiteRepository) listOnlineCountsForUsers(ctx context.Context, userIDs []string) (map[string]int, error) {
+	ids := normalizeIDs(userIDs)
+	result := make(map[string]int, len(ids))
+	if len(ids) == 0 {
+		return result, nil
+	}
+	for _, id := range ids {
+		result[id] = 0
+	}
+
+	query := `SELECT user_id, COALESCE(SUM(online_count), 0) AS online_total
+		FROM runtime_user_state
+		WHERE user_id IN (` + placeholders(len(ids)) + `)
+		GROUP BY user_id`
+	args := make([]any, 0, len(ids))
+	for _, id := range ids {
+		args = append(args, id)
+	}
+
+	rows, err := r.db.QueryContext(resolveCtx(ctx), query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			userID string
+			online int64
+		)
+		if err := rows.Scan(&userID, &online); err != nil {
+			return nil, err
+		}
+		result[userID] = int(online)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 func (r *SQLiteRepository) scanUser(row scanner) (User, error) {

@@ -22,8 +22,20 @@ func RequireAuth(cfg config.Config, repo repository.Repository, logger *slog.Log
 			}
 
 			tokenHash := security.HashToken(cookie.Value)
-			session, admin, err := repo.GetSessionWithAdminByTokenHash(r.Context(), tokenHash)
-			if err != nil || !admin.IsActive {
+			authCtx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
+			defer cancel()
+
+			_, admin, err := repo.GetSessionWithAdminByTokenHash(authCtx, tokenHash)
+			if err != nil {
+				if repository.IsNotFound(err) {
+					clearAuthCookies(w, cfg)
+					render.Error(w, http.StatusUnauthorized, "invalid session")
+					return
+				}
+				render.Error(w, http.StatusServiceUnavailable, "service unavailable")
+				return
+			}
+			if !admin.IsActive {
 				clearAuthCookies(w, cfg)
 				render.Error(w, http.StatusUnauthorized, "invalid session")
 				return
@@ -31,8 +43,6 @@ func RequireAuth(cfg config.Config, repo repository.Repository, logger *slog.Log
 
 			ctx := WithAdmin(r.Context(), admin)
 			r = r.WithContext(ctx)
-
-			go touchSessionAsync(context.Background(), repo, logger, session.ID)
 
 			next.ServeHTTP(w, r)
 		})
@@ -60,13 +70,5 @@ func clearAuthCookies(w http.ResponseWriter, cfg config.Config) {
 		HttpOnly: false,
 		SameSite: http.SameSiteStrictMode,
 	})
-}
-
-func touchSessionAsync(ctx context.Context, repo repository.Repository, logger *slog.Logger, sessionID string) {
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-	defer cancel()
-	if err := repo.TouchSession(ctx, sessionID); err != nil {
-		logger.Debug("failed to touch session", "session_id", sessionID, "error", err)
-	}
 }
 

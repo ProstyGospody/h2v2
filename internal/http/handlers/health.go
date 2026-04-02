@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -17,7 +18,10 @@ func (h *Handler) Healthz(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Readyz(w http.ResponseWriter, r *http.Request) {
-	if err := h.repo.Ping(r.Context()); err != nil {
+	readyCtx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	if err := h.repo.Ping(readyCtx); err != nil {
 		render.Error(w, http.StatusServiceUnavailable, "file storage is unavailable")
 		return
 	}

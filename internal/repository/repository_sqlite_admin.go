@@ -119,10 +119,6 @@ func (r *SQLiteRepository) CreateSession(ctx context.Context, adminID string, to
 	}
 
 	now := nowNano()
-	if _, err = tx.ExecContext(ctx, `DELETE FROM sessions WHERE expires_at_ns <= ?`, now); err != nil {
-		return Session{}, err
-	}
-
 	session := Session{
 		ID:               uuid.NewString(),
 		AdminID:          adminID,
@@ -159,22 +155,8 @@ func (r *SQLiteRepository) CreateSession(ctx context.Context, adminID string, to
 
 func (r *SQLiteRepository) GetSessionWithAdminByTokenHash(ctx context.Context, tokenHash string) (Session, Admin, error) {
 	ctx = resolveCtx(ctx)
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return Session{}, Admin{}, err
-	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		}
-	}()
-
 	now := nowNano()
-	if _, err = tx.ExecContext(ctx, `DELETE FROM sessions WHERE expires_at_ns <= ?`, now); err != nil {
-		return Session{}, Admin{}, err
-	}
-
-	row := tx.QueryRowContext(
+	row := r.db.QueryRowContext(
 		ctx,
 		`SELECT
 			s.id, s.admin_id, s.session_token_hash, s.expires_at_ns, s.created_at_ns, s.last_seen_at_ns, s.ip, s.user_agent,
@@ -194,7 +176,7 @@ func (r *SQLiteRepository) GetSessionWithAdminByTokenHash(ctx context.Context, t
 		adminIsActive               int64
 		adminCreatedAt, adminUpdatedAt int64
 	)
-	if err = row.Scan(
+	if err := row.Scan(
 		&session.ID,
 		&session.AdminID,
 		&session.SessionTokenHash,
@@ -222,19 +204,20 @@ func (r *SQLiteRepository) GetSessionWithAdminByTokenHash(ctx context.Context, t
 	if !session.ExpiresAt.After(fromUnixNano(now)) {
 		return Session{}, Admin{}, ErrNotFound
 	}
-
-	if err = tx.Commit(); err != nil {
-		return Session{}, Admin{}, err
-	}
 	return session, admin, nil
 }
 
 func (r *SQLiteRepository) TouchSession(ctx context.Context, sessionID string) error {
+	now := nowNano()
+	threshold := now - int64((45 * time.Second).Nanoseconds())
 	_, err := r.db.ExecContext(
 		resolveCtx(ctx),
-		`UPDATE sessions SET last_seen_at_ns = ? WHERE id = ?`,
-		nowNano(),
+		`UPDATE sessions
+		 SET last_seen_at_ns = ?
+		 WHERE id = ? AND (last_seen_at_ns IS NULL OR last_seen_at_ns < ?)`,
+		now,
 		strings.TrimSpace(sessionID),
+		threshold,
 	)
 	return err
 }

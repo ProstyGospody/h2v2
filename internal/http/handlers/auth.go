@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -36,7 +37,10 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	admin, err := h.repo.GetAdminByEmail(r.Context(), email)
+	authCtx, cancelAuth := context.WithTimeout(r.Context(), 4*time.Second)
+	defer cancelAuth()
+
+	admin, err := h.repo.GetAdminByEmail(authCtx, email)
 	if err != nil {
 		if repository.IsNotFound(err) {
 			render.Error(w, http.StatusUnauthorized, "invalid credentials")
@@ -68,15 +72,18 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	expiresAt := time.Now().UTC().Add(h.cfg.SessionTTL)
+	sessionCtx, cancelSession := context.WithTimeout(r.Context(), 4*time.Second)
+	defer cancelSession()
+
 	if _, err := h.repo.CreateSession(
-		r.Context(),
+		sessionCtx,
 		admin.ID,
 		security.HashToken(sessionToken),
 		expiresAt,
 		ip,
 		r.UserAgent(),
 	); err != nil {
-		render.Error(w, http.StatusInternalServerError, "failed to persist session")
+		render.Error(w, http.StatusServiceUnavailable, "service unavailable")
 		return
 	}
 

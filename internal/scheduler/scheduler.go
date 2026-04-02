@@ -72,18 +72,21 @@ func (j *Jobs) runTicker(ctx context.Context, name string, interval time.Duratio
 }
 
 func (j *Jobs) pollHysteria(ctx context.Context) error {
+	pollCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+
 	if j.userManager != nil {
-		return j.userManager.CollectRuntime(ctx)
+		return j.userManager.CollectRuntime(pollCtx)
 	}
-	traffic, err := j.hy2Client.FetchTraffic(ctx)
+	traffic, err := j.hy2Client.FetchTraffic(pollCtx)
 	if err != nil {
 		return err
 	}
-	online, err := j.hy2Client.FetchOnline(ctx)
+	online, err := j.hy2Client.FetchOnline(pollCtx)
 	if err != nil {
 		return err
 	}
-	users, err := j.repo.ListHysteriaUsers(ctx, 10000, 0)
+	users, err := j.repo.ListHysteriaUsers(pollCtx, 10000, 0)
 	if err != nil {
 		return err
 	}
@@ -100,12 +103,12 @@ func (j *Jobs) pollHysteria(ctx context.Context) error {
 			SnapshotAt: now,
 		})
 		if onlineCount > 0 {
-			if err := j.repo.TouchHysteriaUserLastSeen(ctx, user.ID, now); err != nil {
+			if err := j.repo.TouchHysteriaUserLastSeen(pollCtx, user.ID, now); err != nil {
 				j.logger.Debug("failed to update hysteria last seen", "user_id", user.ID, "error", err)
 			}
 		}
 	}
-	return j.repo.InsertHysteriaSnapshots(ctx, snapshots)
+	return j.repo.InsertHysteriaSnapshots(pollCtx, snapshots)
 }
 
 func (j *Jobs) pollServices(ctx context.Context) error {
