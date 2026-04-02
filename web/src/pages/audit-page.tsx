@@ -128,12 +128,10 @@ export default function AuditPage() {
               />
             </div>
 
-            {hasActiveFilters ? (
-              <Button onClick={clearFilters} className={secondaryBtnClassName}>
-                <FilterX size={16} strokeWidth={1.8} />
-                Clear
-              </Button>
-            ) : null}
+            <Button onClick={clearFilters} disabled={!hasActiveFilters} className={secondaryBtnClassName}>
+              <FilterX size={16} strokeWidth={1.8} />
+              Clear
+            </Button>
           </>
         }
       />
