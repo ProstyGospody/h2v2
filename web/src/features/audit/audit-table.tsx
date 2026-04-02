@@ -25,6 +25,7 @@ type AuditTableProps = {
 
 const SKELETON_ROWS = 9;
 const STICKY_HEAD_CLASS = "sticky top-0 z-10 bg-surface-2/96";
+const AUDIT_TABLE_MIN_WIDTH = "1120px";
 
 function rowKey(item: AuditLogItem): string {
   return `${item.id}:${item.created_at}:${item.action}:${item.entity_type}:${item.entity_id || ""}`;
@@ -121,8 +122,15 @@ export function AuditTable({ loading, items, hasSourceItems }: AuditTableProps) 
 
   return (
     <TableContainer>
-      <div className="hidden max-h-[calc(100dvh-21rem)] overflow-auto xl:block">
-        <Table className="min-w-[820px]" aria-rowcount={items.length + 1} aria-busy={loading}>
+      <div className="hidden max-h-[calc(100dvh-21rem)] overflow-x-auto overflow-y-scroll xl:block">
+        <Table className="table-fixed" style={{ minWidth: AUDIT_TABLE_MIN_WIDTH }} aria-rowcount={items.length + 1} aria-busy={loading}>
+          <colgroup>
+            <col style={{ width: "180px" }} />
+            <col style={{ width: "120px" }} />
+            <col style={{ width: "220px" }} />
+            <col style={{ width: "200px" }} />
+            <col style={{ width: "400px" }} />
+          </colgroup>
           <TableHeader className="bg-surface-2/96">
             <TableRow className="border-t-0 hover:bg-transparent">
               <TableHead className={STICKY_HEAD_CLASS}>Time</TableHead>
@@ -141,10 +149,14 @@ export function AuditTable({ loading, items, hasSourceItems }: AuditTableProps) 
                 <TableRow key={rowKey(item)}>
                   <TableCell className="whitespace-nowrap text-[12px] text-txt-secondary">{formatDateTime(item.created_at)}</TableCell>
                   <TableCell>
-                    <Badge variant={actionVariant(item.action)} className="px-2 py-0.5 text-[10px]">{item.action}</Badge>
+                    <Badge variant={actionVariant(item.action)} className="min-w-[72px] justify-center px-2 py-0.5 text-[10px]">{item.action}</Badge>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-[12px] font-medium text-txt-primary">{item.admin_email || "system"}</TableCell>
-                  <TableCell className="whitespace-nowrap text-[12px] text-txt-secondary">{entityLabel(item)}</TableCell>
+                  <TableCell className="text-[12px] font-medium text-txt-primary">
+                    <span className="block truncate whitespace-nowrap">{item.admin_email || "system"}</span>
+                  </TableCell>
+                  <TableCell className="text-[12px] text-txt-secondary">
+                    <span className="block truncate whitespace-nowrap">{entityLabel(item)}</span>
+                  </TableCell>
                   <TableCell>
                     <PayloadCell value={item.payload_json} />
                   </TableCell>

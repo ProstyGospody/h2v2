@@ -56,6 +56,7 @@ type UserActionsProps = {
 
 const SKELETON_ROWS = 8;
 const STICKY_HEAD_CLASS = "sticky top-0 z-10 bg-surface-2/96";
+const USERS_TABLE_MIN_WIDTH = "1080px";
 const SORT_OPTIONS: Array<{ field: SortField; label: string }> = [
   { field: "username", label: "User" },
   { field: "traffic", label: "Traffic" },
@@ -383,11 +384,20 @@ export function UsersTable({
         </label>
       </div>
 
-      <div className="hidden max-h-[calc(100dvh-23rem)] overflow-auto xl:block">
-        <Table className="min-w-[860px]" aria-rowcount={filteredClients.length + 1} aria-busy={loading}>
+      <div className="hidden max-h-[calc(100dvh-23rem)] overflow-x-auto overflow-y-scroll xl:block">
+        <Table className="table-fixed" style={{ minWidth: USERS_TABLE_MIN_WIDTH }} aria-rowcount={filteredClients.length + 1} aria-busy={loading}>
+          <colgroup>
+            <col style={{ width: "48px" }} />
+            <col style={{ width: "280px" }} />
+            <col style={{ width: "170px" }} />
+            <col style={{ width: "190px" }} />
+            <col style={{ width: "170px" }} />
+            <col style={{ width: "170px" }} />
+            <col style={{ width: "152px" }} />
+          </colgroup>
           <TableHeader className="bg-surface-2/96">
             <TableRow className="border-t-0 hover:bg-transparent">
-              <TableHead className={`${STICKY_HEAD_CLASS} w-10`}>
+              <TableHead className={STICKY_HEAD_CLASS}>
                 <Checkbox
                   checked={allFilteredSelected ? true : someFilteredSelected ? "indeterminate" : false}
                   onCheckedChange={(value) => onToggleSelectFiltered(value === true)}
@@ -427,7 +437,7 @@ export function UsersTable({
 
                 return (
                   <TableRow key={client.id} aria-rowindex={page * rowsPerPage + index + 2}>
-                    <TableCell className="w-10">
+                    <TableCell>
                       <Checkbox
                         checked={selectedSet.has(client.id)}
                         onCheckedChange={(value) => onToggleClientSelection(client.id, value === true)}
@@ -444,11 +454,11 @@ export function UsersTable({
                         >
                           {initials(client.username)}
                         </button>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <button
                             type="button"
                             onClick={() => onOpenArtifacts(client)}
-                            className="max-w-full truncate text-left text-[13px] font-semibold text-txt-primary hover:text-txt"
+                            className="block w-full truncate text-left text-[13px] font-semibold text-txt-primary hover:text-txt"
                           >
                             {client.username}
                           </button>
@@ -458,14 +468,14 @@ export function UsersTable({
                     </TableCell>
 
                     <TableCell>
-                      <div className="flex items-center justify-between gap-3">
-                        <Badge variant={statusBadgeVariant(status)} className="px-2 py-0.5 text-[10px]">{status}</Badge>
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge variant={statusBadgeVariant(status)} className="min-w-[72px] justify-center px-2 py-0.5 text-[10px]">{status}</Badge>
                         <Toggle checked={client.enabled} onCheckedChange={() => void onToggleEnabled(client)} className="shrink-0" />
                       </div>
                     </TableCell>
 
                     <TableCell>
-                      <div className="max-w-[200px]">
+                      <div className="w-full min-w-0">
                         <TrafficMeter value={traffic} maxValue={maxTraffic} />
                       </div>
                     </TableCell>
@@ -483,11 +493,11 @@ export function UsersTable({
                       </div>
                     </TableCell>
 
-                    <TableCell className="whitespace-nowrap text-[12px] text-txt-secondary">
+                    <TableCell className="truncate whitespace-nowrap text-[12px] text-txt-secondary">
                       {formatDateTime(client.last_seen_at || client.updated_at, { includeSeconds: false })}
                     </TableCell>
 
-                    <TableCell>
+                    <TableCell className="text-right">
                       <UserActions
                         client={client}
                         onOpenArtifacts={onOpenArtifacts}
