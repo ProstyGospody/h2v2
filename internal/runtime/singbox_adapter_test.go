@@ -448,6 +448,18 @@ func TestParseSingBoxUserOnlineName(t *testing.T) {
 			wantValid: true,
 		},
 		{
+			name:      "traffic-connections",
+			raw:       "user>>>demo>>>traffic>>>connections",
+			wantUser:  "demo",
+			wantValid: true,
+		},
+		{
+			name:      "nested-online-token",
+			raw:       "user>>>demo>>>stats>>>online>>>total",
+			wantUser:  "demo",
+			wantValid: true,
+		},
+		{
 			name:      "traffic-not-online",
 			raw:       "user>>>demo>>>traffic>>>uplink",
 			wantValid: false,

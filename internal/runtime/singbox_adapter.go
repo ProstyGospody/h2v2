@@ -1304,7 +1304,7 @@ func parseSingBoxUserOnlineName(raw string) (string, bool) {
 		return "", false
 	}
 	remaining := strings.TrimPrefix(value, singBoxUserStatPrefix)
-	if remaining == "" || strings.Contains(remaining, singBoxUserTrafficToken) {
+	if remaining == "" {
 		return "", false
 	}
 	parts := strings.Split(remaining, ">>>")
@@ -1317,12 +1317,19 @@ func parseSingBoxUserOnlineName(raw string) (string, bool) {
 		return "", false
 	}
 	last := strings.ToLower(strings.TrimSpace(parts[len(parts)-1]))
-	switch last {
-	case "online", "active", "connection", "connections":
-		return userName, true
-	default:
+	if last == "uplink" || last == "downlink" {
 		return "", false
 	}
+
+	for _, tokenRaw := range parts[1:] {
+		token := strings.ToLower(strings.TrimSpace(tokenRaw))
+		switch token {
+		case "online", "active", "connection", "connections", "conn", "session", "sessions":
+			return userName, true
+		}
+	}
+
+	return "", false
 }
 
 func sortedKeys(items map[string]struct{}) []string {

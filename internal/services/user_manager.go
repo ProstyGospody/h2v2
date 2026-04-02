@@ -414,6 +414,14 @@ func (m *UserManager) CollectRuntime(ctx context.Context) error {
 			}
 		}
 		counters = applyOnlineToCounters(counters, onlineByUser)
+		counters, err = m.appendMissingOnlineCounters(ctx, protocol, counters, onlineByUser)
+		if err != nil {
+			return err
+		}
+		counters, err = m.stabilizeOnlineFromHistory(ctx, protocol, counters)
+		if err != nil {
+			return err
+		}
 		if protocol == repository.ProtocolHY2 {
 			normalized := make([]repository.TrafficCounter, 0, len(counters))
 			snapshots := make([]repository.HysteriaSnapshot, 0, len(counters))
@@ -508,6 +516,103 @@ func applyOnlineToCounters(counters []repository.TrafficCounter, onlineByUser ma
 		counters[index].Online = online
 	}
 	return counters
+}
+
+func (m *UserManager) appendMissingOnlineCounters(
+	ctx context.Context,
+	protocol repository.Protocol,
+	counters []repository.TrafficCounter,
+	onlineByUser map[string]int,
+) ([]repository.TrafficCounter, error) {
+	if len(onlineByUser) == 0 {
+		return counters, nil
+	}
+
+	existing := make(map[string]struct{}, len(counters))
+	for _, counter := range counters {
+		userID := strings.TrimSpace(counter.UserID)
+		if userID == "" {
+			continue
+		}
+		existing[userID] = struct{}{}
+	}
+
+	now := time.Now().UTC()
+	for rawUserID, online := range onlineByUser {
+		userID := strings.TrimSpace(rawUserID)
+		if userID == "" {
+			continue
+		}
+		if _, ok := existing[userID]; ok {
+			continue
+		}
+
+		latest, err := m.repo.ListTrafficCounters(ctx, userID, &protocol, 1, 0)
+		if err != nil {
+			return nil, err
+		}
+
+		tx := int64(0)
+		rx := int64(0)
+		if len(latest) > 0 {
+			tx = latest[0].TxBytes
+			rx = latest[0].RxBytes
+		}
+
+		counters = append(counters, repository.TrafficCounter{
+			UserID:     userID,
+			Protocol:   protocol,
+			TxBytes:    tx,
+			RxBytes:    rx,
+			Online:     online,
+			SnapshotAt: now,
+		})
+	}
+
+	return counters, nil
+}
+
+func (m *UserManager) stabilizeOnlineFromHistory(
+	ctx context.Context,
+	protocol repository.Protocol,
+	counters []repository.TrafficCounter,
+) ([]repository.TrafficCounter, error) {
+	if len(counters) == 0 {
+		return counters, nil
+	}
+
+	now := time.Now().UTC()
+	for index := range counters {
+		if counters[index].Online > 0 {
+			continue
+		}
+		userID := strings.TrimSpace(counters[index].UserID)
+		if userID == "" {
+			continue
+		}
+
+		latest, err := m.repo.ListTrafficCounters(ctx, userID, &protocol, 1, 0)
+		if err != nil {
+			return nil, err
+		}
+		if len(latest) == 0 {
+			continue
+		}
+
+		previous := latest[0]
+		if counters[index].TxBytes > previous.TxBytes || counters[index].RxBytes > previous.RxBytes {
+			counters[index].Online = 1
+			continue
+		}
+		if previous.Online <= 0 || previous.SnapshotAt.IsZero() {
+			continue
+		}
+		if now.Sub(previous.SnapshotAt) <= 90*time.Second {
+			counters[index].Online = previous.Online
+		}
+	}
+
+	return counters, nil
 }
 
 func (m *UserManager) resolveToken(ctx context.Context, token string) (repository.UserWithCredentials, repository.SubscriptionToken, error) {

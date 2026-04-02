@@ -135,3 +135,140 @@ func TestApplyOnlineToCounters(t *testing.T) {
 		t.Fatalf("unexpected online for u2: %d", updated[1].Online)
 	}
 }
+
+func TestUserManagerCollectRuntimeAppendsOnlineOnlyCountersWithoutResettingTraffic(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "data", "h2v2.db")
+
+	repo, err := repository.NewSQLiteRepository(dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite repository: %v", err)
+	}
+	t.Cleanup(func() { _ = repo.Close() })
+
+	user, err := repo.CreateUser(ctx, repository.CreateUserInput{
+		Name:    "runtime-online-only-user",
+		Enabled: true,
+		Credentials: []repository.Credential{
+			{Protocol: repository.ProtocolVLESS, Identity: "2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	if err := repo.InsertTrafficCounters(ctx, []repository.TrafficCounter{
+		{
+			UserID:   user.ID,
+			Protocol: repository.ProtocolVLESS,
+			TxBytes:  500,
+			RxBytes:  700,
+			Online:   0,
+		},
+	}); err != nil {
+		t.Fatalf("seed traffic counters: %v", err)
+	}
+
+	adapter := &runtimeStatsAdapter{
+		protocol: repository.ProtocolVLESS,
+		traffic:  []repository.TrafficCounter{},
+		online: map[string]int{
+			user.ID: 1,
+		},
+	}
+
+	manager := NewUserManager(
+		config.Config{
+			InternalAuthToken:     "secret",
+			SubscriptionPublicURL: "https://panel.example.com",
+		},
+		repo,
+		runtimecore.NewRuntime(adapter),
+	)
+
+	if err := manager.CollectRuntime(ctx); err != nil {
+		t.Fatalf("collect runtime: %v", err)
+	}
+
+	updated, err := repo.GetUser(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	if updated.OnlineCount != 1 {
+		t.Fatalf("unexpected online count: %d", updated.OnlineCount)
+	}
+	if updated.TrafficUsedTxBytes != 500 || updated.TrafficUsedRxBytes != 700 {
+		t.Fatalf("unexpected traffic counters: tx=%d rx=%d", updated.TrafficUsedTxBytes, updated.TrafficUsedRxBytes)
+	}
+}
+
+func TestUserManagerCollectRuntimeInfersOnlineFromTrafficDelta(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "data", "h2v2.db")
+
+	repo, err := repository.NewSQLiteRepository(dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite repository: %v", err)
+	}
+	t.Cleanup(func() { _ = repo.Close() })
+
+	user, err := repo.CreateUser(ctx, repository.CreateUserInput{
+		Name:    "runtime-delta-user",
+		Enabled: true,
+		Credentials: []repository.Credential{
+			{Protocol: repository.ProtocolVLESS, Identity: "2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	if err := repo.InsertTrafficCounters(ctx, []repository.TrafficCounter{
+		{
+			UserID:   user.ID,
+			Protocol: repository.ProtocolVLESS,
+			TxBytes:  100,
+			RxBytes:  200,
+			Online:   0,
+		},
+	}); err != nil {
+		t.Fatalf("seed traffic counters: %v", err)
+	}
+
+	adapter := &runtimeStatsAdapter{
+		protocol: repository.ProtocolVLESS,
+		traffic: []repository.TrafficCounter{
+			{
+				UserID:   user.ID,
+				Protocol: repository.ProtocolVLESS,
+				TxBytes:  110,
+				RxBytes:  230,
+				Online:   0,
+			},
+		},
+		online: map[string]int{},
+	}
+
+	manager := NewUserManager(
+		config.Config{
+			InternalAuthToken:     "secret",
+			SubscriptionPublicURL: "https://panel.example.com",
+		},
+		repo,
+		runtimecore.NewRuntime(adapter),
+	)
+
+	if err := manager.CollectRuntime(ctx); err != nil {
+		t.Fatalf("collect runtime: %v", err)
+	}
+
+	updated, err := repo.GetUser(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("get user: %v", err)
+	}
+	if updated.OnlineCount != 1 {
+		t.Fatalf("unexpected online count: %d", updated.OnlineCount)
+	}
+}
