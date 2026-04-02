@@ -110,7 +110,7 @@ func NewServer(cfg config.Config, logger *slog.Logger, repo repository.Repositor
 	hy2RuntimeClient := hy2ClientRuntimeAdapter{inner: hy2Client}
 	runtime := runtimecore.NewRuntime(
 		runtimecore.NewHY2Adapter(hy2RuntimeAccess, hy2RuntimeClient, serviceManager, "hysteria-server"),
-		runtimecore.NewXrayAdapter(cfg.XrayConfigPath, cfg.XrayRuntimeURL, cfg.XrayRuntimeToken, serviceManager, cfg.XrayServiceName),
+		runtimecore.NewXrayAdapter(cfg.XrayBinaryPath, cfg.XrayConfigPath, cfg.XrayRuntimeURL, cfg.XrayRuntimeToken, serviceManager, cfg.XrayServiceName),
 	)
 	userManager := services.NewUserManager(cfg, repo, runtime)
 	systemMetrics := services.NewSystemMetricsCollector()
@@ -162,9 +162,6 @@ func (s *Server) runStartupTasks(ctx context.Context) {
 	defer cancel()
 
 	if s.userManager != nil {
-		if err := s.userManager.SyncAll(startupCtx); err != nil {
-			s.logger.Warn("failed to sync runtime adapters on startup", "error", err)
-		}
 		return
 	}
 

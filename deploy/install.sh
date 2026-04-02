@@ -592,6 +592,11 @@ EOF
 EOF
   run chown root:h2v2 "${XRAY_CONFIG_PATH}"
   run chmod 0660 "${XRAY_CONFIG_PATH}"
+  if ! run runuser -u xray -- "${XRAY_BINARY_PATH}" run -test -config "${XRAY_CONFIG_PATH}" >/dev/null 2>&1; then
+    if ! run runuser -u xray -- "${XRAY_BINARY_PATH}" -test -config "${XRAY_CONFIG_PATH}" >/dev/null 2>&1; then
+      fatal "xray config validation failed: ${XRAY_CONFIG_PATH}"
+    fi
+  fi
   changed "runtime templates rendered"
 }
 

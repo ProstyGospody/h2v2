@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -20,6 +21,7 @@ import (
 )
 
 type XrayAdapter struct {
+	binaryPath   string
 	configPath   string
 	runtimeURL   string
 	runtimeToken string
@@ -28,12 +30,17 @@ type XrayAdapter struct {
 	httpClient   *http.Client
 }
 
-func NewXrayAdapter(configPath string, runtimeURL string, runtimeToken string, svc ServiceRestarter, serviceName string) *XrayAdapter {
+func NewXrayAdapter(binaryPath string, configPath string, runtimeURL string, runtimeToken string, svc ServiceRestarter, serviceName string) *XrayAdapter {
 	name := strings.TrimSpace(serviceName)
 	if name == "" {
 		name = "xray"
 	}
+	bin := strings.TrimSpace(binaryPath)
+	if bin == "" {
+		bin = "/usr/local/bin/xray"
+	}
 	return &XrayAdapter{
+		binaryPath:   bin,
 		configPath:   strings.TrimSpace(configPath),
 		runtimeURL:   strings.TrimRight(strings.TrimSpace(runtimeURL), "/"),
 		runtimeToken: strings.TrimSpace(runtimeToken),
@@ -187,7 +194,43 @@ func (a *XrayAdapter) applyConfig(config map[string]any) error {
 	if st, err := os.Stat(a.configPath); err == nil {
 		mode = st.Mode().Perm()
 	}
+	tempFile := filepath.Join(filepath.Dir(a.configPath), ".xray-config-test.json")
+	if err := os.WriteFile(tempFile, data, mode); err != nil {
+		return err
+	}
+	defer func() {
+		_ = os.Remove(tempFile)
+	}()
+	if err := a.validateConfig(tempFile); err != nil {
+		return err
+	}
 	return fsutil.WriteFileAtomic(a.configPath, data, mode)
+}
+
+func (a *XrayAdapter) validateConfig(path string) error {
+	if strings.TrimSpace(a.binaryPath) == "" || strings.TrimSpace(path) == "" {
+		return nil
+	}
+	ctxRun, cancelRun := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancelRun()
+	outRun, errRun := exec.CommandContext(ctxRun, a.binaryPath, "run", "-test", "-config", path).CombinedOutput()
+	if errRun == nil {
+		return nil
+	}
+	ctxFallback, cancelFallback := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancelFallback()
+	outFallback, errFallback := exec.CommandContext(ctxFallback, a.binaryPath, "-test", "-config", path).CombinedOutput()
+	if errFallback == nil {
+		return nil
+	}
+	details := strings.TrimSpace(string(outFallback))
+	if details == "" {
+		details = strings.TrimSpace(string(outRun))
+	}
+	if details == "" {
+		details = "xray test command returned an empty error output"
+	}
+	return fmt.Errorf("xray config validation failed: %s", details)
 }
 
 func (a *XrayAdapter) hotReload(ctx context.Context) error {
@@ -386,14 +429,6 @@ func buildXrayConfig(inbounds []repository.Inbound, users []repository.UserWithC
 		"outbounds": []map[string]any{
 			{"tag": "direct", "protocol": "freedom"},
 			{"tag": "blocked", "protocol": "blackhole"},
-		},
-		"routing": map[string]any{
-			"domainStrategy": "AsIs",
-			"rules": []map[string]any{{
-				"type": "field",
-				"ip":   []string{"geoip:private"},
-				"outboundTag": "direct",
-			}},
 		},
 	}, nil
 }
