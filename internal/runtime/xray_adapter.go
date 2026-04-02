@@ -283,6 +283,16 @@ func buildXrayConfig(inbounds []repository.Inbound, users []repository.UserWithC
 		if inbound.Protocol != repository.ProtocolVLESS || !inbound.Enabled {
 			continue
 		}
+
+		listenHost := strings.TrimSpace(inbound.Host)
+		if listenHost == "" {
+			listenHost = "0.0.0.0"
+		}
+		listenPort := inbound.Port
+		if listenPort <= 0 {
+			listenPort = 443
+		}
+
 		params := parseJSONMap(inbound.ParamsJSON)
 		clients := make([]map[string]any, 0)
 		for _, user := range users {
@@ -306,31 +316,51 @@ func buildXrayConfig(inbounds []repository.Inbound, users []repository.UserWithC
 			clients = append(clients, client)
 		}
 
-		stream := map[string]any{
-			"network": inbound.Transport,
-			"security": inbound.Security,
+		network := firstNonEmpty(inbound.Transport, "tcp")
+		if network != "tcp" && network != "ws" && network != "grpc" {
+			network = "tcp"
 		}
-		switch inbound.Transport {
+		security := firstNonEmpty(inbound.Security, "none")
+		stream := map[string]any{
+			"network":  network,
+			"security": security,
+		}
+		switch network {
 		case "ws":
 			stream["wsSettings"] = map[string]any{"path": firstNonEmpty(readString(params, "path"), "/")}
 		case "grpc":
 			stream["grpcSettings"] = map[string]any{"serviceName": firstNonEmpty(readString(params, "serviceName"), "grpc")}
 		}
-		if inbound.Security == "reality" {
+		if security == "reality" {
+			serverNames := readStringSlice(params, "sni")
+			if len(serverNames) == 0 {
+				if fallback := readString(params, "serverName"); fallback != "" {
+					serverNames = []string{fallback}
+				}
+			}
+			if len(serverNames) == 0 {
+				if fallback := strings.TrimSpace(inbound.Host); fallback != "" {
+					serverNames = []string{fallback}
+				}
+			}
+			privateKey := readString(params, "privateKey")
+			if privateKey == "" || len(serverNames) == 0 {
+				continue
+			}
 			stream["realitySettings"] = map[string]any{
 				"show":        false,
-				"dest":        firstNonEmpty(readString(params, "dest"), inbound.Host+":"+strconv.Itoa(inbound.Port)),
+				"dest":        firstNonEmpty(readString(params, "dest"), listenHost+":"+strconv.Itoa(listenPort)),
 				"xver":        readInt(params, "xver", 0),
-				"serverNames": readStringSlice(params, "sni"),
-				"privateKey":  readString(params, "privateKey"),
+				"serverNames": serverNames,
+				"privateKey":  privateKey,
 				"shortIds":    readStringSlice(params, "sid"),
 			}
 		}
 
 		enabledInbounds = append(enabledInbounds, map[string]any{
-			"tag":      inbound.Name,
-			"listen":   inbound.Host,
-			"port":     inbound.Port,
+			"tag":      firstNonEmpty(inbound.Name, inbound.ID, "vless"),
+			"listen":   listenHost,
+			"port":     listenPort,
 			"protocol": "vless",
 			"settings": map[string]any{
 				"clients":    clients,
