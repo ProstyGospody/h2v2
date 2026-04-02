@@ -1,6 +1,5 @@
 import { Copy } from "lucide-react";
 
-import { qrURL } from "@/domain/clients/services";
 import { HysteriaClient, HysteriaUserPayload, Protocol } from "@/domain/clients/types";
 import { Button, Dialog } from "@/src/components/ui";
 
@@ -53,11 +52,13 @@ export function ClientArtifactsDialog({
   const preferredProtocol: Protocol = (currentClient?.preferred_protocol || "hy2") as Protocol;
   const accessURI = resolveAccessURI(payload, preferredProtocol);
   const subscriptionURL = payload?.artifacts?.subscription_url || "";
+  const accessQRValue = accessURI ? encodeURIComponent(accessURI) : "";
+  const subscriptionQRValue = subscriptionURL ? encodeURIComponent(subscriptionURL) : "";
   const accessQRSource = currentClient?.id
-    ? `${qrURL(currentClient.id, 320, "access")}&protocol=${preferredProtocol}`
+    ? (accessQRValue ? `/api/users/${currentClient.id}/qr?size=320&value=${accessQRValue}` : "")
     : "";
   const subscriptionQRSource = currentClient?.id
-    ? `${qrURL(currentClient.id, 320, "subscription")}&protocol=${preferredProtocol}`
+    ? (subscriptionQRValue ? `/api/users/${currentClient.id}/qr?size=320&value=${subscriptionQRValue}` : "")
     : "";
 
   return (
@@ -75,13 +76,17 @@ export function ClientArtifactsDialog({
           <div className="space-y-2">
             <label className="text-[12px] font-semibold uppercase tracking-wide text-txt-secondary">URL</label>
             <div className="w-fit rounded-lg bg-surface-2/65 p-2">
-              <img
-                src={accessQRSource}
-                alt="URL"
-                width={320}
-                height={320}
-                className="h-[220px] w-[220px] rounded-md object-contain sm:h-[320px] sm:w-[320px]"
-              />
+              {accessQRSource ? (
+                <img
+                  src={accessQRSource}
+                  alt="URL"
+                  width={320}
+                  height={320}
+                  className="h-[220px] w-[220px] rounded-md object-contain sm:h-[320px] sm:w-[320px]"
+                />
+              ) : (
+                <div className="h-[220px] w-[220px] rounded-md bg-surface-3 sm:h-[320px] sm:w-[320px]" />
+              )}
             </div>
             <Button className="w-full sm:w-auto" onClick={() => onCopy(accessURI)} disabled={!accessURI}>
               <Copy size={16} strokeWidth={1.6} />Copy
@@ -91,13 +96,17 @@ export function ClientArtifactsDialog({
           <div className="space-y-2">
             <label className="text-[12px] font-semibold uppercase tracking-wide text-txt-secondary">Subscription</label>
             <div className="w-fit rounded-lg bg-surface-2/65 p-2">
-              <img
-                src={subscriptionQRSource}
-                alt="Subscription"
-                width={320}
-                height={320}
-                className="h-[220px] w-[220px] rounded-md object-contain sm:h-[320px] sm:w-[320px]"
-              />
+              {subscriptionQRSource ? (
+                <img
+                  src={subscriptionQRSource}
+                  alt="Subscription"
+                  width={320}
+                  height={320}
+                  className="h-[220px] w-[220px] rounded-md object-contain sm:h-[320px] sm:w-[320px]"
+                />
+              ) : (
+                <div className="h-[220px] w-[220px] rounded-md bg-surface-3 sm:h-[320px] sm:w-[320px]" />
+              )}
             </div>
             <Button className="w-full sm:w-auto" onClick={() => onCopy(subscriptionURL)} disabled={!subscriptionURL}>
               <Copy size={16} strokeWidth={1.6} />Copy

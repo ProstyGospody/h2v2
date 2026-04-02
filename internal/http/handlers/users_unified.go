@@ -339,6 +339,13 @@ func (h *Handler) UserQR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if rawValue := strings.TrimSpace(r.URL.Query().Get("value")); rawValue != "" {
+		if err := renderQRCodePNG(w, rawValue, parseQRSize(r.URL.Query().Get("size"), 320)); err != nil {
+			h.renderError(w, http.StatusInternalServerError, "runtime", "failed to render qr code", nil)
+		}
+		return
+	}
+
 	id := strings.TrimSpace(chi.URLParam(r, "id"))
 	user, err := h.userManager.GetUser(r.Context(), id)
 	if err != nil {
