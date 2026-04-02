@@ -7,6 +7,7 @@ import (
 
 	"h2v2/internal/http/middleware"
 	"h2v2/internal/http/render"
+	"h2v2/internal/repository"
 	"h2v2/internal/security"
 )
 
@@ -36,7 +37,15 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	admin, err := h.repo.GetAdminByEmail(r.Context(), email)
-	if err != nil || !admin.IsActive {
+	if err != nil {
+		if repository.IsNotFound(err) {
+			render.Error(w, http.StatusUnauthorized, "invalid credentials")
+			return
+		}
+		render.Error(w, http.StatusServiceUnavailable, "service unavailable")
+		return
+	}
+	if !admin.IsActive {
 		render.Error(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}

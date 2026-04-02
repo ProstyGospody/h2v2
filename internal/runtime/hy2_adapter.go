@@ -111,13 +111,17 @@ func (a *HY2Adapter) CollectTraffic(ctx context.Context, users []repository.User
 		if !ok {
 			continue
 		}
-		stat := traffic[credential.Identity]
+		stat, hasTraffic := traffic[credential.Identity]
+		onlineCount, hasOnline := online[credential.Identity]
+		if !hasTraffic && !hasOnline {
+			continue
+		}
 		counters = append(counters, repository.TrafficCounter{
 			UserID:   user.ID,
 			Protocol: repository.ProtocolHY2,
 			TxBytes:  stat.TxBytes,
 			RxBytes:  stat.RxBytes,
-			Online:   online[credential.Identity],
+			Online:   onlineCount,
 		})
 	}
 	return counters, nil

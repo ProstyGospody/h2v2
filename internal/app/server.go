@@ -165,9 +165,6 @@ func (s *Server) runStartupTasks(ctx context.Context) {
 		if err := s.userManager.SyncAll(startupCtx); err != nil {
 			s.logger.Warn("failed to sync runtime adapters on startup", "error", err)
 		}
-		if err := s.userManager.CollectRuntime(startupCtx); err != nil {
-			s.logger.Warn("failed to collect initial runtime counters", "error", err)
-		}
 		return
 	}
 

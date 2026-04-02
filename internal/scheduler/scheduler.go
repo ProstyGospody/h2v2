@@ -44,16 +44,18 @@ func (j *Jobs) Start(ctx context.Context) {
 			trafficInterval = j.cfg.XrayPollInterval
 		}
 	}
-	go j.runTicker(ctx, "hysteria-poll", trafficInterval, j.pollHysteria)
-	go j.runTicker(ctx, "services-poll", j.cfg.ServicePollInterval, j.pollServices)
+	go j.runTicker(ctx, "hysteria-poll", trafficInterval, false, j.pollHysteria)
+	go j.runTicker(ctx, "services-poll", j.cfg.ServicePollInterval, true, j.pollServices)
 }
 
-func (j *Jobs) runTicker(ctx context.Context, name string, interval time.Duration, fn func(context.Context) error) {
+func (j *Jobs) runTicker(ctx context.Context, name string, interval time.Duration, runImmediately bool, fn func(context.Context) error) {
 	if interval <= 0 {
 		interval = 1 * time.Minute
 	}
-	if err := fn(ctx); err != nil {
-		j.logger.Warn("scheduler initial run failed", "job", name, "error", err)
+	if runImmediately {
+		if err := fn(ctx); err != nil {
+			j.logger.Warn("scheduler initial run failed", "job", name, "error", err)
+		}
 	}
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
