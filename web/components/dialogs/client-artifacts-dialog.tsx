@@ -1,10 +1,26 @@
 ﻿import { Copy, Link2 } from "lucide-react";
 
-import { HysteriaClient, HysteriaUserPayload } from "@/domain/clients/types";
+import { HysteriaClient, HysteriaUserPayload, Protocol } from "@/domain/clients/types";
 import { Button, Dialog, Input } from "@/src/components/ui";
 
-function resolveAccessURI(payload: HysteriaUserPayload | null): string {
+function resolveAccessURI(payload: HysteriaUserPayload | null, preferredProtocol: Protocol): string {
   if (!payload?.artifacts) {
+    return "";
+  }
+  const unified = payload.artifacts.unified;
+  if (preferredProtocol === "vless") {
+    if (unified?.vless?.access_uri) {
+      return unified.vless.access_uri;
+    }
+    if (payload.artifacts.uri) {
+      return payload.artifacts.uri;
+    }
+    if (payload.artifacts.uri_hy2) {
+      return payload.artifacts.uri_hy2;
+    }
+    if (unified?.hy2?.access_uri) {
+      return unified.hy2.access_uri;
+    }
     return "";
   }
   if (payload.artifacts.uri_hy2) {
@@ -13,12 +29,11 @@ function resolveAccessURI(payload: HysteriaUserPayload | null): string {
   if (payload.artifacts.uri) {
     return payload.artifacts.uri;
   }
-  const unified = payload.artifacts.unified;
-  if (unified?.vless?.access_uri) {
-    return unified.vless.access_uri;
-  }
   if (unified?.hy2?.access_uri) {
     return unified.hy2.access_uri;
+  }
+  if (unified?.vless?.access_uri) {
+    return unified.vless.access_uri;
   }
   return "";
 }
@@ -34,9 +49,12 @@ export function ClientArtifactsDialog({
   onCopy: (value: string) => void;
 }) {
   const currentClient = payload?.user || client;
-  const accessURI = resolveAccessURI(payload);
+  const preferredProtocol: Protocol = (currentClient?.preferred_protocol || "hy2") as Protocol;
+  const accessURI = resolveAccessURI(payload, preferredProtocol);
   const subscriptionURL = payload?.artifacts?.subscription_url || "";
-  const configBody = payload?.artifacts?.client_config || payload?.artifacts?.unified?.vless?.config || "";
+  const configBody = preferredProtocol === "vless"
+    ? (payload?.artifacts?.unified?.vless?.config || payload?.artifacts?.client_config || "")
+    : (payload?.artifacts?.client_config || payload?.artifacts?.unified?.hy2?.config || payload?.artifacts?.unified?.vless?.config || "");
 
   return (
     <Dialog

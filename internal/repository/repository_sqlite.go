@@ -551,8 +551,8 @@ func (r *SQLiteRepository) backfillUnifiedSchema(ctx context.Context) error {
 			'reality',
 			'127.0.0.1',
 			443,
-			0,
-			'{"flow":"xtls-rprx-vision","pbk":"","sid":"","sni":"","fp":"chrome","network":"tcp","security":"reality"}',
+			1,
+			'{"flow":"xtls-rprx-vision","pbk":"","sid":"","sni":"www.cloudflare.com","fp":"chrome","network":"tcp","security":"reality","dest":"www.cloudflare.com:443"}',
 			'{}',
 			?,
 			?
@@ -633,6 +633,31 @@ func (r *SQLiteRepository) migrateVLESSRealityDefaults(ctx context.Context) erro
 			item.ParamsJSON,
 			nowNano(),
 			item.ID,
+		); err != nil {
+			return err
+		}
+	}
+
+	var enabledCount int
+	if err = tx.QueryRowContext(
+		resolveCtx(ctx),
+		`SELECT COUNT(1) FROM inbounds WHERE protocol = 'vless' AND enabled = 1`,
+	).Scan(&enabledCount); err != nil {
+		return err
+	}
+	if enabledCount == 0 {
+		if _, err = tx.ExecContext(
+			resolveCtx(ctx),
+			`UPDATE inbounds
+			 SET enabled = 1, updated_at_ns = ?
+			 WHERE id = (
+			   SELECT id
+			   FROM inbounds
+			   WHERE protocol = 'vless'
+			   ORDER BY CASE WHEN id = 'vless-default' THEN 0 ELSE 1 END, created_at_ns ASC, id ASC
+			   LIMIT 1
+			 )`,
+			nowNano(),
 		); err != nil {
 			return err
 		}

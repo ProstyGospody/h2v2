@@ -7,7 +7,7 @@ Control plane stack:
 - `panel-api`: Go
 - `panel-web`: React + Vite + Tailwind CSS + Radix UI + React Router + TanStack Query
 - Storage: SQLite (default `/var/lib/h2v2/data/h2v2.db`)
-- Data-plane runtimes: `hysteria-server` and `xray`
+- Data-plane runtimes: `hysteria-server` and `sing-box` (VLESS)
 - Reverse proxy: Caddy
 - Host metrics: native procfs readers
 - Service manager: systemd

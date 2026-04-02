@@ -5,7 +5,7 @@
 The panel controls two data-plane runtimes:
 
 - Hysteria 2 (`hy2`)
-- Xray VLESS (`vless`)
+- Sing-box VLESS (`vless`)
 - Sing-box core (`core v1`) for VLESS + Hysteria2 unified generation
 
 Control plane services:
@@ -68,7 +68,7 @@ Legacy API reads/writes continue to work after migration.
 Runtime operations are mediated by protocol adapters:
 
 - `HY2Adapter`
-- `XrayAdapter`
+- `SingBoxAdapter`
 
 Adapter contract:
 
@@ -110,6 +110,7 @@ Default list:
 - `h2v2-api`
 - `h2v2-web`
 - `hysteria-server`
-- `xray`
+- `sing-box`
+- `xray` (legacy)
 
 Runtime startup and periodic poll collection run through scheduler + adapters.

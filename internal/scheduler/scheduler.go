@@ -123,6 +123,8 @@ func (j *Jobs) pollServices(ctx context.Context) error {
 		switch service {
 		case "hysteria-server":
 			version, _ = services.DetectBinaryVersion(ctx, j.cfg.Hy2BinaryPath, "version")
+		case j.cfg.SingBoxServiceName:
+			version, _ = services.DetectBinaryVersion(ctx, j.cfg.SingBoxBinaryPath, "version")
 		case j.cfg.XrayServiceName:
 			version, _ = services.DetectBinaryVersion(ctx, j.cfg.XrayBinaryPath, "-version")
 		case "h2v2-api":
