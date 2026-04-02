@@ -34,6 +34,14 @@ for service in "${services[@]}"; do
   if [[ "${state}" != "active" ]]; then
     echo "[error] ${service}.service state=${state}" >&2
     systemctl status "${service}.service" --no-pager -l || true
+    if [[ "${service}" == "${XRAY_SERVICE_NAME}" ]]; then
+      xray_cfg="${XRAY_CONFIG_PATH:-/etc/h2v2/xray/config.json}"
+      if [[ -x "${XRAY_BINARY_PATH:-/usr/local/bin/xray}" ]]; then
+        runuser -u xray -- "${XRAY_BINARY_PATH:-/usr/local/bin/xray}" run -test -config "${xray_cfg}" || \
+        runuser -u xray -- "${XRAY_BINARY_PATH:-/usr/local/bin/xray}" -test -config "${xray_cfg}" || true
+      fi
+      journalctl -u "${XRAY_SERVICE_NAME}" -n 80 --no-pager || true
+    fi
     exit 1
   fi
   echo "[ok] ${service}.service is active"

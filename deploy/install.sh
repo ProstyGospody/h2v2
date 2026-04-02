@@ -186,7 +186,12 @@ install_hysteria() {
 }
 
 install_xray() {
-  [[ -x /usr/local/bin/xray ]] && return 0
+  if [[ -x /usr/local/bin/xray ]]; then
+    if run /usr/local/bin/xray version >/dev/null 2>&1 || run /usr/local/bin/xray -version >/dev/null 2>&1; then
+      return 0
+    fi
+    warn "existing xray binary is not runnable, reinstalling"
+  fi
   phase "build/install: xray"
   local ver="${XRAY_VERSION:-1.8.24}"
   local archive="/tmp/xray-linux-64.zip"
@@ -196,6 +201,11 @@ install_xray() {
   run mkdir -p "${unpack_dir}"
   run unzip -q -o "${archive}" -d "${unpack_dir}"
   run install -m 0755 "${unpack_dir}/xray" /usr/local/bin/xray
+  if ! run /usr/local/bin/xray version >/dev/null 2>&1; then
+    if ! run /usr/local/bin/xray -version >/dev/null 2>&1; then
+      fatal "installed xray binary is not runnable"
+    fi
+  fi
   run rm -rf "${unpack_dir}" "${archive}"
   changed "xray installed"
 }
@@ -616,6 +626,10 @@ EOF
   run install -m 0644 "${SRC_DIR}/systemd/h2v2-web.service" /etc/systemd/system/h2v2-web.service
   run install -m 0644 "${SRC_DIR}/systemd/hysteria-server.service" /etc/systemd/system/hysteria-server.service
   run install -m 0644 "${SRC_DIR}/systemd/xray.service" "/etc/systemd/system/${XRAY_SERVICE_NAME}.service"
+  run sed -i "s|__XRAY_BINARY_PATH__|${XRAY_BINARY_PATH}|g; s|__XRAY_CONFIG_PATH__|${XRAY_CONFIG_PATH}|g" "/etc/systemd/system/${XRAY_SERVICE_NAME}.service"
+  if grep -q "__XRAY_" "/etc/systemd/system/${XRAY_SERVICE_NAME}.service"; then
+    fatal "xray unit placeholders were not rendered"
+  fi
   run systemctl daemon-reload
   changed "sudoers and units updated"
 }
@@ -710,14 +724,31 @@ wait_for_panel_api() {
   return 1
 }
 
+require_service_active() {
+  local service="$1"
+  if systemctl is-active --quiet "${service}.service"; then
+    return 0
+  fi
+  systemctl status "${service}.service" --no-pager -l || true
+  if [[ "${service}" == "${XRAY_SERVICE_NAME}" ]]; then
+    local cfg_path="${XRAY_CONFIG_PATH:-/etc/h2v2/xray/config.json}"
+    if [[ -x "${XRAY_BINARY_PATH}" ]]; then
+      runuser -u xray -- "${XRAY_BINARY_PATH}" run -test -config "${cfg_path}" || \
+      runuser -u xray -- "${XRAY_BINARY_PATH}" -test -config "${cfg_path}" || true
+    fi
+    journalctl -u "${XRAY_SERVICE_NAME}" -n 120 --no-pager || true
+  fi
+  return 1
+}
+
 health_checks() {
   phase "health checks"
   (( DRY_RUN == 1 )) && return 0
-  run systemctl is-active --quiet h2v2-api.service
-  run systemctl is-active --quiet h2v2-web.service
-  run systemctl is-active --quiet caddy.service
-  run systemctl is-active --quiet hysteria-server.service
-  run systemctl is-active --quiet "${XRAY_SERVICE_NAME}.service"
+  require_service_active h2v2-api
+  require_service_active h2v2-web
+  require_service_active caddy
+  require_service_active hysteria-server
+  require_service_active "${XRAY_SERVICE_NAME}"
   if ! wait_for_panel_api; then
     systemctl status h2v2-api.service --no-pager -l || true
     journalctl -u h2v2-api -n 100 --no-pager || true
