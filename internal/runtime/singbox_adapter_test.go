@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -585,5 +586,43 @@ func TestSingBoxAdapterBuildArtifactsUsesUUIDAsFragmentWhenNameIsEmpty(t *testin
 	}
 	if !strings.Contains(artifact.AccessURI, "#2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad") {
 		t.Fatalf("expected uuid fragment fallback in uri: %s", artifact.AccessURI)
+	}
+}
+
+func TestIsSingBoxV2RayAPIUnsupportedError(t *testing.T) {
+	tests := []struct {
+		name   string
+		err    error
+		expect bool
+	}{
+		{
+			name:   "with-feature-flag-hint",
+			err:    errors.New("missing build tag with_v2ray_api"),
+			expect: true,
+		},
+		{
+			name:   "unknown-v2ray-api-field",
+			err:    errors.New("json: unknown field \"v2ray_api\""),
+			expect: true,
+		},
+		{
+			name:   "unrelated-error",
+			err:    errors.New("permission denied"),
+			expect: false,
+		},
+		{
+			name:   "nil",
+			err:    nil,
+			expect: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := isSingBoxV2RayAPIUnsupportedError(tc.err)
+			if got != tc.expect {
+				t.Fatalf("unexpected value: got=%v expect=%v", got, tc.expect)
+			}
+		})
 	}
 }

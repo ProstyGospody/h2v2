@@ -40,14 +40,15 @@ const (
 )
 
 type SingBoxAdapter struct {
-	binaryPath      string
-	configPath      string
-	services        ServiceRestarter
-	serviceName     string
-	artifactHost    string
-	v2rayAPIListen  string
-	v2rayAPIEnabled bool
-	v2rayAPIOnce    sync.Once
+	binaryPath         string
+	configPath         string
+	services           ServiceRestarter
+	serviceName        string
+	artifactHost       string
+	v2rayAPIListen     string
+	v2rayAPIEnabled    bool
+	v2rayAPIUnsupported bool
+	v2rayAPIMu         sync.RWMutex
 }
 
 type singBoxVLESSRuntimeConfig struct {
@@ -91,12 +92,13 @@ func NewSingBoxAdapter(binaryPath string, configPath string, svc ServiceRestarte
 		bin = defaultSingBoxBinaryPath
 	}
 	return &SingBoxAdapter{
-		binaryPath:     bin,
-		configPath:     strings.TrimSpace(configPath),
-		services:       svc,
-		serviceName:    name,
-		artifactHost:   normalizePublicEndpointHost(artifactHost),
-		v2rayAPIListen: defaultSingBoxV2RayAPIListen,
+		binaryPath:      bin,
+		configPath:      strings.TrimSpace(configPath),
+		services:        svc,
+		serviceName:     name,
+		artifactHost:    normalizePublicEndpointHost(artifactHost),
+		v2rayAPIListen:  defaultSingBoxV2RayAPIListen,
+		v2rayAPIEnabled: true,
 	}
 }
 
@@ -105,12 +107,29 @@ func (a *SingBoxAdapter) Protocol() repository.Protocol {
 }
 
 func (a *SingBoxAdapter) SyncConfig(ctx context.Context, inbounds []repository.Inbound, users []repository.UserWithCredentials) error {
-	config, err := buildSingBoxVLESSConfigWithStats(inbounds, users, a.artifactHost, a.v2rayStatsAvailable(), a.v2rayAPIListen)
+	enableStats := a.shouldUseV2RayStats()
+	config, err := buildSingBoxVLESSConfigWithStats(inbounds, users, a.artifactHost, enableStats, a.v2rayAPIListen)
 	if err != nil {
 		return err
 	}
 	if err := a.applyConfig(config); err != nil {
+		if enableStats && isSingBoxV2RayAPIUnsupportedError(err) {
+			fallback, buildErr := buildSingBoxVLESSConfigWithStats(inbounds, users, a.artifactHost, false, "")
+			if buildErr != nil {
+				return buildErr
+			}
+			if fallbackErr := a.applyConfig(fallback); fallbackErr != nil {
+				return fallbackErr
+			}
+			a.setV2RayStatsState(false, true)
+			return a.restart(ctx)
+		}
 		return err
+	}
+	if enableStats {
+		a.setV2RayStatsState(true, false)
+	} else {
+		a.setV2RayStatsEnabled(false)
 	}
 	return a.restart(ctx)
 }
@@ -147,7 +166,7 @@ func (a *SingBoxAdapter) CollectTraffic(ctx context.Context, users []repository.
 
 	statsByUser, err := a.queryV2RayUserStats(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("sing-box v2ray stats query failed: %w", err)
 	}
 
 	now := time.Now().UTC()
@@ -188,7 +207,7 @@ func (a *SingBoxAdapter) CollectOnline(ctx context.Context, users []repository.U
 
 	statsByUser, err := a.queryV2RayUserStats(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("sing-box v2ray online query failed: %w", err)
 	}
 
 	onlineByUser := make(map[string]int, len(users))
@@ -317,10 +336,37 @@ func (a *SingBoxAdapter) v2rayStatsAvailable() bool {
 	if a == nil {
 		return false
 	}
-	a.v2rayAPIOnce.Do(func() {
-		a.v2rayAPIEnabled = detectSingBoxFeature(a.binaryPath, singBoxFeatureV2RayAPI)
-	})
+	a.v2rayAPIMu.RLock()
+	defer a.v2rayAPIMu.RUnlock()
 	return a.v2rayAPIEnabled
+}
+
+func (a *SingBoxAdapter) shouldUseV2RayStats() bool {
+	if a == nil {
+		return false
+	}
+	a.v2rayAPIMu.RLock()
+	defer a.v2rayAPIMu.RUnlock()
+	return !a.v2rayAPIUnsupported
+}
+
+func (a *SingBoxAdapter) setV2RayStatsState(enabled bool, unsupported bool) {
+	if a == nil {
+		return
+	}
+	a.v2rayAPIMu.Lock()
+	a.v2rayAPIEnabled = enabled
+	a.v2rayAPIUnsupported = unsupported
+	a.v2rayAPIMu.Unlock()
+}
+
+func (a *SingBoxAdapter) setV2RayStatsEnabled(enabled bool) {
+	if a == nil {
+		return
+	}
+	a.v2rayAPIMu.Lock()
+	a.v2rayAPIEnabled = enabled
+	a.v2rayAPIMu.Unlock()
 }
 
 type singBoxUserTrafficStats struct {
@@ -357,6 +403,7 @@ func (a *SingBoxAdapter) queryV2RayUserStats(ctx context.Context) (map[string]si
 	defer conn.Close()
 
 	request := &singBoxV2RayQueryStatsRequest{
+		Pattern:  singBoxUserStatPrefix,
 		Patterns: []string{singBoxUserStatPrefix},
 	}
 	response := &singBoxV2RayQueryStatsResponse{}
@@ -1181,6 +1228,32 @@ func detectSingBoxFeature(binaryPath string, feature string) bool {
 		return true
 	}
 	return false
+}
+
+func isSingBoxV2RayAPIUnsupportedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(strings.TrimSpace(err.Error()))
+	if message == "" {
+		return false
+	}
+	if strings.Contains(message, singBoxFeatureV2RayAPI) {
+		return true
+	}
+	if !strings.Contains(message, "v2ray") {
+		return false
+	}
+	switch {
+	case strings.Contains(message, "unknown"),
+		strings.Contains(message, "unsupported"),
+		strings.Contains(message, "invalid"),
+		strings.Contains(message, "not found"),
+		strings.Contains(message, "no such"):
+		return true
+	default:
+		return false
+	}
 }
 
 func mapVLESSStatsIdentity(users []repository.UserWithCredentials) map[string]string {
