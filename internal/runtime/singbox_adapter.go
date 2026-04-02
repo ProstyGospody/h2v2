@@ -140,18 +140,7 @@ func (a *SingBoxAdapter) CollectTraffic(ctx context.Context, users []repository.
 		return nil, nil
 	}
 
-	identityByName := make(map[string]string, len(users))
-	for _, user := range users {
-		credential, ok := userCredential(user, repository.ProtocolVLESS)
-		if !ok {
-			continue
-		}
-		statsUserName := firstNonEmpty(user.Name, credential.Identity)
-		if strings.TrimSpace(statsUserName) == "" {
-			continue
-		}
-		identityByName[statsUserName] = user.ID
-	}
+	identityByName := mapVLESSStatsIdentity(users)
 	if len(identityByName) == 0 {
 		return nil, nil
 	}
@@ -164,24 +153,59 @@ func (a *SingBoxAdapter) CollectTraffic(ctx context.Context, users []repository.
 	now := time.Now().UTC()
 	counters := make([]repository.TrafficCounter, 0, len(statsByUser))
 	for statsUserName, traffic := range statsByUser {
+		if !traffic.hasTraffic() {
+			continue
+		}
 		userID, ok := identityByName[statsUserName]
 		if !ok {
 			continue
 		}
-		counters = append(counters, repository.TrafficCounter{
+		counter := repository.TrafficCounter{
 			UserID:     userID,
 			Protocol:   repository.ProtocolVLESS,
 			TxBytes:    traffic.TxBytes,
 			RxBytes:    traffic.RxBytes,
 			SnapshotAt: now,
-		})
+		}
+		if traffic.HasOnline {
+			counter.Online = traffic.Online
+		}
+		counters = append(counters, counter)
 	}
 
 	return counters, nil
 }
 
-func (a *SingBoxAdapter) CollectOnline(context.Context, []repository.UserWithCredentials) (map[string]int, error) {
-	return map[string]int{}, nil
+func (a *SingBoxAdapter) CollectOnline(ctx context.Context, users []repository.UserWithCredentials) (map[string]int, error) {
+	if !a.v2rayStatsAvailable() || len(users) == 0 {
+		return map[string]int{}, nil
+	}
+
+	identityByName := mapVLESSStatsIdentity(users)
+	if len(identityByName) == 0 {
+		return map[string]int{}, nil
+	}
+
+	statsByUser, err := a.queryV2RayUserStats(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	onlineByUser := make(map[string]int, len(users))
+	for statsUserName, stat := range statsByUser {
+		if !stat.HasOnline {
+			continue
+		}
+		userID, ok := identityByName[statsUserName]
+		if !ok {
+			continue
+		}
+		current, exists := onlineByUser[userID]
+		if !exists || stat.Online > current {
+			onlineByUser[userID] = stat.Online
+		}
+	}
+	return onlineByUser, nil
 }
 
 func (a *SingBoxAdapter) BuildArtifacts(_ context.Context, user repository.UserWithCredentials, inbounds []repository.Inbound, subscriptionURL string) (UserArtifacts, error) {
@@ -205,7 +229,7 @@ func (a *SingBoxAdapter) BuildArtifacts(_ context.Context, user repository.UserW
 	}
 	serverName := resolveVLESSAccessServerName(runtimeConfig)
 
-	uri, err := buildSingBoxVLESSURI(credential.Identity, serverHost, runtimeConfig.Port, runtimeConfig, serverName)
+	uri, err := buildSingBoxVLESSURI(credential.Identity, user.Name, serverHost, runtimeConfig.Port, runtimeConfig, serverName)
 	if err != nil {
 		return UserArtifacts{}, err
 	}
@@ -302,6 +326,15 @@ func (a *SingBoxAdapter) v2rayStatsAvailable() bool {
 type singBoxUserTrafficStats struct {
 	TxBytes int64
 	RxBytes int64
+	Online  int
+
+	HasUplink   bool
+	HasDownlink bool
+	HasOnline   bool
+}
+
+func (s singBoxUserTrafficStats) hasTraffic() bool {
+	return s.HasUplink || s.HasDownlink
 }
 
 func (a *SingBoxAdapter) queryV2RayUserStats(ctx context.Context) (map[string]singBoxUserTrafficStats, error) {
@@ -334,18 +367,33 @@ func (a *SingBoxAdapter) queryV2RayUserStats(ctx context.Context) (map[string]si
 	stats := make(map[string]singBoxUserTrafficStats, len(response.Stats))
 	for _, item := range response.Stats {
 		userName, direction, ok := parseSingBoxUserTrafficName(item.Name)
+		if ok {
+			current := stats[userName]
+			switch direction {
+			case "uplink":
+				current.TxBytes = item.Value
+				current.HasUplink = true
+			case "downlink":
+				current.RxBytes = item.Value
+				current.HasDownlink = true
+			default:
+				continue
+			}
+			stats[userName] = current
+			continue
+		}
+
+		userName, ok = parseSingBoxUserOnlineName(item.Name)
 		if !ok {
 			continue
 		}
 		current := stats[userName]
-		switch direction {
-		case "uplink":
-			current.TxBytes = item.Value
-		case "downlink":
-			current.RxBytes = item.Value
-		default:
-			continue
+		if item.Value < 0 {
+			current.Online = 0
+		} else {
+			current.Online = int(item.Value)
 		}
+		current.HasOnline = true
 		stats[userName] = current
 	}
 	return stats, nil
@@ -438,7 +486,14 @@ func buildSingBoxVLESSConfigWithStats(
 			}
 			userEntries = append(userEntries, entry)
 			if enableV2RayStats {
-				statsUsers[firstNonEmpty(user.Name, credential.Identity)] = struct{}{}
+				nameCandidate := strings.TrimSpace(user.Name)
+				if nameCandidate != "" {
+					statsUsers[nameCandidate] = struct{}{}
+				}
+				uuidCandidate := strings.TrimSpace(credential.Identity)
+				if uuidCandidate != "" {
+					statsUsers[uuidCandidate] = struct{}{}
+				}
 			}
 		}
 		if len(userEntries) == 0 {
@@ -692,7 +747,14 @@ func renderSingBoxInboundTLS(runtimeConfig singBoxVLESSRuntimeConfig) (map[strin
 	return tls, nil
 }
 
-func buildSingBoxVLESSURI(uuidValue string, serverHost string, serverPort int, runtimeConfig singBoxVLESSRuntimeConfig, serverName string) (string, error) {
+func buildSingBoxVLESSURI(
+	uuidValue string,
+	displayName string,
+	serverHost string,
+	serverPort int,
+	runtimeConfig singBoxVLESSRuntimeConfig,
+	serverName string,
+) (string, error) {
 	query := url.Values{}
 	query.Set("type", runtimeConfig.Transport.Type)
 	query.Set("encryption", "none")
@@ -729,11 +791,17 @@ func buildSingBoxVLESSURI(uuidValue string, serverHost string, serverPort int, r
 		query.Set("serviceName", firstNonEmpty(runtimeConfig.Transport.GRPCService, defaultVLESSGRPCServiceName))
 	}
 
+	tag := strings.TrimSpace(displayName)
+	if tag == "" {
+		tag = strings.TrimSpace(uuidValue)
+	}
+
 	uri := &url.URL{
 		Scheme:   "vless",
 		User:     url.User(uuidValue),
 		Host:     fmt.Sprintf("%s:%d", strings.TrimSpace(serverHost), serverPort),
 		RawQuery: query.Encode(),
+		Fragment: tag,
 	}
 	return uri.String(), nil
 }
@@ -1115,6 +1183,25 @@ func detectSingBoxFeature(binaryPath string, feature string) bool {
 	return false
 }
 
+func mapVLESSStatsIdentity(users []repository.UserWithCredentials) map[string]string {
+	identityByName := make(map[string]string, len(users)*2)
+	for _, user := range users {
+		credential, ok := userCredential(user, repository.ProtocolVLESS)
+		if !ok {
+			continue
+		}
+		nameCandidate := strings.TrimSpace(user.Name)
+		if nameCandidate != "" {
+			identityByName[nameCandidate] = user.ID
+		}
+		uuidCandidate := strings.TrimSpace(credential.Identity)
+		if uuidCandidate != "" {
+			identityByName[uuidCandidate] = user.ID
+		}
+	}
+	return identityByName
+}
+
 func parseSingBoxUserTrafficName(raw string) (string, string, bool) {
 	value := strings.TrimSpace(raw)
 	if !strings.HasPrefix(value, singBoxUserStatPrefix) {
@@ -1135,6 +1222,33 @@ func parseSingBoxUserTrafficName(raw string) (string, string, bool) {
 		return userName, direction, true
 	default:
 		return "", "", false
+	}
+}
+
+func parseSingBoxUserOnlineName(raw string) (string, bool) {
+	value := strings.TrimSpace(raw)
+	if !strings.HasPrefix(value, singBoxUserStatPrefix) {
+		return "", false
+	}
+	remaining := strings.TrimPrefix(value, singBoxUserStatPrefix)
+	if remaining == "" || strings.Contains(remaining, singBoxUserTrafficToken) {
+		return "", false
+	}
+	parts := strings.Split(remaining, ">>>")
+	if len(parts) < 2 {
+		return "", false
+	}
+
+	userName := strings.TrimSpace(parts[0])
+	if userName == "" {
+		return "", false
+	}
+	last := strings.ToLower(strings.TrimSpace(parts[len(parts)-1]))
+	switch last {
+	case "online", "active", "connection", "connections":
+		return userName, true
+	default:
+		return "", false
 	}
 }
 

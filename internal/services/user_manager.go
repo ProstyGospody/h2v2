@@ -406,6 +406,14 @@ func (m *UserManager) CollectRuntime(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		onlineByUser := map[string]int{}
+		if protocol != repository.ProtocolHY2 {
+			onlineByUser, err = adapter.CollectOnline(ctx, users)
+			if err != nil {
+				onlineByUser = map[string]int{}
+			}
+		}
+		counters = applyOnlineToCounters(counters, onlineByUser)
 		if protocol == repository.ProtocolHY2 {
 			normalized := make([]repository.TrafficCounter, 0, len(counters))
 			snapshots := make([]repository.HysteriaSnapshot, 0, len(counters))
@@ -482,6 +490,24 @@ func (m *UserManager) sortedRuntimeProtocols() []repository.Protocol {
 		return string(protocols[i]) < string(protocols[j])
 	})
 	return protocols
+}
+
+func applyOnlineToCounters(counters []repository.TrafficCounter, onlineByUser map[string]int) []repository.TrafficCounter {
+	if len(counters) == 0 || len(onlineByUser) == 0 {
+		return counters
+	}
+	for index := range counters {
+		userID := strings.TrimSpace(counters[index].UserID)
+		if userID == "" {
+			continue
+		}
+		online, ok := onlineByUser[userID]
+		if !ok {
+			continue
+		}
+		counters[index].Online = online
+	}
+	return counters
 }
 
 func (m *UserManager) resolveToken(ctx context.Context, token string) (repository.UserWithCredentials, repository.SubscriptionToken, error) {

@@ -126,6 +126,9 @@ func TestSingBoxAdapterBuildArtifactsUsesEnabledInbound(t *testing.T) {
 	if !strings.Contains(artifact.AccessURI, "sni=cdn.example.com") {
 		t.Fatalf("expected sni in uri: %s", artifact.AccessURI)
 	}
+	if !strings.Contains(artifact.AccessURI, "#demo") {
+		t.Fatalf("expected profile name fragment in uri: %s", artifact.AccessURI)
+	}
 }
 
 func TestSingBoxAdapterBuildArtifactsRequiresEnabledInbound(t *testing.T) {
@@ -369,7 +372,7 @@ func TestBuildSingBoxVLESSConfigWithStatsIncludesUsersAndInbounds(t *testing.T) 
 	if !ok {
 		t.Fatalf("stats.users has invalid type: %+v", stats["users"])
 	}
-	if !reflect.DeepEqual(usersList, []string{"alpha"}) {
+	if !reflect.DeepEqual(usersList, []string{"2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad", "alpha"}) {
 		t.Fatalf("unexpected stats.users: %+v", usersList)
 	}
 }
@@ -424,6 +427,58 @@ func TestParseSingBoxUserTrafficName(t *testing.T) {
 	}
 }
 
+func TestParseSingBoxUserOnlineName(t *testing.T) {
+	tests := []struct {
+		name      string
+		raw       string
+		wantUser  string
+		wantValid bool
+	}{
+		{
+			name:      "online",
+			raw:       "user>>>demo>>>online",
+			wantUser:  "demo",
+			wantValid: true,
+		},
+		{
+			name:      "connections",
+			raw:       "user>>>demo>>>connections",
+			wantUser:  "demo",
+			wantValid: true,
+		},
+		{
+			name:      "traffic-not-online",
+			raw:       "user>>>demo>>>traffic>>>uplink",
+			wantValid: false,
+		},
+		{
+			name:      "unknown-suffix",
+			raw:       "user>>>demo>>>latency",
+			wantValid: false,
+		},
+		{
+			name:      "invalid-prefix",
+			raw:       "inbound>>>demo>>>online",
+			wantValid: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			gotUser, gotValid := parseSingBoxUserOnlineName(tc.raw)
+			if gotValid != tc.wantValid {
+				t.Fatalf("valid mismatch: want=%v got=%v", tc.wantValid, gotValid)
+			}
+			if !tc.wantValid {
+				return
+			}
+			if gotUser != tc.wantUser {
+				t.Fatalf("unexpected user: %q", gotUser)
+			}
+		})
+	}
+}
+
 func TestUnmarshalSingBoxQueryStatsResponse(t *testing.T) {
 	encodeStat := func(name string, value int64) []byte {
 		stat := make([]byte, 0, 64)
@@ -459,5 +514,76 @@ func TestUnmarshalSingBoxQueryStatsResponse(t *testing.T) {
 	}
 	if stats[1].Name != "user>>>alpha>>>traffic>>>downlink" || stats[1].Value != 200 {
 		t.Fatalf("unexpected second stat: %+v", stats[1])
+	}
+}
+
+func TestBuildSingBoxVLESSConfigWithStatsIncludesUserNameAndUUID(t *testing.T) {
+	inbounds := []repository.Inbound{
+		{
+			ID:         "vless-main",
+			Name:       "vless-main",
+			Protocol:   repository.ProtocolVLESS,
+			Transport:  "tcp",
+			Security:   "reality",
+			Host:       "example.com",
+			Port:       443,
+			Enabled:    true,
+			ParamsJSON: `{"flow":"xtls-rprx-vision","privateKey":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","pbk":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","sid":"ab12","dest":"www.cloudflare.com:443"}`,
+		},
+	}
+	users := []repository.UserWithCredentials{
+		{
+			User: repository.User{ID: "u1", Name: "alpha", Enabled: true},
+			Credentials: []repository.Credential{
+				{Protocol: repository.ProtocolVLESS, Identity: "2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad"},
+			},
+		},
+	}
+
+	config, err := buildSingBoxVLESSConfigWithStats(inbounds, users, "panel.example.com", true, "127.0.0.1:10086")
+	if err != nil {
+		t.Fatalf("build config with stats: %v", err)
+	}
+
+	experimental := config["experimental"].(map[string]any)
+	v2rayAPI := experimental["v2ray_api"].(map[string]any)
+	stats := v2rayAPI["stats"].(map[string]any)
+	usersList := stats["users"].([]string)
+	if len(usersList) != 2 {
+		t.Fatalf("expected 2 users in stats.users, got %d (%+v)", len(usersList), usersList)
+	}
+	if !reflect.DeepEqual(usersList, []string{"2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad", "alpha"}) {
+		t.Fatalf("unexpected stats.users: %+v", usersList)
+	}
+}
+
+func TestSingBoxAdapterBuildArtifactsUsesUUIDAsFragmentWhenNameIsEmpty(t *testing.T) {
+	adapter := NewSingBoxAdapter("", "", nil, "", "panel.example.com")
+	user := repository.UserWithCredentials{
+		User: repository.User{ID: "u1", Name: "", Enabled: true},
+		Credentials: []repository.Credential{
+			{Protocol: repository.ProtocolVLESS, Identity: "2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad"},
+		},
+	}
+	inbounds := []repository.Inbound{
+		{
+			ID:         "vless-enabled",
+			Name:       "Enabled",
+			Protocol:   repository.ProtocolVLESS,
+			Transport:  "tcp",
+			Security:   "none",
+			Host:       "enabled.example.com",
+			Port:       443,
+			Enabled:    true,
+			ParamsJSON: `{}`,
+		},
+	}
+
+	artifact, err := adapter.BuildArtifacts(nil, user, inbounds, "https://sub.example.com/api/subscriptions/token")
+	if err != nil {
+		t.Fatalf("build artifacts: %v", err)
+	}
+	if !strings.Contains(artifact.AccessURI, "#2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad") {
+		t.Fatalf("expected uuid fragment fallback in uri: %s", artifact.AccessURI)
 	}
 }
