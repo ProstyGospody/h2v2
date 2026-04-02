@@ -15,9 +15,11 @@ ENV_FILE="${APP_ROOT}/.env.generated"
 CREDENTIALS_FILE="/root/h2v2-initial-admin.txt"
 ETC_ROOT="/etc/h2v2"
 HY2_DIR="${ETC_ROOT}/hysteria"
+XRAY_DIR="${ETC_ROOT}/xray"
 
 PANEL_API_PORT=18080
 PANEL_WEB_PORT=13000
+XRAY_SERVICE_NAME="${XRAY_SERVICE_NAME:-xray}"
 
 BACKUP_DIR=""
 BACKUP_READY=0
@@ -27,6 +29,7 @@ CHANGED=()
 ENV_OVERRIDE_KEYS=(
   PANEL_PUBLIC_HOST PANEL_PUBLIC_PORT PANEL_ACME_EMAIL SUBSCRIPTION_PUBLIC_HOST
   HY2_DOMAIN HY2_PORT HY2_OBFS_PASSWORD HY2_STATS_PORT
+  XRAY_RUNTIME_URL XRAY_RUNTIME_TOKEN XRAY_SERVICE_NAME XRAY_CONFIG_PATH
   INITIAL_ADMIN_EMAIL INITIAL_ADMIN_PASSWORD
   PANEL_SQLITE_PATH PANEL_STORAGE_ROOT PANEL_AUDIT_DIR PANEL_RUNTIME_DIR
 )
@@ -87,6 +90,7 @@ detect_existing_installation() {
   local env_hit=0 unit_hit=0 dir_hit=0
   [[ -f "${ENV_FILE}" ]] && env_hit=1
   systemctl list-unit-files h2v2-api.service h2v2-web.service hysteria-server.service >/dev/null 2>&1 && unit_hit=1 || true
+  systemctl list-unit-files "${XRAY_SERVICE_NAME}.service" >/dev/null 2>&1 && unit_hit=1 || true
   [[ -d /var/lib/h2v2 || -d /etc/h2v2 ]] && dir_hit=1
   info "detected: env=${env_hit}, units=${unit_hit}, dirs=${dir_hit}"
 }
@@ -181,19 +185,39 @@ install_hysteria() {
   changed "hysteria installed"
 }
 
+install_xray() {
+  [[ -x /usr/local/bin/xray ]] && return 0
+  phase "build/install: xray"
+  local ver="${XRAY_VERSION:-1.8.24}"
+  local archive="/tmp/xray-linux-64.zip"
+  local unpack_dir="/tmp/xray-install"
+  run rm -rf "${unpack_dir}" "${archive}"
+  run curl -fsSL "https://github.com/XTLS/Xray-core/releases/download/v${ver}/Xray-linux-64.zip" -o "${archive}"
+  run mkdir -p "${unpack_dir}"
+  run unzip -q -o "${archive}" -d "${unpack_dir}"
+  run install -m 0755 "${unpack_dir}/xray" /usr/local/bin/xray
+  run rm -rf "${unpack_dir}" "${archive}"
+  changed "xray installed"
+}
+
 create_users_and_dirs() {
   phase "build/install: users and dirs"
   id -u h2v2 >/dev/null 2>&1 || run useradd --system --home /opt/h2v2 --shell /usr/sbin/nologin h2v2
   id -u hysteria >/dev/null 2>&1 || run useradd --system --home /var/lib/hysteria --shell /usr/sbin/nologin hysteria
+  id -u xray >/dev/null 2>&1 || run useradd --system --home /var/lib/xray --shell /usr/sbin/nologin xray
   run usermod -a -G h2v2 hysteria || true
+  run usermod -a -G h2v2 xray || true
 
-  run mkdir -p "${APP_ROOT}" "${BIN_DIR}" "${ETC_ROOT}" "${HY2_DIR}"
-  run mkdir -p /var/lib/h2v2 /var/lib/h2v2/backups /var/lib/h2v2/data /var/log/h2v2/audit /var/lib/hysteria /run/h2v2 /run/h2v2/locks /run/h2v2/tmp
+  run mkdir -p "${APP_ROOT}" "${BIN_DIR}" "${ETC_ROOT}" "${HY2_DIR}" "${XRAY_DIR}"
+  run mkdir -p /var/lib/h2v2 /var/lib/h2v2/backups /var/lib/h2v2/data /var/log/h2v2/audit /var/lib/hysteria /var/lib/xray /run/h2v2 /run/h2v2/locks /run/h2v2/tmp
   run chown -R h2v2:h2v2 /var/lib/h2v2 /var/log/h2v2 /run/h2v2
   run chown -R hysteria:hysteria /var/lib/hysteria
+  run chown -R xray:xray /var/lib/xray
   run chmod 0750 /run/h2v2 /run/h2v2/locks /run/h2v2/tmp
   run chown root:h2v2 "${HY2_DIR}"
+  run chown root:h2v2 "${XRAY_DIR}"
   run chmod 2770 "${HY2_DIR}"
+  run chmod 2770 "${XRAY_DIR}"
 }
 
 sync_source() {
@@ -350,6 +374,7 @@ collect_config() {
   generate_if_empty INTERNAL_AUTH_TOKEN 32
   generate_if_empty HY2_STATS_SECRET 32
   generate_if_empty HY2_OBFS_PASSWORD 16
+  generate_if_empty XRAY_RUNTIME_TOKEN 32
 
   APP_ENV="${APP_ENV:-production}"
   PANEL_API_LISTEN_ADDR="127.0.0.1:${PANEL_API_PORT}"
@@ -367,8 +392,10 @@ collect_config() {
   SESSION_TTL="${SESSION_TTL:-24h}"
   SECURE_COOKIES="${SECURE_COOKIES:-true}"
   HY2_POLL_INTERVAL="${HY2_POLL_INTERVAL:-20s}"
+  XRAY_POLL_INTERVAL="${XRAY_POLL_INTERVAL:-20s}"
   SERVICE_POLL_INTERVAL="${SERVICE_POLL_INTERVAL:-60s}"
-  MANAGED_SERVICES="h2v2-api,h2v2-web,hysteria-server"
+  XRAY_SERVICE_NAME="${XRAY_SERVICE_NAME:-xray}"
+  MANAGED_SERVICES="h2v2-api,h2v2-web,hysteria-server,${XRAY_SERVICE_NAME}"
   SYSTEMCTL_PATH="/usr/bin/systemctl"
   SUDO_PATH="/usr/bin/sudo"
   JOURNALCTL_PATH="/usr/bin/journalctl"
@@ -377,7 +404,10 @@ collect_config() {
   AUTH_RATE_LIMIT_WINDOW=15m
   AUTH_RATE_LIMIT_BURST=10
   HY2_BINARY_PATH=/usr/local/bin/hysteria
+  XRAY_BINARY_PATH=/usr/local/bin/xray
   HY2_CONFIG_PATH="${HY2_DIR}/server.yaml"
+  XRAY_CONFIG_PATH="${XRAY_CONFIG_PATH:-${XRAY_DIR}/config.json}"
+  XRAY_RUNTIME_URL="${XRAY_RUNTIME_URL:-http://127.0.0.1:10085}"
   HY2_CERT_PATH="${HY2_DIR}/tls.crt"
   HY2_KEY_PATH="${HY2_DIR}/tls.key"
 }
@@ -426,6 +456,12 @@ HY2_STATS_URL=${HY2_STATS_URL}
 HY2_STATS_SECRET=${HY2_STATS_SECRET}
 HY2_OBFS_PASSWORD=${HY2_OBFS_PASSWORD}
 HY2_POLL_INTERVAL=${HY2_POLL_INTERVAL}
+XRAY_POLL_INTERVAL=${XRAY_POLL_INTERVAL}
+XRAY_BINARY_PATH=${XRAY_BINARY_PATH}
+XRAY_CONFIG_PATH=${XRAY_CONFIG_PATH}
+XRAY_RUNTIME_URL=${XRAY_RUNTIME_URL}
+XRAY_RUNTIME_TOKEN=${XRAY_RUNTIME_TOKEN}
+XRAY_SERVICE_NAME=${XRAY_SERVICE_NAME}
 
 SERVICE_POLL_INTERVAL=${SERVICE_POLL_INTERVAL}
 MANAGED_SERVICES=${MANAGED_SERVICES}
@@ -484,7 +520,7 @@ ${SUBSCRIPTION_PUBLIC_HOST}:${PANEL_PUBLIC_PORT} {
     Referrer-Policy "same-origin"
   }
 
-  @panel_api path /api/* /hysteria/subscription/* /healthz /readyz
+  @panel_api path /api/* /subscriptions/* /hysteria/subscription/* /healthz /readyz
   handle @panel_api {
     reverse_proxy 127.0.0.1:${PANEL_API_PORT}
   }
@@ -520,17 +556,53 @@ obfs:
 EOF
   run chown root:h2v2 "${HY2_DIR}/server.yaml"
   run chmod 0660 "${HY2_DIR}/server.yaml"
+  run mkdir -p "$(dirname "${XRAY_CONFIG_PATH}")"
+  cat > "${XRAY_CONFIG_PATH}" <<EOF
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "tag": "vless-default",
+      "listen": "127.0.0.1",
+      "port": 8443,
+      "protocol": "vless",
+      "settings": {
+        "clients": [],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "none"
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "direct",
+      "protocol": "freedom"
+    },
+    {
+      "tag": "blocked",
+      "protocol": "blackhole"
+    }
+  ]
+}
+EOF
+  run chown root:h2v2 "${XRAY_CONFIG_PATH}"
+  run chmod 0660 "${XRAY_CONFIG_PATH}"
   changed "runtime templates rendered"
 }
 
 install_sudoers_and_units() {
   phase "build/install: sudoers + systemd"
   (( DRY_RUN == 1 )) && return 0
-  cat > /etc/sudoers.d/h2v2-api <<'EOF'
-Cmnd_Alias H2V2_SHOW = /usr/bin/systemctl show h2v2-api --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show h2v2-web --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show hysteria-server --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp
-Cmnd_Alias H2V2_RESTART = /usr/bin/systemctl restart h2v2-api, /usr/bin/systemctl restart h2v2-web, /usr/bin/systemctl restart hysteria-server
-Cmnd_Alias H2V2_RELOAD = /usr/bin/systemctl reload h2v2-api, /usr/bin/systemctl reload h2v2-web, /usr/bin/systemctl reload hysteria-server
-Cmnd_Alias H2V2_LOGS = /usr/bin/journalctl -u h2v2-api -n * --no-pager --output=short-iso, /usr/bin/journalctl -u h2v2-web -n * --no-pager --output=short-iso, /usr/bin/journalctl -u hysteria-server -n * --no-pager --output=short-iso
+  cat > /etc/sudoers.d/h2v2-api <<EOF
+Cmnd_Alias H2V2_SHOW = /usr/bin/systemctl show h2v2-api --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show h2v2-web --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show hysteria-server --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show ${XRAY_SERVICE_NAME} --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp
+Cmnd_Alias H2V2_RESTART = /usr/bin/systemctl restart h2v2-api, /usr/bin/systemctl restart h2v2-web, /usr/bin/systemctl restart hysteria-server, /usr/bin/systemctl restart ${XRAY_SERVICE_NAME}
+Cmnd_Alias H2V2_RELOAD = /usr/bin/systemctl reload h2v2-api, /usr/bin/systemctl reload h2v2-web, /usr/bin/systemctl reload hysteria-server, /usr/bin/systemctl reload ${XRAY_SERVICE_NAME}
+Cmnd_Alias H2V2_LOGS = /usr/bin/journalctl -u h2v2-api -n * --no-pager --output=short-iso, /usr/bin/journalctl -u h2v2-web -n * --no-pager --output=short-iso, /usr/bin/journalctl -u hysteria-server -n * --no-pager --output=short-iso, /usr/bin/journalctl -u ${XRAY_SERVICE_NAME} -n * --no-pager --output=short-iso
 h2v2 ALL=(root) NOPASSWD: H2V2_SHOW, H2V2_RESTART, H2V2_RELOAD, H2V2_LOGS
 EOF
   run chmod 0440 /etc/sudoers.d/h2v2-api
@@ -538,6 +610,7 @@ EOF
   run install -m 0644 "${SRC_DIR}/systemd/h2v2-api.service" /etc/systemd/system/h2v2-api.service
   run install -m 0644 "${SRC_DIR}/systemd/h2v2-web.service" /etc/systemd/system/h2v2-web.service
   run install -m 0644 "${SRC_DIR}/systemd/hysteria-server.service" /etc/systemd/system/hysteria-server.service
+  run install -m 0644 "${SRC_DIR}/systemd/xray.service" "/etc/systemd/system/${XRAY_SERVICE_NAME}.service"
   run systemctl daemon-reload
   changed "sudoers and units updated"
 }
@@ -557,7 +630,7 @@ create_backup() {
   [[ -f "${CREDENTIALS_FILE}" ]] && run cp -a "${CREDENTIALS_FILE}" "${BACKUP_DIR}/env/credentials.txt"
   [[ -d "${ETC_ROOT}" ]] && run rsync -a "${ETC_ROOT}/" "${BACKUP_DIR}/etc/h2v2/"
   [[ -f /etc/caddy/h2v2.env ]] && run cp -a /etc/caddy/h2v2.env "${BACKUP_DIR}/etc/caddy.env"
-  for u in h2v2-api.service h2v2-web.service hysteria-server.service; do
+  for u in h2v2-api.service h2v2-web.service hysteria-server.service "${XRAY_SERVICE_NAME}.service"; do
     [[ -f "/etc/systemd/system/${u}" ]] && run cp -a "/etc/systemd/system/${u}" "${BACKUP_DIR}/systemd/${u}"
   done
   [[ -d /var/lib/h2v2/data ]] && run rsync -a /var/lib/h2v2/data/ "${BACKUP_DIR}/storage/data/"
@@ -575,13 +648,13 @@ rollback_from_backup() {
   [[ -f "${BACKUP_DIR}/env/credentials.txt" ]] && run cp -a "${BACKUP_DIR}/env/credentials.txt" "${CREDENTIALS_FILE}"
   [[ -d "${BACKUP_DIR}/etc/h2v2" ]] && run rsync -a --delete "${BACKUP_DIR}/etc/h2v2/" "${ETC_ROOT}/"
   [[ -f "${BACKUP_DIR}/etc/caddy.env" ]] && run cp -a "${BACKUP_DIR}/etc/caddy.env" /etc/caddy/h2v2.env
-  for u in h2v2-api.service h2v2-web.service hysteria-server.service; do
+  for u in h2v2-api.service h2v2-web.service hysteria-server.service "${XRAY_SERVICE_NAME}.service"; do
     [[ -f "${BACKUP_DIR}/systemd/${u}" ]] && run cp -a "${BACKUP_DIR}/systemd/${u}" "/etc/systemd/system/${u}"
   done
   [[ -d "${BACKUP_DIR}/storage/data" ]] && run rsync -a --delete "${BACKUP_DIR}/storage/data/" /var/lib/h2v2/data/
   [[ -d "${BACKUP_DIR}/audit" ]] && run rsync -a --delete "${BACKUP_DIR}/audit/" /var/log/h2v2/audit/
   run systemctl daemon-reload
-  run systemctl restart h2v2-api.service h2v2-web.service caddy.service hysteria-server.service || true
+  run systemctl restart h2v2-api.service h2v2-web.service caddy.service hysteria-server.service "${XRAY_SERVICE_NAME}.service" || true
 }
 
 on_error() {
@@ -604,7 +677,7 @@ bootstrap_admin() {
 restart_services() {
   phase "finalize: restart services"
   local s
-  for s in h2v2-api h2v2-web caddy hysteria-server; do
+  for s in h2v2-api h2v2-web caddy hysteria-server "${XRAY_SERVICE_NAME}"; do
     run systemctl enable "${s}.service"
   done
   run systemctl restart h2v2-api.service
@@ -612,6 +685,7 @@ restart_services() {
   run systemctl restart caddy.service
   (( DRY_RUN == 0 )) && run bash "${SRC_DIR}/scripts/sync-hysteria-cert.sh" "${ENV_FILE}" --wait
   run systemctl restart hysteria-server.service
+  run systemctl restart "${XRAY_SERVICE_NAME}.service"
 }
 
 health_checks() {
@@ -621,12 +695,14 @@ health_checks() {
   run systemctl is-active --quiet h2v2-web.service
   run systemctl is-active --quiet caddy.service
   run systemctl is-active --quiet hysteria-server.service
+  run systemctl is-active --quiet "${XRAY_SERVICE_NAME}.service"
   run curl -fsS "http://127.0.0.1:${PANEL_API_PORT}/healthz" >/dev/null
   SMOKE_ADMIN_EMAIL="${INITIAL_ADMIN_EMAIL}" SMOKE_ADMIN_PASSWORD="${INITIAL_ADMIN_PASSWORD}" run bash "${SRC_DIR}/scripts/smoke-check.sh" "${ENV_FILE}"
 }
 
 run_build_phase() {
   if [[ "${MODE}" == "reconfigure" ]]; then
+    install_xray
     create_users_and_dirs
     sync_source
     return
@@ -635,6 +711,7 @@ run_build_phase() {
   install_go
   install_node
   install_hysteria
+  install_xray
   create_users_and_dirs
   sync_source
   build_backend
@@ -653,7 +730,7 @@ summary() {
   printf "backup: %s\n" "${BACKUP_DIR:-not-created}"
   printf "active storage driver: sqlite\n"
   printf "\nverify:\n"
-  printf "  systemctl status h2v2-api h2v2-web hysteria-server caddy\n"
+  printf "  systemctl status h2v2-api h2v2-web hysteria-server %s caddy\n" "${XRAY_SERVICE_NAME}"
   printf "  bash %s/scripts/smoke-check.sh %s\n" "${SRC_DIR}" "${ENV_FILE}"
   printf "\nrollback:\n"
   printf "  rsync -a --delete %s/storage/data/ /var/lib/h2v2/data/\n" "${BACKUP_DIR:-/path/to/backup}"
@@ -667,11 +744,11 @@ main() {
   require_root
   check_os
   detect_existing_installation
-  create_backup
-  run_build_phase
   capture_env_overrides
   load_existing_env
   apply_env_overrides
+  create_backup
+  run_build_phase
   collect_config
   validate_config
   write_env_files

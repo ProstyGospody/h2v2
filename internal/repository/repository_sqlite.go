@@ -16,7 +16,7 @@ import (
 	hysteriadomain "h2v2/internal/domain/hysteria"
 )
 
-const sqliteSchemaVersion = 1
+const sqliteSchemaVersion = 2
 
 type SQLiteRepository struct {
 	db   *sql.DB
@@ -82,6 +82,50 @@ func (r *SQLiteRepository) applyPragmas(ctx context.Context) error {
 }
 
 func (r *SQLiteRepository) ensureSchema(ctx context.Context) error {
+	if err := r.ensureBaseSchema(ctx); err != nil {
+		return err
+	}
+
+	version, err := r.sqliteUserVersion(ctx)
+	if err != nil {
+		return err
+	}
+	if version < 1 {
+		if err := r.setSQLiteUserVersion(ctx, 1); err != nil {
+			return err
+		}
+		version = 1
+	}
+	if version < 2 {
+		if err := r.ensureUnifiedSchema(ctx); err != nil {
+			return err
+		}
+		if err := r.backfillUnifiedSchema(ctx); err != nil {
+			return err
+		}
+		if err := r.setSQLiteUserVersion(ctx, 2); err != nil {
+			return err
+		}
+		version = 2
+	}
+	if version > sqliteSchemaVersion {
+		return fmt.Errorf("sqlite schema version %d is newer than supported %d", version, sqliteSchemaVersion)
+	}
+	if version < sqliteSchemaVersion {
+		if err := r.ensureUnifiedSchema(ctx); err != nil {
+			return err
+		}
+		if err := r.setSQLiteUserVersion(ctx, sqliteSchemaVersion); err != nil {
+			return err
+		}
+	}
+	if err := r.ensureUnifiedSchema(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *SQLiteRepository) ensureBaseSchema(ctx context.Context) error {
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS admins (
 			id TEXT PRIMARY KEY,
@@ -160,10 +204,349 @@ func (r *SQLiteRepository) ensureSchema(ctx context.Context) error {
 	}
 	for _, stmt := range statements {
 		if _, err := r.db.ExecContext(resolveCtx(ctx), stmt); err != nil {
-			return fmt.Errorf("ensure sqlite schema: %w", err)
+			return fmt.Errorf("ensure sqlite base schema: %w", err)
 		}
 	}
-	if _, err := r.db.ExecContext(resolveCtx(ctx), fmt.Sprintf(`PRAGMA user_version=%d;`, sqliteSchemaVersion)); err != nil {
+	return nil
+}
+
+func (r *SQLiteRepository) ensureUnifiedSchema(ctx context.Context) error {
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS nodes (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			address TEXT NOT NULL,
+			enabled INTEGER NOT NULL,
+			created_at_ns INTEGER NOT NULL,
+			updated_at_ns INTEGER NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS users (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			name_normalized TEXT NOT NULL UNIQUE,
+			enabled INTEGER NOT NULL,
+			traffic_limit_bytes INTEGER NOT NULL DEFAULT 0,
+			traffic_used_tx_bytes INTEGER NOT NULL DEFAULT 0,
+			traffic_used_rx_bytes INTEGER NOT NULL DEFAULT 0,
+			expire_at_ns INTEGER,
+			note TEXT,
+			subject TEXT NOT NULL UNIQUE,
+			created_at_ns INTEGER NOT NULL,
+			updated_at_ns INTEGER NOT NULL,
+			last_seen_at_ns INTEGER
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at_ns DESC);`,
+		`CREATE TABLE IF NOT EXISTS credentials (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL,
+			protocol TEXT NOT NULL,
+			credential_type TEXT NOT NULL,
+			identity TEXT NOT NULL,
+			secret TEXT NOT NULL,
+			data_json TEXT,
+			created_at_ns INTEGER NOT NULL,
+			updated_at_ns INTEGER NOT NULL,
+			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+			UNIQUE(user_id, protocol)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_credentials_protocol_identity ON credentials(protocol, identity);`,
+		`CREATE TABLE IF NOT EXISTS inbounds (
+			id TEXT PRIMARY KEY,
+			node_id TEXT NOT NULL,
+			name TEXT NOT NULL,
+			protocol TEXT NOT NULL,
+			transport TEXT NOT NULL,
+			security TEXT NOT NULL,
+			host TEXT NOT NULL,
+			port INTEGER NOT NULL,
+			enabled INTEGER NOT NULL,
+			params_json TEXT,
+			runtime_json TEXT,
+			created_at_ns INTEGER NOT NULL,
+			updated_at_ns INTEGER NOT NULL,
+			FOREIGN KEY(node_id) REFERENCES nodes(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_inbounds_protocol ON inbounds(protocol);`,
+		`CREATE TABLE IF NOT EXISTS subscription_tokens (
+			user_id TEXT PRIMARY KEY,
+			subject TEXT NOT NULL,
+			version INTEGER NOT NULL,
+			revoked INTEGER NOT NULL,
+			rotated_at_ns INTEGER,
+			updated_at_ns INTEGER NOT NULL,
+			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS traffic_counters (
+			id INTEGER PRIMARY KEY,
+			user_id TEXT NOT NULL,
+			protocol TEXT NOT NULL,
+			tx_bytes INTEGER NOT NULL,
+			rx_bytes INTEGER NOT NULL,
+			online_count INTEGER NOT NULL,
+			snapshot_at_ns INTEGER NOT NULL,
+			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_traffic_counters_user_at ON traffic_counters(user_id, protocol, snapshot_at_ns DESC);`,
+		`CREATE TABLE IF NOT EXISTS runtime_user_state (
+			user_id TEXT NOT NULL,
+			protocol TEXT NOT NULL,
+			online_count INTEGER NOT NULL,
+			last_sync_at_ns INTEGER NOT NULL,
+			last_error TEXT,
+			PRIMARY KEY(user_id, protocol),
+			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+		);`,
+		`CREATE TRIGGER IF NOT EXISTS trg_hy2_user_insert
+		 AFTER INSERT ON hysteria_users
+		 BEGIN
+			 INSERT INTO users (
+				 id, name, name_normalized, enabled, traffic_limit_bytes, traffic_used_tx_bytes, traffic_used_rx_bytes,
+				 expire_at_ns, note, subject, created_at_ns, updated_at_ns, last_seen_at_ns
+			 ) VALUES (
+				 NEW.id, NEW.username, NEW.username_normalized, NEW.enabled, 0, 0, 0,
+				 NULL, NEW.note, NEW.id, NEW.created_at_ns, NEW.updated_at_ns, NEW.last_seen_at_ns
+			 )
+			 ON CONFLICT(id) DO UPDATE SET
+				 name = excluded.name,
+				 name_normalized = excluded.name_normalized,
+				 enabled = excluded.enabled,
+				 note = excluded.note,
+				 updated_at_ns = excluded.updated_at_ns,
+				 last_seen_at_ns = excluded.last_seen_at_ns;
+			 INSERT INTO credentials (
+				 id, user_id, protocol, credential_type, identity, secret, data_json, created_at_ns, updated_at_ns
+			 ) VALUES (
+				 lower(hex(randomblob(16))), NEW.id, 'hy2', 'userpass', NEW.username, NEW.password, NEW.client_overrides_json, NEW.created_at_ns, NEW.updated_at_ns
+			 )
+			 ON CONFLICT(user_id, protocol) DO UPDATE SET
+				 credential_type = excluded.credential_type,
+				 identity = excluded.identity,
+				 secret = excluded.secret,
+				 data_json = excluded.data_json,
+				 updated_at_ns = excluded.updated_at_ns;
+			 INSERT INTO subscription_tokens (user_id, subject, version, revoked, rotated_at_ns, updated_at_ns)
+			 VALUES (NEW.id, NEW.id, 1, 0, NULL, NEW.updated_at_ns)
+			 ON CONFLICT(user_id) DO NOTHING;
+		 END;`,
+		`CREATE TRIGGER IF NOT EXISTS trg_hy2_user_update
+		 AFTER UPDATE ON hysteria_users
+		 BEGIN
+			 UPDATE users
+			 SET
+				 name = NEW.username,
+				 name_normalized = NEW.username_normalized,
+				 enabled = NEW.enabled,
+				 note = NEW.note,
+				 updated_at_ns = NEW.updated_at_ns,
+				 last_seen_at_ns = NEW.last_seen_at_ns
+			 WHERE id = NEW.id;
+			 INSERT INTO credentials (
+				 id, user_id, protocol, credential_type, identity, secret, data_json, created_at_ns, updated_at_ns
+			 ) VALUES (
+				 lower(hex(randomblob(16))), NEW.id, 'hy2', 'userpass', NEW.username, NEW.password, NEW.client_overrides_json, NEW.created_at_ns, NEW.updated_at_ns
+			 )
+			 ON CONFLICT(user_id, protocol) DO UPDATE SET
+				 credential_type = excluded.credential_type,
+				 identity = excluded.identity,
+				 secret = excluded.secret,
+				 data_json = excluded.data_json,
+				 updated_at_ns = excluded.updated_at_ns;
+			 UPDATE subscription_tokens
+			 SET updated_at_ns = NEW.updated_at_ns
+			 WHERE user_id = NEW.id;
+		 END;`,
+		`CREATE TRIGGER IF NOT EXISTS trg_hy2_user_delete
+		 AFTER DELETE ON hysteria_users
+		 BEGIN
+			 DELETE FROM users WHERE id = OLD.id;
+		 END;`,
+		`DROP TRIGGER IF EXISTS trg_hy2_snapshot_insert;`,
+		`CREATE TRIGGER IF NOT EXISTS trg_hy2_snapshot_insert
+		 AFTER INSERT ON hysteria_snapshots
+		 BEGIN
+			 INSERT INTO traffic_counters (user_id, protocol, tx_bytes, rx_bytes, online_count, snapshot_at_ns)
+			 SELECT NEW.user_id, 'hy2', NEW.tx_bytes, NEW.rx_bytes, NEW.online_count, NEW.snapshot_at_ns
+			 WHERE NOT EXISTS (
+				 SELECT 1 FROM traffic_counters tc
+				 WHERE tc.user_id = NEW.user_id
+				   AND tc.protocol = 'hy2'
+				   AND tc.snapshot_at_ns = NEW.snapshot_at_ns
+			 );
+		 END;`,
+	}
+	for _, stmt := range statements {
+		if _, err := r.db.ExecContext(resolveCtx(ctx), stmt); err != nil {
+			return fmt.Errorf("ensure sqlite unified schema: %w", err)
+		}
+	}
+	return nil
+}
+
+func (r *SQLiteRepository) backfillUnifiedSchema(ctx context.Context) error {
+	tx, err := r.db.BeginTx(resolveCtx(ctx), nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	now := nowNano()
+	if _, err = tx.ExecContext(
+		resolveCtx(ctx),
+		`INSERT INTO nodes (id, name, address, enabled, created_at_ns, updated_at_ns)
+		 VALUES ('local', 'local', '127.0.0.1', 1, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET
+			 name = excluded.name,
+			 address = excluded.address,
+			 enabled = excluded.enabled,
+			 updated_at_ns = excluded.updated_at_ns`,
+		now,
+		now,
+	); err != nil {
+		return err
+	}
+
+	if _, err = tx.ExecContext(
+		resolveCtx(ctx),
+		`INSERT INTO users (
+			id, name, name_normalized, enabled, traffic_limit_bytes, traffic_used_tx_bytes, traffic_used_rx_bytes,
+			expire_at_ns, note, subject, created_at_ns, updated_at_ns, last_seen_at_ns
+		)
+		SELECT
+			hu.id,
+			hu.username,
+			hu.username_normalized,
+			hu.enabled,
+			0,
+			0,
+			0,
+			NULL,
+			hu.note,
+			hu.id,
+			hu.created_at_ns,
+			hu.updated_at_ns,
+			hu.last_seen_at_ns
+		FROM hysteria_users hu
+		ON CONFLICT(id) DO UPDATE SET
+			name = excluded.name,
+			name_normalized = excluded.name_normalized,
+			enabled = excluded.enabled,
+			note = excluded.note,
+			updated_at_ns = excluded.updated_at_ns,
+			last_seen_at_ns = excluded.last_seen_at_ns`,
+	); err != nil {
+		return err
+	}
+
+	if _, err = tx.ExecContext(
+		resolveCtx(ctx),
+		`INSERT INTO credentials (
+			id, user_id, protocol, credential_type, identity, secret, data_json, created_at_ns, updated_at_ns
+		)
+		SELECT
+			lower(hex(randomblob(16))),
+			hu.id,
+			'hy2',
+			'userpass',
+			hu.username,
+			hu.password,
+			hu.client_overrides_json,
+			hu.created_at_ns,
+			hu.updated_at_ns
+		FROM hysteria_users hu
+		WHERE NOT EXISTS (
+			SELECT 1 FROM credentials c WHERE c.user_id = hu.id AND c.protocol = 'hy2'
+		)`,
+	); err != nil {
+		return err
+	}
+
+	if _, err = tx.ExecContext(
+		resolveCtx(ctx),
+		`INSERT INTO subscription_tokens (user_id, subject, version, revoked, rotated_at_ns, updated_at_ns)
+		SELECT
+			u.id,
+			u.subject,
+			1,
+			0,
+			NULL,
+			u.updated_at_ns
+		FROM users u
+		WHERE NOT EXISTS (
+			SELECT 1 FROM subscription_tokens st WHERE st.user_id = u.id
+		)`,
+	); err != nil {
+		return err
+	}
+
+	if _, err = tx.ExecContext(
+		resolveCtx(ctx),
+		`INSERT INTO traffic_counters (user_id, protocol, tx_bytes, rx_bytes, online_count, snapshot_at_ns)
+		 SELECT hs.user_id, 'hy2', hs.tx_bytes, hs.rx_bytes, hs.online_count, hs.snapshot_at_ns
+		 FROM hysteria_snapshots hs
+		 WHERE NOT EXISTS (
+			 SELECT 1 FROM traffic_counters tc
+			 WHERE tc.user_id = hs.user_id AND tc.protocol = 'hy2' AND tc.snapshot_at_ns = hs.snapshot_at_ns
+		 )`,
+	); err != nil {
+		return err
+	}
+
+	if _, err = tx.ExecContext(
+		resolveCtx(ctx),
+		`INSERT INTO inbounds (
+			id, node_id, name, protocol, transport, security, host, port, enabled, params_json, runtime_json, created_at_ns, updated_at_ns
+		)
+		SELECT 'hy2-default', 'local', 'HY2 Default', 'hy2', 'quic', 'tls', '127.0.0.1', 443, 1, '{}', '{}', ?, ?
+		WHERE NOT EXISTS (SELECT 1 FROM inbounds WHERE protocol = 'hy2')`,
+		now,
+		now,
+	); err != nil {
+		return err
+	}
+
+	if _, err = tx.ExecContext(
+		resolveCtx(ctx),
+		`INSERT INTO inbounds (
+			id, node_id, name, protocol, transport, security, host, port, enabled, params_json, runtime_json, created_at_ns, updated_at_ns
+		)
+		SELECT
+			'vless-default',
+			'local',
+			'VLESS Reality',
+			'vless',
+			'tcp',
+			'reality',
+			'127.0.0.1',
+			443,
+			0,
+			'{"flow":"xtls-rprx-vision","pbk":"","sid":"","sni":"","fp":"chrome","network":"tcp","security":"reality"}',
+			'{}',
+			?,
+			?
+		WHERE NOT EXISTS (SELECT 1 FROM inbounds WHERE protocol = 'vless')`,
+		now,
+		now,
+	); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *SQLiteRepository) sqliteUserVersion(ctx context.Context) (int, error) {
+	var version int
+	if err := r.db.QueryRowContext(resolveCtx(ctx), `PRAGMA user_version;`).Scan(&version); err != nil {
+		return 0, fmt.Errorf("get sqlite user_version: %w", err)
+	}
+	return version, nil
+}
+
+func (r *SQLiteRepository) setSQLiteUserVersion(ctx context.Context, version int) error {
+	if _, err := r.db.ExecContext(resolveCtx(ctx), fmt.Sprintf(`PRAGMA user_version=%d;`, version)); err != nil {
 		return fmt.Errorf("set sqlite user_version: %w", err)
 	}
 	return nil

@@ -16,6 +16,7 @@ type Jobs struct {
 	repo           repository.Repository
 	hy2Client      *services.HysteriaClient
 	serviceManager *services.ServiceManager
+	userManager    *services.UserManager
 }
 
 func NewJobs(
@@ -24,6 +25,7 @@ func NewJobs(
 	repo repository.Repository,
 	hy2Client *services.HysteriaClient,
 	serviceManager *services.ServiceManager,
+	userManager *services.UserManager,
 ) *Jobs {
 	return &Jobs{
 		logger:         logger,
@@ -31,11 +33,18 @@ func NewJobs(
 		repo:           repo,
 		hy2Client:      hy2Client,
 		serviceManager: serviceManager,
+		userManager:    userManager,
 	}
 }
 
 func (j *Jobs) Start(ctx context.Context) {
-	go j.runTicker(ctx, "hysteria-poll", j.cfg.Hy2PollInterval, j.pollHysteria)
+	trafficInterval := j.cfg.Hy2PollInterval
+	if j.userManager != nil {
+		if trafficInterval <= 0 || (j.cfg.XrayPollInterval > 0 && j.cfg.XrayPollInterval < trafficInterval) {
+			trafficInterval = j.cfg.XrayPollInterval
+		}
+	}
+	go j.runTicker(ctx, "hysteria-poll", trafficInterval, j.pollHysteria)
 	go j.runTicker(ctx, "services-poll", j.cfg.ServicePollInterval, j.pollServices)
 }
 
@@ -61,6 +70,9 @@ func (j *Jobs) runTicker(ctx context.Context, name string, interval time.Duratio
 }
 
 func (j *Jobs) pollHysteria(ctx context.Context) error {
+	if j.userManager != nil {
+		return j.userManager.CollectRuntime(ctx)
+	}
 	traffic, err := j.hy2Client.FetchTraffic(ctx)
 	if err != nil {
 		return err
@@ -106,6 +118,8 @@ func (j *Jobs) pollServices(ctx context.Context) error {
 		switch service {
 		case "hysteria-server":
 			version, _ = services.DetectBinaryVersion(ctx, j.cfg.Hy2BinaryPath, "version")
+		case j.cfg.XrayServiceName:
+			version, _ = services.DetectBinaryVersion(ctx, j.cfg.XrayBinaryPath, "-version")
 		case "h2v2-api":
 			version = "managed-by-systemd"
 		case "h2v2-web":

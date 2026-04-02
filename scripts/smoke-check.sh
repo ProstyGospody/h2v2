@@ -11,12 +11,17 @@ fi
 
 PANEL_API_PORT="${PANEL_API_PORT:-18080}"
 HY2_PORT="${HY2_PORT:-443}"
+XRAY_SERVICE_NAME="${XRAY_SERVICE_NAME:-xray}"
+MANAGED_SERVICES="${MANAGED_SERVICES:-h2v2-api,h2v2-web,hysteria-server,xray}"
 SMOKE_ADMIN_EMAIL="${SMOKE_ADMIN_EMAIL:-${INITIAL_ADMIN_EMAIL:-}}"
 SMOKE_ADMIN_PASSWORD="${SMOKE_ADMIN_PASSWORD:-${INITIAL_ADMIN_PASSWORD:-}}"
 CURL_CONNECT_TIMEOUT="${CURL_CONNECT_TIMEOUT:-3}"
 CURL_MAX_TIME="${CURL_MAX_TIME:-10}"
 
 services=(h2v2-api h2v2-web hysteria-server caddy)
+if [[ ",${MANAGED_SERVICES}," == *",${XRAY_SERVICE_NAME},"* ]]; then
+  services+=("${XRAY_SERVICE_NAME}")
+fi
 
 echo "[step] checking systemd services"
 for service in "${services[@]}"; do

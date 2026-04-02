@@ -7,7 +7,8 @@ type BadgeVariant =
   | "success"
   | "warning"
   | "danger"
-  | "protocol-hy2";
+  | "protocol-hy2"
+  | "protocol-vless";
 
 type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
   variant?: BadgeVariant;
@@ -23,6 +24,7 @@ export function Badge({ variant = "default", className, children, ...props }: Ba
         variant === "warning" && "border-status-warning/20 bg-status-warning/10 text-status-warning",
         variant === "danger" && "border-status-danger/20 bg-status-danger/10 text-status-danger",
         variant === "protocol-hy2" && "border-accent-secondary/20 bg-accent-secondary/10 text-accent-secondary-light",
+        variant === "protocol-vless" && "border-accent/20 bg-accent/10 text-accent-light",
         className,
       )}
       {...props}

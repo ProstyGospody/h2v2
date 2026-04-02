@@ -12,6 +12,7 @@ import (
 	"h2v2/internal/http/handlers"
 	"h2v2/internal/http/middleware"
 	"h2v2/internal/repository"
+	runtimecore "h2v2/internal/runtime"
 	"h2v2/internal/scheduler"
 	"h2v2/internal/services"
 )
@@ -24,6 +25,7 @@ type Server struct {
 	httpServer     *http.Server
 	jobs           *scheduler.Jobs
 	hysteriaAccess *services.HysteriaAccessManager
+	userManager    *services.UserManager
 	serviceManager *services.ServiceManager
 	cancelJobs     context.CancelFunc
 }
@@ -34,9 +36,14 @@ func NewServer(cfg config.Config, logger *slog.Logger, repo repository.Repositor
 	serviceManager := services.NewServiceManager(cfg.SystemctlPath, cfg.SudoPath, cfg.JournalctlPath, cfg.ManagedServices, cfg.ServiceCommandTimeout)
 	hy2ConfigManager := services.NewHysteriaConfigManager(cfg.Hy2ConfigPath)
 	hysteriaAccess := services.NewHysteriaAccessManager(repo, cfg, hy2ConfigManager)
+	runtime := runtimecore.NewRuntime(
+		runtimecore.NewHY2Adapter(hysteriaAccess, hy2Client, serviceManager, "hysteria-server"),
+		runtimecore.NewXrayAdapter(cfg.XrayConfigPath, cfg.XrayRuntimeURL, cfg.XrayRuntimeToken, serviceManager, cfg.XrayServiceName),
+	)
+	userManager := services.NewUserManager(cfg, repo, runtime)
 	systemMetrics := services.NewSystemMetricsCollector()
 
-	h := handlers.New(cfg, logger, repo, rateLimiter, hy2Client, serviceManager, hy2ConfigManager, hysteriaAccess, systemMetrics)
+	h := handlers.New(cfg, logger, repo, rateLimiter, hy2Client, serviceManager, hy2ConfigManager, hysteriaAccess, userManager, systemMetrics)
 	router := httpserver.NewRouter(cfg, logger, repo, h)
 
 	httpSrv := &http.Server{
@@ -48,7 +55,7 @@ func NewServer(cfg config.Config, logger *slog.Logger, repo repository.Repositor
 		IdleTimeout:       60 * time.Second,
 	}
 
-	jobs := scheduler.NewJobs(logger, cfg, repo, hy2Client, serviceManager)
+	jobs := scheduler.NewJobs(logger, cfg, repo, hy2Client, serviceManager, userManager)
 	return &Server{
 		cfg:            cfg,
 		logger:         logger,
@@ -57,18 +64,28 @@ func NewServer(cfg config.Config, logger *slog.Logger, repo repository.Repositor
 		httpServer:     httpSrv,
 		jobs:           jobs,
 		hysteriaAccess: hysteriaAccess,
+		userManager:    userManager,
 		serviceManager: serviceManager,
 	}
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	if syncResult, err := s.hysteriaAccess.Sync(ctx); err != nil {
-		s.logger.Warn("failed to sync hysteria config on startup", "error", err)
-	} else if syncResult.Changed && s.serviceManager != nil {
-		if err := s.serviceManager.Restart(ctx, "hysteria-server"); err != nil {
-			s.logger.Warn("failed to restart hysteria-server after startup sync", "error", err)
-		} else if status, statusErr := s.serviceManager.Status(ctx, "hysteria-server"); statusErr == nil {
-			_ = s.repo.UpsertServiceState(ctx, "hysteria-server", status.StatusText, nil, s.serviceManager.ToJSON(status))
+	if s.userManager != nil {
+		if err := s.userManager.SyncAll(ctx); err != nil {
+			s.logger.Warn("failed to sync runtime adapters on startup", "error", err)
+		}
+		if err := s.userManager.CollectRuntime(ctx); err != nil {
+			s.logger.Warn("failed to collect initial runtime counters", "error", err)
+		}
+	} else if s.hysteriaAccess != nil {
+		if syncResult, err := s.hysteriaAccess.Sync(ctx); err != nil {
+			s.logger.Warn("failed to sync hysteria config on startup", "error", err)
+		} else if syncResult.Changed && s.serviceManager != nil {
+			if err := s.serviceManager.Restart(ctx, "hysteria-server"); err != nil {
+				s.logger.Warn("failed to restart hysteria-server after startup sync", "error", err)
+			} else if status, statusErr := s.serviceManager.Status(ctx, "hysteria-server"); statusErr == nil {
+				_ = s.repo.UpsertServiceState(ctx, "hysteria-server", status.StatusText, nil, s.serviceManager.ToJSON(status))
+			}
 		}
 	}
 	jobsCtx, cancel := context.WithCancel(ctx)

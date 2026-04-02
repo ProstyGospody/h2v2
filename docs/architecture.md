@@ -2,50 +2,104 @@
 
 ## Scope
 
-The panel manages only one runtime data-plane service:
+The panel controls two data-plane runtimes:
 
-- Hysteria 2 (`UDP`, configurable port, default `443`)
+- Hysteria 2 (`hy2`)
+- Xray VLESS (`vless`)
 
-The panel itself is split into:
+Control plane services:
 
 - `panel-api` (`127.0.0.1:18080`)
 - `panel-web` (`127.0.0.1:13000`)
 - `caddy` (public HTTPS entrypoint)
 
+## Domain model
+
+Protocol-agnostic entities:
+
+- `User`: lifecycle, traffic limit, expiry, enabled state
+- `Credential`: per-protocol secret/identity (`hy2 user/pass`, `vless uuid`)
+- `Node` + `Inbound`: runtime protocol/transport/security parameters
+- `SubscriptionToken`: subject, version, revoked/rotated state
+
+Legacy HY2 tables remain available for backward-compatible API flows and are mirrored with triggers.
+
 ## Persistence model
 
-SQLite storage:
+SQLite storage (single DB file, WAL mode) now includes unified tables:
 
-- single DB file (default `/var/lib/h2v2/data/h2v2.db`)
-- WAL mode enabled
-- foreign keys enabled
-- busy timeout enabled
-- indexed read paths:
-  - sessions by token/expiry
-  - users by normalized username
-  - snapshots by user/timestamp
-  - audit logs by timestamp
+- `users`
+- `credentials`
+- `nodes`
+- `inbounds`
+- `subscription_tokens`
+- `traffic_counters`
+- `runtime_user_state`
 
-## Hysteria configuration ownership
+Legacy tables are preserved:
 
-- Active config path: `/etc/h2v2/hysteria/server.yaml`
-- Managed auth mode is `userpass`
-- User credentials are sourced from panel-managed Hysteria users
-- During validate/save/apply, panel-managed auth is injected to prevent drift
+- `hysteria_users`
+- `hysteria_snapshots`
 
-## Runtime and metrics
+Sync/compat triggers keep HY2 paths and unified paths consistent.
 
-- Hysteria live stats endpoint is loopback-only (`127.0.0.1:${HY2_STATS_PORT}`)
-- Scheduler polls:
-  - Hysteria traffic/online snapshots
-  - managed service statuses
-- Host metrics are collected via local procfs readers
+## Data migration
+
+On startup, SQLite schema is migrated to `user_version=2` if needed:
+
+- legacy `hysteria_users` are backfilled into `users` + `credentials`
+- legacy snapshots are mirrored into unified `traffic_counters`
+- default `hy2` and `vless` inbounds are created if absent
+
+Legacy API reads/writes continue to work after migration.
+
+## Runtime adapter layer
+
+Runtime operations are mediated by protocol adapters:
+
+- `HY2Adapter`
+- `XrayAdapter`
+
+Adapter contract:
+
+- `SyncConfig`
+- `AddUser`
+- `UpdateUser`
+- `RemoveUser`
+- `SetUsersStateBatch`
+- `KickUser`
+- `CollectTraffic`
+- `CollectOnline`
+- `BuildArtifacts`
+
+`UserManager` orchestrates repository + adapters with rollback-first behavior when runtime sync fails.
+
+## Subscription engine
+
+Unified subscription endpoint:
+
+- `/api/subscriptions/{token}`
+- `/subscriptions/{token}`
+
+Renderer outputs:
+
+- URI list
+- Clash YAML
+- Sing-box JSON
+
+Token format is HMAC-signed with stable subject and versioning; rotate/revoke are supported.
+
+In-memory cache is invalidated on user/inbound/token mutation.
 
 ## Service control
 
-Service actions are mediated through restricted sudo rules and limited to configured `MANAGED_SERVICES`.
-Default:
+Service actions are restricted to `MANAGED_SERVICES`.
+
+Default list:
 
 - `h2v2-api`
 - `h2v2-web`
 - `hysteria-server`
+- `xray`
+
+Runtime startup and periodic poll collection run through scheduler + adapters.

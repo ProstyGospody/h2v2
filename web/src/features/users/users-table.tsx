@@ -69,6 +69,24 @@ function statusBadgeVariant(status: ReturnType<typeof resolveStatus>): "default"
   return "default";
 }
 
+function protocolBadgeVariant(protocol: string): "protocol-hy2" | "protocol-vless" {
+  return protocol === "vless" ? "protocol-vless" : "protocol-hy2";
+}
+
+function UserProtocols({ client }: { client: HysteriaClient }) {
+  const raw = Array.isArray(client.protocols) && client.protocols.length ? client.protocols : [client.preferred_protocol || "hy2"];
+  const protocols = Array.from(new Set(raw));
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1">
+      {protocols.map((protocol) => (
+        <Badge key={protocol} variant={protocolBadgeVariant(protocol)} className="px-1.5 py-0 text-[9px]">
+          {protocol}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
 function SortIcon({ field, sort }: { field: SortField; sort: SortState }) {
   if (sort.field !== field) return <ArrowUpDown size={12} strokeWidth={1.5} className="text-txt-muted/60" />;
   return sort.dir === "asc"
@@ -291,6 +309,7 @@ function UserCard({
             {client.username}
           </button>
           <p className="truncate text-[12px] text-txt-muted">{client.note || "-"}</p>
+          <UserProtocols client={client} />
         </div>
       </div>
 
@@ -463,6 +482,7 @@ export function UsersTable({
                             {client.username}
                           </button>
                           <p className="truncate text-[12px] text-txt-muted">{client.note || "-"}</p>
+                          <UserProtocols client={client} />
                         </div>
                       </div>
                     </TableCell>

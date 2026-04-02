@@ -28,9 +28,11 @@ func NewRouter(
 	r.Get("/healthz", h.Healthz)
 	r.Get("/readyz", h.Readyz)
 	r.Get("/hysteria/subscription/{token}", h.HysteriaUserSubscription)
+	r.Get("/subscriptions/{token}", h.UserSubscription)
 
 	r.Route("/api", func(api chi.Router) {
 		api.Get("/hysteria/subscription/{token}", h.HysteriaUserSubscription)
+		api.Get("/subscriptions/{token}", h.UserSubscription)
 
 		api.Route("/auth", func(auth chi.Router) {
 			auth.Post("/login", h.Login)
@@ -80,6 +82,26 @@ func NewRouter(
 			secured.Get("/system/history", h.GetSystemHistory)
 
 			secured.Get("/audit", h.ListAudit)
+
+			secured.Get("/users", h.ListUsers)
+			secured.Post("/users", h.CreateUser)
+			secured.Post("/users/state", h.SetUsersState)
+			secured.Post("/users/delete", h.DeleteUsers)
+			secured.Get("/users/{id}", h.GetUser)
+			secured.Patch("/users/{id}", h.UpdateUser)
+			secured.Delete("/users/{id}", h.DeleteUser)
+			secured.Post("/users/{id}/kick", h.KickUser)
+			secured.Post("/users/kick", h.KickUsers)
+			secured.Get("/users/{id}/subscription-token", h.GetUserSubscriptionToken)
+			secured.Post("/users/{id}/subscription-token/rotate", h.RotateUserSubscriptionToken)
+			secured.Post("/users/{id}/subscription-token/revoke", h.RevokeUserSubscriptionToken)
+			secured.Post("/users/{id}/subscription-token/restore", h.RestoreUserSubscriptionToken)
+
+			secured.Get("/inbounds", h.ListInbounds)
+			secured.Post("/inbounds", h.UpsertInbound)
+			secured.Get("/inbounds/{id}", h.GetInbound)
+			secured.Patch("/inbounds/{id}", h.UpsertInbound)
+			secured.Delete("/inbounds/{id}", h.DeleteInbound)
 		})
 	})
 

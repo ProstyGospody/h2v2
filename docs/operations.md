@@ -3,15 +3,16 @@
 ## Service status
 
 ```bash
-systemctl status h2v2-api h2v2-web hysteria-server caddy
+systemctl status h2v2-api h2v2-web hysteria-server xray caddy
 ```
 
-## Service restart / reload
+## Restart / reload
 
 ```bash
 systemctl restart h2v2-api
 systemctl restart h2v2-web
 systemctl restart hysteria-server
+systemctl restart xray
 systemctl reload caddy
 ```
 
@@ -21,17 +22,25 @@ systemctl reload caddy
 journalctl -u h2v2-api -n 200 --no-pager
 journalctl -u h2v2-web -n 200 --no-pager
 journalctl -u hysteria-server -n 200 --no-pager
+journalctl -u xray -n 200 --no-pager
 journalctl -u caddy -n 200 --no-pager
 ```
 
-## Config paths
+## Paths
 
 - Panel env: `/opt/h2v2/.env.generated`
-- Hysteria config: `/etc/h2v2/hysteria/server.yaml`
-- Hysteria TLS cert/key: `/etc/h2v2/hysteria/tls.crt`, `/etc/h2v2/hysteria/tls.key`
-- Storage root: `/var/lib/h2v2`
+- HY2 config: `/etc/h2v2/hysteria/server.yaml`
+- Xray config: `/etc/h2v2/xray/config.json`
 - SQLite DB: `/var/lib/h2v2/data/h2v2.db`
+- Storage root: `/var/lib/h2v2`
 - Audit dir: `/var/log/h2v2/audit`
+
+## API checks
+
+```bash
+curl -fsS http://127.0.0.1:18080/healthz
+curl -fsS http://127.0.0.1:18080/readyz
+```
 
 ## Smoke check
 
@@ -53,7 +62,7 @@ JSON export:
 runuser -u h2v2 -- /opt/h2v2/bin/panel-api export --db /var/lib/h2v2/data/h2v2.db --out /var/lib/h2v2/backups/export-$(date -u +%Y%m%d-%H%M).json
 ```
 
-Restore SQLite:
+SQLite restore:
 
 ```bash
 systemctl stop h2v2-api

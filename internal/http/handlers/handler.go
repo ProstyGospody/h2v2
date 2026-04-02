@@ -25,6 +25,7 @@ type Handler struct {
 	serviceManager   *services.ServiceManager
 	hy2ConfigManager *services.HysteriaConfigManager
 	hysteriaAccess   *services.HysteriaAccessManager
+	userManager      *services.UserManager
 	systemMetrics    *services.SystemMetricsCollector
 	hysteriaStateMu  sync.Mutex
 	protocolMu       sync.Mutex
@@ -62,6 +63,7 @@ func New(
 	serviceManager *services.ServiceManager,
 	hy2ConfigManager *services.HysteriaConfigManager,
 	hysteriaAccess *services.HysteriaAccessManager,
+	userManager *services.UserManager,
 	systemMetrics *services.SystemMetricsCollector,
 ) *Handler {
 	return &Handler{
@@ -73,6 +75,7 @@ func New(
 		serviceManager:   serviceManager,
 		hy2ConfigManager: hy2ConfigManager,
 		hysteriaAccess:   hysteriaAccess,
+		userManager:      userManager,
 		systemMetrics:    systemMetrics,
 	}
 }
