@@ -19,6 +19,9 @@ CURL_CONNECT_TIMEOUT="${CURL_CONNECT_TIMEOUT:-3}"
 CURL_MAX_TIME="${CURL_MAX_TIME:-10}"
 SMOKE_HTTP_ATTEMPTS="${SMOKE_HTTP_ATTEMPTS:-20}"
 SMOKE_HTTP_SLEEP_SEC="${SMOKE_HTTP_SLEEP_SEC:-2}"
+SMOKE_LOGIN_ATTEMPTS="${SMOKE_LOGIN_ATTEMPTS:-5}"
+SMOKE_LOGIN_SLEEP_SEC="${SMOKE_LOGIN_SLEEP_SEC:-3}"
+SMOKE_LOGIN_MAX_TIME="${SMOKE_LOGIN_MAX_TIME:-20}"
 
 services=(h2v2-api h2v2-web hysteria-server caddy)
 if [[ ",${MANAGED_SERVICES}," == *",${XRAY_SERVICE_NAME},"* ]]; then
@@ -65,14 +68,30 @@ if [[ -n "${SMOKE_ADMIN_EMAIL}" && -n "${SMOKE_ADMIN_PASSWORD}" ]]; then
   trap 'rm -f "${cookie_jar}"' EXIT
   login_payload="$(jq -nc --arg email "${SMOKE_ADMIN_EMAIL}" --arg password "${SMOKE_ADMIN_PASSWORD}" '{email:$email,password:$password}')"
 
-  login_response="$(curl -fsS --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -c "${cookie_jar}" -H 'Content-Type: application/json' -d "${login_payload}" "http://127.0.0.1:${PANEL_API_PORT}/api/auth/login")"
-  csrf_token="$(echo "${login_response}" | jq -r '.csrf_token // empty')"
-  if [[ -z "${csrf_token}" ]]; then
-    echo "[error] login response did not contain csrf_token" >&2
+  login_ok=0
+  for ((i=1; i<=SMOKE_LOGIN_ATTEMPTS; i++)); do
+    rm -f "${cookie_jar}"
+    touch "${cookie_jar}"
+
+    login_response=""
+    if login_response="$(curl -fsS --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${SMOKE_LOGIN_MAX_TIME}" -c "${cookie_jar}" -H 'Content-Type: application/json' -d "${login_payload}" "http://127.0.0.1:${PANEL_API_PORT}/api/auth/login")"; then
+      csrf_token="$(echo "${login_response}" | jq -r '.csrf_token // empty')"
+      if [[ -n "${csrf_token}" ]] && curl -fsS --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${SMOKE_LOGIN_MAX_TIME}" -b "${cookie_jar}" -H "X-CSRF-Token: ${csrf_token}" "http://127.0.0.1:${PANEL_API_PORT}/api/auth/me" >/dev/null 2>&1; then
+        login_ok=1
+        break
+      fi
+    fi
+
+    if (( i < SMOKE_LOGIN_ATTEMPTS )); then
+      sleep "${SMOKE_LOGIN_SLEEP_SEC}"
+    fi
+  done
+
+  if (( login_ok != 1 )); then
+    echo "[error] admin login smoke check failed after ${SMOKE_LOGIN_ATTEMPTS} attempts" >&2
     exit 1
   fi
 
-  curl -fsS --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" -b "${cookie_jar}" -H "X-CSRF-Token: ${csrf_token}" "http://127.0.0.1:${PANEL_API_PORT}/api/auth/me" >/dev/null
   rm -f "${cookie_jar}"
   trap - EXIT
   echo "[ok] admin login smoke check passed"
