@@ -245,6 +245,33 @@ function mapUnifiedPayload(raw: unknown): HysteriaUserPayload {
   return payload;
 }
 
+function hasRenderableArtifacts(payload: HysteriaUserPayload): boolean {
+  const artifacts = payload.artifacts;
+  if (!artifacts) {
+    return false;
+  }
+  const directValues = [artifacts.uri, artifacts.uri_hy2, artifacts.subscription_url, artifacts.client_config];
+  if (directValues.some((value) => typeof value === "string" && value.trim().length > 0)) {
+    return true;
+  }
+  const unified = artifacts.unified || {};
+  for (const item of Object.values(unified)) {
+    if (!item) {
+      continue;
+    }
+    if (
+      (item.access_uri && item.access_uri.trim().length > 0)
+      || (item.config && item.config.trim().length > 0)
+      || (item.subscription && item.subscription.trim().length > 0)
+      || (item.clash_node && item.clash_node.trim().length > 0)
+      || (item.singbox_node && Object.keys(item.singbox_node).length > 0)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function mapUnifiedCredentials(input: HysteriaClientCreateRequest): Credential[] {
   const protocol = (input.protocol || "hy2") as Protocol;
   if (protocol === "vless") {
@@ -287,13 +314,16 @@ export async function getClientDefaults(): Promise<HysteriaClientDefaults> {
 export async function getClientArtifacts(clientID: string): Promise<HysteriaUserPayload> {
   try {
     const payload = await apiFetch<unknown>(`/api/users/${clientID}`, { method: "GET" });
-    return mapUnifiedPayload(payload);
+    const mapped = mapUnifiedPayload(payload);
+    if (hasRenderableArtifacts(mapped)) {
+      return mapped;
+    }
   } catch (error) {
     if (error instanceof APIError && error.status !== 404) {
       throw error;
     }
-    return apiFetch<HysteriaUserPayload>(`/api/hysteria/users/${clientID}/artifacts`, { method: "GET" });
   }
+  return apiFetch<HysteriaUserPayload>(`/api/hysteria/users/${clientID}/artifacts`, { method: "GET" });
 }
 
 export function createClient(input: HysteriaClientCreateRequest): Promise<HysteriaUserPayload> {

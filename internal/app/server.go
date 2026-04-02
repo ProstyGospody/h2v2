@@ -222,6 +222,9 @@ func (s *Server) runStartupTasks(ctx context.Context) {
 	defer cancel()
 
 	if s.userManager != nil {
+		if err := s.userManager.SyncAll(startupCtx); err != nil {
+			s.logger.Warn("failed to sync runtime adapters on startup", "error", err)
+		}
 		return
 	}
 

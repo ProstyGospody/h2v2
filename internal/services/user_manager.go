@@ -294,16 +294,25 @@ func (m *UserManager) BuildUserArtifacts(ctx context.Context, user repository.Us
 		return nil, "", err
 	}
 	out := make(map[repository.Protocol]runtimecore.UserArtifacts, len(user.Credentials))
+	buildErrors := make([]string, 0, len(user.Credentials))
 	for _, credential := range user.Credentials {
 		adapter, ok := m.runtime.Adapter(credential.Protocol)
 		if !ok {
+			buildErrors = append(buildErrors, "adapter "+string(credential.Protocol)+" is not configured")
 			continue
 		}
 		artifact, artifactErr := adapter.BuildArtifacts(ctx, user, inbounds, subscriptionURL)
 		if artifactErr != nil {
+			buildErrors = append(buildErrors, string(credential.Protocol)+": "+artifactErr.Error())
 			continue
 		}
 		out[credential.Protocol] = artifact
+	}
+	if len(out) == 0 {
+		if len(buildErrors) == 0 {
+			return nil, subscriptionURL, fmt.Errorf("failed to build user artifacts")
+		}
+		return nil, subscriptionURL, fmt.Errorf("failed to build user artifacts: %s", strings.Join(buildErrors, "; "))
 	}
 	return out, subscriptionURL, nil
 }

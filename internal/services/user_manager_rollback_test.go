@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"h2v2/internal/config"
@@ -14,6 +15,8 @@ import (
 type failingAdapter struct {
 	protocol repository.Protocol
 	syncErr  error
+	artifact runtimecore.UserArtifacts
+	artifactErr error
 }
 
 func (a *failingAdapter) Protocol() repository.Protocol {
@@ -53,7 +56,10 @@ func (a *failingAdapter) CollectOnline(context.Context, []repository.UserWithCre
 }
 
 func (a *failingAdapter) BuildArtifacts(context.Context, repository.UserWithCredentials, []repository.Inbound, string) (runtimecore.UserArtifacts, error) {
-	return runtimecore.UserArtifacts{}, nil
+	if a.artifactErr != nil {
+		return runtimecore.UserArtifacts{}, a.artifactErr
+	}
+	return a.artifact, nil
 }
 
 func TestUserManagerCreateUserRollbackOnSyncError(t *testing.T) {
@@ -147,5 +153,105 @@ func TestUserManagerSetUsersStateBatchRollbackOnSyncError(t *testing.T) {
 	}
 	if !current.Enabled {
 		t.Fatalf("expected rollback to keep user enabled")
+	}
+}
+
+func TestUserManagerBuildUserArtifactsReturnsErrorWhenAllProtocolsFail(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "data", "h2v2.db")
+
+	repo, err := repository.NewSQLiteRepository(dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite repository: %v", err)
+	}
+	t.Cleanup(func() { _ = repo.Close() })
+
+	created, err := repo.CreateUser(ctx, repository.CreateUserInput{
+		Name:    "artifacts-fail-user",
+		Enabled: true,
+		Credentials: []repository.Credential{
+			{Protocol: repository.ProtocolHY2, Identity: "artifacts-fail-user", Secret: "supersecret88"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	manager := NewUserManager(
+		config.Config{
+			InternalAuthToken:     "secret",
+			SubscriptionPublicURL: "https://panel.example.com",
+		},
+		repo,
+		runtimecore.NewRuntime(&failingAdapter{
+			protocol:    repository.ProtocolHY2,
+			artifactErr: errors.New("artifact build failed"),
+		}),
+	)
+
+	_, _, err = manager.BuildUserArtifacts(ctx, created)
+	if err == nil {
+		t.Fatalf("expected build artifacts to fail when all protocols fail")
+	}
+	if !strings.Contains(err.Error(), "failed to build user artifacts") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestUserManagerBuildUserArtifactsAllowsPartialSuccess(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "data", "h2v2.db")
+
+	repo, err := repository.NewSQLiteRepository(dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite repository: %v", err)
+	}
+	t.Cleanup(func() { _ = repo.Close() })
+
+	created, err := repo.CreateUser(ctx, repository.CreateUserInput{
+		Name:    "artifacts-partial-user",
+		Enabled: true,
+		Credentials: []repository.Credential{
+			{Protocol: repository.ProtocolHY2, Identity: "artifacts-partial-user", Secret: "supersecret88"},
+			{Protocol: repository.ProtocolVLESS, Identity: "2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	manager := NewUserManager(
+		config.Config{
+			InternalAuthToken:     "secret",
+			SubscriptionPublicURL: "https://panel.example.com",
+		},
+		repo,
+		runtimecore.NewRuntime(
+			&failingAdapter{
+				protocol:    repository.ProtocolHY2,
+				artifactErr: errors.New("artifact build failed"),
+			},
+			&failingAdapter{
+				protocol: repository.ProtocolVLESS,
+				artifact: runtimecore.UserArtifacts{
+					Protocol:  repository.ProtocolVLESS,
+					AccessURI: "vless://2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad@example.com:443?type=tcp#demo",
+					Config:    "uri:\nvless://2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad@example.com:443?type=tcp#demo",
+				},
+			},
+		),
+	)
+
+	artifacts, _, err := manager.BuildUserArtifacts(ctx, created)
+	if err != nil {
+		t.Fatalf("expected partial artifact build to succeed: %v", err)
+	}
+	if _, ok := artifacts[repository.ProtocolVLESS]; !ok {
+		t.Fatalf("expected vless artifact to be present")
+	}
+	if _, ok := artifacts[repository.ProtocolHY2]; ok {
+		t.Fatalf("expected hy2 artifact to be absent due build error")
 	}
 }
