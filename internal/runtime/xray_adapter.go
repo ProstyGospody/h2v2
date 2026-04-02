@@ -3,6 +3,8 @@
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/crypto/curve25519"
+
 	"h2v2/internal/fsutil"
 	"h2v2/internal/repository"
 )
@@ -28,9 +32,10 @@ type XrayAdapter struct {
 	services     ServiceRestarter
 	serviceName  string
 	httpClient   *http.Client
+	artifactHost string
 }
 
-func NewXrayAdapter(binaryPath string, configPath string, runtimeURL string, runtimeToken string, svc ServiceRestarter, serviceName string) *XrayAdapter {
+func NewXrayAdapter(binaryPath string, configPath string, runtimeURL string, runtimeToken string, svc ServiceRestarter, serviceName string, artifactHost string) *XrayAdapter {
 	name := strings.TrimSpace(serviceName)
 	if name == "" {
 		name = "xray"
@@ -49,6 +54,7 @@ func NewXrayAdapter(binaryPath string, configPath string, runtimeURL string, run
 		httpClient: &http.Client{
 			Timeout: 8 * time.Second,
 		},
+		artifactHost: normalizePublicEndpointHost(artifactHost),
 	}
 }
 
@@ -165,9 +171,13 @@ func (a *XrayAdapter) BuildArtifacts(_ context.Context, user repository.UserWith
 		return UserArtifacts{}, fmt.Errorf("vless inbound is missing")
 	}
 	params := parseJSONMap(inbound.ParamsJSON)
-	uri := buildVLESSURI(user, credential, inbound, params)
-	clashNode := renderClashVLESS(user, credential, inbound, params)
-	singboxNode := renderSingboxVLESS(user, credential, inbound, params)
+	if err := normalizeRealityParams(strings.ToLower(strings.TrimSpace(inbound.Security)), params); err != nil {
+		return UserArtifacts{}, err
+	}
+	serverHost := a.resolveArtifactHost(inbound.Host)
+	uri := buildVLESSURI(user, credential, inbound, serverHost, params)
+	clashNode := renderClashVLESS(user, credential, inbound, serverHost, params)
+	singboxNode := renderSingboxVLESS(user, credential, inbound, serverHost, params)
 	return UserArtifacts{
 		Protocol:     repository.ProtocolVLESS,
 		AccessURI:    uri,
@@ -176,6 +186,21 @@ func (a *XrayAdapter) BuildArtifacts(_ context.Context, user repository.UserWith
 		ClashNode:    clashNode,
 		SingBoxNode:  singboxNode,
 	}, nil
+}
+
+func (a *XrayAdapter) resolveArtifactHost(raw string) string {
+	host := normalizePublicEndpointHost(raw)
+	if host != "" {
+		return host
+	}
+	if a != nil && strings.TrimSpace(a.artifactHost) != "" {
+		return a.artifactHost
+	}
+	host = normalizeHostOnly(raw)
+	if host != "" {
+		return host
+	}
+	return "127.0.0.1"
 }
 
 func (a *XrayAdapter) applyConfig(config map[string]any) error {
@@ -328,7 +353,7 @@ func buildXrayConfig(inbounds []repository.Inbound, users []repository.UserWithC
 			continue
 		}
 
-		publicHost := normalizeHostOnly(inbound.Host)
+		publicHost := normalizePublicEndpointHost(inbound.Host)
 		listenHost := resolveXrayListenHost(inbound.Host)
 		listenPort := inbound.Port
 		if listenPort <= 0 {
@@ -380,10 +405,8 @@ func buildXrayConfig(inbounds []repository.Inbound, users []repository.UserWithC
 					serverNames = []string{fallback}
 				}
 			}
-			if len(serverNames) == 0 {
-				if fallback := strings.TrimSpace(inbound.Host); fallback != "" {
-					serverNames = []string{fallback}
-				}
+			if len(serverNames) == 0 && publicHost != "" {
+				serverNames = []string{publicHost}
 			}
 			privateKey := readString(params, "privateKey")
 			if privateKey == "" || len(serverNames) == 0 {
@@ -433,7 +456,7 @@ func buildXrayConfig(inbounds []repository.Inbound, users []repository.UserWithC
 	}, nil
 }
 
-func buildVLESSURI(user repository.UserWithCredentials, credential repository.Credential, inbound repository.Inbound, params map[string]any) string {
+func buildVLESSURI(user repository.UserWithCredentials, credential repository.Credential, inbound repository.Inbound, serverHost string, params map[string]any) string {
 	query := url.Values{}
 	query.Set("type", firstNonEmpty(inbound.Transport, "tcp"))
 	query.Set("encryption", "none")
@@ -462,7 +485,7 @@ func buildVLESSURI(user repository.UserWithCredentials, credential repository.Cr
 		query.Set("serviceName", firstNonEmpty(readString(params, "serviceName"), "grpc"))
 	}
 
-	host := strings.TrimSpace(inbound.Host)
+	host := strings.TrimSpace(serverHost)
 	if host == "" {
 		host = "127.0.0.1"
 	}
@@ -471,12 +494,12 @@ func buildVLESSURI(user repository.UserWithCredentials, credential repository.Cr
 	return "vless://" + credential.Identity + "@" + endpoint + "?" + query.Encode() + "#" + tag
 }
 
-func renderClashVLESS(user repository.UserWithCredentials, credential repository.Credential, inbound repository.Inbound, params map[string]any) string {
+func renderClashVLESS(user repository.UserWithCredentials, credential repository.Credential, inbound repository.Inbound, serverHost string, params map[string]any) string {
 	name := firstNonEmpty(user.Name, credential.Identity)
 	parts := []string{
 		"- name: " + name,
 		"  type: vless",
-		"  server: " + firstNonEmpty(inbound.Host, "127.0.0.1"),
+		"  server: " + firstNonEmpty(strings.TrimSpace(serverHost), "127.0.0.1"),
 		"  port: " + strconv.Itoa(inbound.Port),
 		"  uuid: " + credential.Identity,
 		"  network: " + firstNonEmpty(inbound.Transport, "tcp"),
@@ -497,11 +520,11 @@ func renderClashVLESS(user repository.UserWithCredentials, credential repository
 	return strings.Join(parts, "\n")
 }
 
-func renderSingboxVLESS(user repository.UserWithCredentials, credential repository.Credential, inbound repository.Inbound, params map[string]any) map[string]any {
+func renderSingboxVLESS(user repository.UserWithCredentials, credential repository.Credential, inbound repository.Inbound, serverHost string, params map[string]any) map[string]any {
 	result := map[string]any{
 		"type":       "vless",
 		"tag":        "vless-" + firstNonEmpty(user.Name, credential.Identity),
-		"server":     firstNonEmpty(inbound.Host, "127.0.0.1"),
+		"server":     firstNonEmpty(strings.TrimSpace(serverHost), "127.0.0.1"),
 		"server_port": inbound.Port,
 		"uuid":       credential.Identity,
 		"flow":       readString(params, "flow"),
@@ -512,10 +535,16 @@ func renderSingboxVLESS(user repository.UserWithCredentials, credential reposito
 		tls["server_name"] = sni
 	}
 	if inbound.Security == "reality" {
-		tls["reality"] = map[string]any{
+		reality := map[string]any{
 			"enabled":    true,
 			"public_key": readString(params, "pbk"),
-			"short_id":   readString(params, "sid"),
+		}
+		if sid := readString(params, "sid"); sid != "" {
+			reality["short_id"] = sid
+		}
+		tls["reality"] = reality
+		tls["utls"] = map[string]any{
+			"enabled":     true,
 			"fingerprint": firstNonEmpty(readString(params, "fp"), "chrome"),
 		}
 	}
@@ -590,19 +619,142 @@ func normalizeHostOnly(raw string) string {
 	return trimmed
 }
 
+func normalizePublicEndpointHost(raw string) string {
+	host := strings.ToLower(strings.TrimSpace(normalizeHostOnly(raw)))
+	switch host {
+	case "", "localhost", "127.0.0.1", "::1", "0.0.0.0", "::":
+		return ""
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if ip.IsLoopback() || ip.IsUnspecified() {
+			return ""
+		}
+	}
+	return host
+}
+
 func resolveXrayListenHost(raw string) string {
 	host := normalizeHostOnly(raw)
 	if host == "" {
 		return "0.0.0.0"
 	}
-	switch strings.ToLower(host) {
-	case "localhost":
-		return "127.0.0.1"
+	normalized := strings.ToLower(host)
+	switch normalized {
+	case "localhost", "127.0.0.1", "::1", "0.0.0.0", "::":
+		return "0.0.0.0"
 	}
-	if net.ParseIP(host) != nil {
+	if parsed := net.ParseIP(host); parsed != nil {
+		if parsed.IsLoopback() || parsed.IsUnspecified() {
+			return "0.0.0.0"
+		}
 		return host
 	}
 	return "0.0.0.0"
+}
+
+func decodeRealityKey(value string) ([]byte, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil, fmt.Errorf("reality key is empty")
+	}
+	encodings := []*base64.Encoding{
+		base64.RawURLEncoding,
+		base64.URLEncoding,
+		base64.RawStdEncoding,
+		base64.StdEncoding,
+	}
+	for _, enc := range encodings {
+		decoded, err := enc.DecodeString(trimmed)
+		if err != nil {
+			continue
+		}
+		if len(decoded) == 32 {
+			return decoded, nil
+		}
+	}
+	return nil, fmt.Errorf("reality key must decode to 32 bytes")
+}
+
+func encodeRealityKey(value []byte) string {
+	return base64.RawURLEncoding.EncodeToString(value)
+}
+
+func deriveRealityPublicKey(privateKey string) (string, error) {
+	decoded, err := decodeRealityKey(privateKey)
+	if err != nil {
+		return "", err
+	}
+	derived, err := curve25519.X25519(decoded, curve25519.Basepoint)
+	if err != nil {
+		return "", err
+	}
+	return encodeRealityKey(derived), nil
+}
+
+func normalizeRealityShortID(raw string) (string, error) {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	if value == "" {
+		return "", nil
+	}
+	if len(value) > 32 || len(value)%2 != 0 {
+		return "", fmt.Errorf("reality short id is invalid")
+	}
+	if _, err := hex.DecodeString(value); err != nil {
+		return "", fmt.Errorf("reality short id is invalid")
+	}
+	return value, nil
+}
+
+func normalizeRealityParams(security string, params map[string]any) error {
+	if security != "reality" {
+		return nil
+	}
+	if params == nil {
+		return fmt.Errorf("reality params are missing")
+	}
+	privateKey := strings.TrimSpace(readString(params, "privateKey"))
+	if privateKey != "" {
+		decodedPrivate, err := decodeRealityKey(privateKey)
+		if err != nil {
+			return fmt.Errorf("reality private key is invalid")
+		}
+		privateKey = encodeRealityKey(decodedPrivate)
+		params["privateKey"] = privateKey
+	}
+	publicKey := strings.TrimSpace(readString(params, "pbk"))
+	if publicKey == "" {
+		publicKey = strings.TrimSpace(readString(params, "publicKey"))
+	}
+	if publicKey != "" {
+		decodedPublic, err := decodeRealityKey(publicKey)
+		if err != nil {
+			return fmt.Errorf("reality public key is invalid")
+		}
+		publicKey = encodeRealityKey(decodedPublic)
+	}
+	if publicKey == "" && privateKey != "" {
+		derived, err := deriveRealityPublicKey(privateKey)
+		if err != nil {
+			return fmt.Errorf("reality public key is invalid")
+		}
+		publicKey = derived
+	}
+	if publicKey == "" {
+		return fmt.Errorf("reality public key is missing")
+	}
+	params["pbk"] = publicKey
+	delete(params, "publicKey")
+
+	sid, err := normalizeRealityShortID(readString(params, "sid"))
+	if err != nil {
+		return err
+	}
+	if sid == "" {
+		delete(params, "sid")
+	} else {
+		params["sid"] = sid
+	}
+	return nil
 }
 
 func readString(source map[string]any, key string) string {

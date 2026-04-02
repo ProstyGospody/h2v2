@@ -54,6 +54,9 @@ func (s *Store) UpsertServer(ctx context.Context, server Server) (Server, error)
 	if server.PublicHost == "" {
 		return Server{}, fmt.Errorf("server public_host is required")
 	}
+	if normalizeClientEndpointHost(server.PublicHost) == "" {
+		return Server{}, fmt.Errorf("server public_host must be a public host")
+	}
 	server.PanelPublicURL = normalizeString(server.PanelPublicURL)
 	if server.PanelPublicURL == "" {
 		return Server{}, fmt.Errorf("server panel_public_url is required")

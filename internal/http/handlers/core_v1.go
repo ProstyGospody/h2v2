@@ -128,7 +128,7 @@ func coreErrorStatus(err error) (int, string) {
 		return http.StatusConflict, "validation"
 	}
 	message := strings.ToLower(strings.TrimSpace(err.Error()))
-	if strings.Contains(message, "invalid") || strings.Contains(message, "required") || strings.Contains(message, "unsupported") {
+	if strings.Contains(message, "invalid") || strings.Contains(message, "required") || strings.Contains(message, "unsupported") || strings.Contains(message, "must be") {
 		return http.StatusBadRequest, "validation"
 	}
 	return http.StatusInternalServerError, "runtime"

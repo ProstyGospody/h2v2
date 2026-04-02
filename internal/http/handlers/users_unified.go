@@ -468,7 +468,7 @@ func (h *Handler) UpsertInbound(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusBadRequest, "validation", "invalid request body", nil)
 		return
 	}
-	inbound, err := mapInboundRequest(req, chi.URLParam(r, "id"))
+	inbound, err := mapInboundRequest(req, chi.URLParam(r, "id"), h.cfg.PanelPublicHost)
 	if err != nil {
 		h.renderError(w, http.StatusBadRequest, "validation", err.Error(), nil)
 		return
@@ -628,7 +628,7 @@ func mergeCredentialsWithCurrent(next []repository.Credential, current []reposit
 	return merged
 }
 
-func mapInboundRequest(req inboundRequest, pathID string) (repository.Inbound, error) {
+func mapInboundRequest(req inboundRequest, pathID string, fallbackHost string) (repository.Inbound, error) {
 	protocol := repository.ProtocolHY2
 	if req.Protocol != nil {
 		parsed, err := parseProtocol(*req.Protocol)
@@ -660,9 +660,12 @@ func mapInboundRequest(req inboundRequest, pathID string) (repository.Inbound, e
 	if req.Security != nil && strings.TrimSpace(*req.Security) != "" {
 		security = strings.ToLower(strings.TrimSpace(*req.Security))
 	}
-	host := "127.0.0.1"
+	host := strings.TrimSpace(fallbackHost)
 	if req.Host != nil && strings.TrimSpace(*req.Host) != "" {
 		host = strings.TrimSpace(*req.Host)
+	}
+	if host == "" {
+		return repository.Inbound{}, fmt.Errorf("host is required")
 	}
 	port := 443
 	if req.Port != nil && *req.Port > 0 {

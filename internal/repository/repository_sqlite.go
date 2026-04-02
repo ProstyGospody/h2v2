@@ -2,7 +2,10 @@ package repository
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,12 +14,13 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/crypto/curve25519"
 	_ "modernc.org/sqlite"
 
 	hysteriadomain "h2v2/internal/domain/hysteria"
 )
 
-const sqliteSchemaVersion = 2
+const sqliteSchemaVersion = 3
 
 type SQLiteRepository struct {
 	db   *sql.DB
@@ -107,6 +111,15 @@ func (r *SQLiteRepository) ensureSchema(ctx context.Context) error {
 			return err
 		}
 		version = 2
+	}
+	if version < 3 {
+		if err := r.migrateVLESSRealityDefaults(ctx); err != nil {
+			return err
+		}
+		if err := r.setSQLiteUserVersion(ctx, 3); err != nil {
+			return err
+		}
+		version = 3
 	}
 	if version > sqliteSchemaVersion {
 		return fmt.Errorf("sqlite schema version %d is newer than supported %d", version, sqliteSchemaVersion)
@@ -548,6 +561,232 @@ func (r *SQLiteRepository) backfillUnifiedSchema(ctx context.Context) error {
 	}
 
 	return tx.Commit()
+}
+
+func (r *SQLiteRepository) migrateVLESSRealityDefaults(ctx context.Context) error {
+	tx, err := r.db.BeginTx(resolveCtx(ctx), nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	rows, err := tx.QueryContext(
+		resolveCtx(ctx),
+		`SELECT id, params_json
+		 FROM inbounds
+		 WHERE protocol = 'vless' AND lower(security) = 'reality'`,
+	)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type updateItem struct {
+		ID         string
+		ParamsJSON string
+	}
+	updates := make([]updateItem, 0)
+	for rows.Next() {
+		var (
+			id        string
+			paramsRaw sql.NullString
+		)
+		if err := rows.Scan(&id, &paramsRaw); err != nil {
+			return err
+		}
+		params := make(map[string]any)
+		if paramsRaw.Valid {
+			trimmed := strings.TrimSpace(paramsRaw.String)
+			if trimmed != "" {
+				if err := json.Unmarshal([]byte(trimmed), &params); err != nil {
+					params = make(map[string]any)
+				}
+			}
+		}
+		normalized, changed, normalizeErr := normalizeLegacyRealityParams(params)
+		if normalizeErr != nil {
+			return fmt.Errorf("normalize vless reality params for inbound %s: %w", id, normalizeErr)
+		}
+		if !changed {
+			continue
+		}
+		encoded, encodeErr := json.Marshal(normalized)
+		if encodeErr != nil {
+			return encodeErr
+		}
+		updates = append(updates, updateItem{ID: id, ParamsJSON: string(encoded)})
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, item := range updates {
+		if _, err = tx.ExecContext(
+			resolveCtx(ctx),
+			`UPDATE inbounds SET params_json = ?, updated_at_ns = ? WHERE id = ?`,
+			item.ParamsJSON,
+			nowNano(),
+			item.ID,
+		); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func normalizeLegacyRealityParams(params map[string]any) (map[string]any, bool, error) {
+	if params == nil {
+		params = make(map[string]any)
+	}
+	changed := false
+	readString := func(key string) string {
+		value, ok := params[key]
+		if !ok || value == nil {
+			return ""
+		}
+		switch typed := value.(type) {
+		case string:
+			return strings.TrimSpace(typed)
+		default:
+			return strings.TrimSpace(fmt.Sprintf("%v", typed))
+		}
+	}
+	setString := func(key string, value string) {
+		trimmed := strings.TrimSpace(value)
+		current := readString(key)
+		if current != trimmed {
+			changed = true
+		}
+		params[key] = trimmed
+	}
+
+	privateKeyRaw := readString("privateKey")
+	privateKey := ""
+	if privateKeyRaw != "" {
+		decoded, err := decodeLegacyRealityKey(privateKeyRaw)
+		if err == nil {
+			privateKey = encodeLegacyRealityKey(decoded)
+		}
+	}
+	publicKeyRaw := readString("pbk")
+	if publicKeyRaw == "" {
+		publicKeyRaw = readString("publicKey")
+	}
+	publicKey := ""
+	if publicKeyRaw != "" {
+		decoded, err := decodeLegacyRealityKey(publicKeyRaw)
+		if err == nil {
+			publicKey = encodeLegacyRealityKey(decoded)
+		}
+	}
+	if privateKey != "" && publicKey == "" {
+		derivedPublic, derivedErr := deriveLegacyRealityPublicKey(privateKey)
+		if derivedErr != nil {
+			return params, false, derivedErr
+		}
+		publicKey = derivedPublic
+		changed = true
+	}
+	if privateKey == "" || publicKey == "" {
+		var pairErr error
+		privateKey, publicKey, pairErr = generateLegacyRealityKeyPair()
+		if pairErr != nil {
+			return params, false, pairErr
+		}
+		changed = true
+	}
+	setString("privateKey", privateKey)
+	setString("pbk", publicKey)
+	if _, exists := params["publicKey"]; exists {
+		delete(params, "publicKey")
+		changed = true
+	}
+
+	sidRaw := strings.ToLower(strings.TrimSpace(readString("sid")))
+	sid := ""
+	if sidRaw != "" {
+		if len(sidRaw) <= 32 && len(sidRaw)%2 == 0 {
+			if _, err := hex.DecodeString(sidRaw); err == nil {
+				sid = sidRaw
+			}
+		}
+	}
+	if sid == "" {
+		if _, exists := params["sid"]; exists {
+			delete(params, "sid")
+			changed = true
+		}
+	} else {
+		setString("sid", sid)
+	}
+
+	if strings.TrimSpace(readString("security")) == "" {
+		setString("security", "reality")
+	}
+	if strings.TrimSpace(readString("network")) == "" {
+		setString("network", "tcp")
+	}
+	if strings.TrimSpace(readString("flow")) == "" {
+		setString("flow", "xtls-rprx-vision")
+	}
+	if strings.TrimSpace(readString("fp")) == "" {
+		setString("fp", "chrome")
+	}
+	return params, changed, nil
+}
+
+func decodeLegacyRealityKey(value string) ([]byte, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil, fmt.Errorf("reality key is empty")
+	}
+	encodings := []*base64.Encoding{
+		base64.RawURLEncoding,
+		base64.URLEncoding,
+		base64.RawStdEncoding,
+		base64.StdEncoding,
+	}
+	for _, enc := range encodings {
+		decoded, err := enc.DecodeString(trimmed)
+		if err != nil {
+			continue
+		}
+		if len(decoded) == 32 {
+			return decoded, nil
+		}
+	}
+	return nil, fmt.Errorf("reality key must decode to 32 bytes")
+}
+
+func encodeLegacyRealityKey(value []byte) string {
+	return base64.RawURLEncoding.EncodeToString(value)
+}
+
+func deriveLegacyRealityPublicKey(privateKey string) (string, error) {
+	decoded, err := decodeLegacyRealityKey(privateKey)
+	if err != nil {
+		return "", err
+	}
+	publicKey, err := curve25519.X25519(decoded, curve25519.Basepoint)
+	if err != nil {
+		return "", err
+	}
+	return encodeLegacyRealityKey(publicKey), nil
+}
+
+func generateLegacyRealityKeyPair() (string, string, error) {
+	privateKey := make([]byte, 32)
+	if _, err := rand.Read(privateKey); err != nil {
+		return "", "", err
+	}
+	publicKey, err := curve25519.X25519(privateKey, curve25519.Basepoint)
+	if err != nil {
+		return "", "", err
+	}
+	return encodeLegacyRealityKey(privateKey), encodeLegacyRealityKey(publicKey), nil
 }
 
 func (r *SQLiteRepository) sqliteUserVersion(ctx context.Context) (int, error) {

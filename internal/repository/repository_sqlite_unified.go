@@ -562,7 +562,13 @@ func (r *SQLiteRepository) UpsertInbound(ctx context.Context, inbound Inbound) (
 	}
 	inbound.Host = strings.TrimSpace(inbound.Host)
 	if inbound.Host == "" {
-		inbound.Host = "127.0.0.1"
+		nodeAddress, nodeErr := r.nodeAddressByID(ctx, inbound.NodeID)
+		if nodeErr == nil {
+			inbound.Host = strings.TrimSpace(nodeAddress)
+		}
+	}
+	if inbound.Host == "" {
+		return Inbound{}, fmt.Errorf("inbound host is required")
 	}
 	if inbound.Port <= 0 {
 		inbound.Port = 443
@@ -1371,6 +1377,19 @@ func upsertLegacyHysteriaFromCredentialsTx(ctx context.Context, tx *sql.Tx, user
 		updatedAtNs,
 	)
 	return err
+}
+
+func (r *SQLiteRepository) nodeAddressByID(ctx context.Context, id string) (string, error) {
+	row := r.db.QueryRowContext(
+		resolveCtx(ctx),
+		`SELECT address FROM nodes WHERE id = ? LIMIT 1`,
+		strings.TrimSpace(id),
+	)
+	var address string
+	if err := row.Scan(&address); err != nil {
+		return "", translateSQLiteErr(err)
+	}
+	return strings.TrimSpace(address), nil
 }
 
 func protocolsFromCredentials(credentials []Credential, filter *Protocol) []Protocol {

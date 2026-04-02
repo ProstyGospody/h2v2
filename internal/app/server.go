@@ -110,7 +110,7 @@ func NewServer(cfg config.Config, logger *slog.Logger, repo repository.Repositor
 	hy2RuntimeClient := hy2ClientRuntimeAdapter{inner: hy2Client}
 	runtime := runtimecore.NewRuntime(
 		runtimecore.NewHY2Adapter(hy2RuntimeAccess, hy2RuntimeClient, serviceManager, "hysteria-server"),
-		runtimecore.NewXrayAdapter(cfg.XrayBinaryPath, cfg.XrayConfigPath, cfg.XrayRuntimeURL, cfg.XrayRuntimeToken, serviceManager, cfg.XrayServiceName),
+		runtimecore.NewXrayAdapter(cfg.XrayBinaryPath, cfg.XrayConfigPath, cfg.XrayRuntimeURL, cfg.XrayRuntimeToken, serviceManager, cfg.XrayServiceName, cfg.PanelPublicHost),
 	)
 	userManager := services.NewUserManager(cfg, repo, runtime)
 	systemMetrics := services.NewSystemMetricsCollector()

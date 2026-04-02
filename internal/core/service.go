@@ -2,12 +2,13 @@ package core
 
 import (
 	"context"
-	"encoding/base64"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
@@ -252,6 +253,36 @@ func normalizeRealitySettings(value *VLESSInboundSettings) error {
 	value.RealityShortID = shortID
 	value.TLSEnabled = true
 	return nil
+}
+
+func normalizeClientEndpointHost(raw string) string {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return ""
+	}
+	if strings.Contains(value, "://") {
+		if parsed, err := url.Parse(value); err == nil {
+			value = parsed.Host
+		}
+	}
+	if idx := strings.IndexAny(value, "/?#"); idx >= 0 {
+		value = value[:idx]
+	}
+	if host, _, err := net.SplitHostPort(value); err == nil {
+		value = host
+	}
+	value = strings.TrimSpace(strings.Trim(value, "[]"))
+	normalized := strings.ToLower(value)
+	switch normalized {
+	case "", "localhost", "127.0.0.1", "::1", "0.0.0.0", "::":
+		return ""
+	}
+	if ip := net.ParseIP(normalized); ip != nil {
+		if ip.IsLoopback() || ip.IsUnspecified() {
+			return ""
+		}
+	}
+	return value
 }
 
 func defaultHY2Password(username string) string {
@@ -578,9 +609,12 @@ func (s *Service) buildUserURIsAndOutbounds(ctx context.Context, user User) ([]s
 		if err != nil {
 			continue
 		}
-		host := strings.TrimSpace(server.PublicHost)
+		host := normalizeClientEndpointHost(server.PublicHost)
 		if host == "" {
-			host = strings.TrimSpace(inbound.Listen)
+			host = normalizeClientEndpointHost(server.PanelPublicURL)
+		}
+		if host == "" {
+			continue
 		}
 		switch inbound.Protocol {
 		case InboundProtocolVLESS:

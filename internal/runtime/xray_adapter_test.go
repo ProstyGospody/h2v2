@@ -80,6 +80,7 @@ func TestBuildVLESSURIIncludesTransportAndRealityFields(t *testing.T) {
 			Host:      "example.com",
 			Port:      443,
 		},
+		"example.com",
 		map[string]any{
 			"sni":  "cdn.example.com",
 			"pbk":  "public-key",
