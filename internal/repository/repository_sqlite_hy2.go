@@ -378,6 +378,65 @@ func (r *SQLiteRepository) DeleteHysteriaUser(ctx context.Context, id string) er
 	return nil
 }
 
+func (r *SQLiteRepository) DeleteHysteriaUsers(ctx context.Context, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	uniqueIDs := make([]string, 0, len(ids))
+	seen := make(map[string]struct{}, len(ids))
+	for _, rawID := range ids {
+		id := strings.TrimSpace(rawID)
+		if id == "" {
+			continue
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		uniqueIDs = append(uniqueIDs, id)
+	}
+	if len(uniqueIDs) == 0 {
+		return ErrNotFound
+	}
+
+	tx, err := r.db.BeginTx(resolveCtx(ctx), nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	stmt, err := tx.PrepareContext(resolveCtx(ctx), `DELETE FROM hysteria_users WHERE id = ?`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, id := range uniqueIDs {
+		result, execErr := stmt.ExecContext(resolveCtx(ctx), id)
+		if execErr != nil {
+			err = execErr
+			return err
+		}
+		rows, rowsErr := result.RowsAffected()
+		if rowsErr != nil {
+			err = rowsErr
+			return err
+		}
+		if rows == 0 {
+			err = ErrNotFound
+			return err
+		}
+	}
+
+	err = tx.Commit()
+	return err
+}
+
 func (r *SQLiteRepository) SetHysteriaUserEnabled(ctx context.Context, id string, enabled bool) error {
 	result, err := r.db.ExecContext(
 		resolveCtx(ctx),

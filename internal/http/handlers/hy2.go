@@ -39,6 +39,10 @@ type setHysteriaUsersStateRequest struct {
 	Enabled *bool    `json:"enabled"`
 }
 
+type deleteHysteriaUsersRequest struct {
+	IDs []string `json:"ids"`
+}
+
 type managedHysteriaSyncError struct {
 	cause     error
 	attempts  int
@@ -244,12 +248,118 @@ func (h *Handler) DeleteHysteriaUser(w http.ResponseWriter, r *http.Request) {
 	h.deleteHysteriaUser(w, r, "hysteria.user.delete")
 }
 
+func (h *Handler) DeleteHysteriaUsers(w http.ResponseWriter, r *http.Request) {
+	var req deleteHysteriaUsersRequest
+	if err := render.DecodeJSON(r, &req); err != nil {
+		h.renderError(w, http.StatusBadRequest, "validation", "invalid request body", nil)
+		return
+	}
+
+	ids := normalizeHysteriaUserIDs(req.IDs)
+	if len(ids) == 0 {
+		h.renderError(w, http.StatusBadRequest, "validation", "ids must contain at least one user id", nil)
+		return
+	}
+	if len(ids) > 500 {
+		h.renderError(w, http.StatusBadRequest, "validation", "ids limit exceeded", map[string]any{"max": 500})
+		return
+	}
+
+	h.hysteriaStateMu.Lock()
+	defer h.hysteriaStateMu.Unlock()
+
+	usersByID := make(map[string]repository.HysteriaUserView, len(ids))
+	previousStates := make(map[string]bool, len(ids))
+	enabledIDs := make([]string, 0, len(ids))
+
+	for _, id := range ids {
+		current, err := h.repo.GetHysteriaUser(r.Context(), id)
+		if err != nil {
+			if repository.IsNotFound(err) {
+				h.renderError(w, http.StatusNotFound, "not_found", "hysteria user not found", map[string]any{"id": id})
+				return
+			}
+			h.renderError(w, http.StatusInternalServerError, "runtime", "failed to load hysteria user", nil)
+			return
+		}
+		usersByID[id] = current
+		previousStates[id] = current.Enabled
+		if current.Enabled {
+			enabledIDs = append(enabledIDs, id)
+		}
+	}
+
+	appliedDisabled := make([]string, 0, len(enabledIDs))
+	for _, id := range enabledIDs {
+		if err := h.repo.SetHysteriaUserEnabled(r.Context(), id, false); err != nil {
+			details := map[string]any{"id": id}
+			if rollbackErr := h.rollbackHysteriaUsersState(r.Context(), appliedDisabled, previousStates); rollbackErr != nil {
+				details["rollback_error"] = rollbackErr.Error()
+			}
+			if repository.IsNotFound(err) {
+				h.renderError(w, http.StatusNotFound, "not_found", "hysteria user not found", details)
+				return
+			}
+			h.renderError(w, http.StatusInternalServerError, "runtime", "failed to update hysteria user status", details)
+			return
+		}
+		appliedDisabled = append(appliedDisabled, id)
+	}
+
+	if len(enabledIDs) > 0 {
+		if err := h.syncManagedHysteria(r.Context()); err != nil {
+			details := map[string]any{}
+			appendSyncErrorDetails(details, "sync_error", err)
+			if rollbackErr := h.rollbackHysteriaUsersState(r.Context(), enabledIDs, previousStates); rollbackErr != nil {
+				details["rollback_error"] = rollbackErr.Error()
+			}
+			if rollbackSyncErr := h.syncManagedHysteria(r.Context()); rollbackSyncErr != nil {
+				appendSyncErrorDetails(details, "rollback_sync_error", rollbackSyncErr)
+				h.renderError(w, http.StatusInternalServerError, "sync", "failed to sync/restart hysteria config; delete batch rollback failed to apply runtime state", details)
+				return
+			}
+			h.renderError(w, http.StatusInternalServerError, "sync", "failed to sync/restart hysteria config; delete batch was rolled back", details)
+			return
+		}
+	}
+
+	if err := h.repo.DeleteHysteriaUsers(r.Context(), ids); err != nil {
+		details := map[string]any{}
+		if len(enabledIDs) > 0 {
+			if rollbackErr := h.rollbackHysteriaUsersState(r.Context(), enabledIDs, previousStates); rollbackErr != nil {
+				details["rollback_error"] = rollbackErr.Error()
+			}
+			if rollbackSyncErr := h.syncManagedHysteria(r.Context()); rollbackSyncErr != nil {
+				appendSyncErrorDetails(details, "rollback_sync_error", rollbackSyncErr)
+				h.renderError(w, http.StatusInternalServerError, "sync", "failed to delete hysteria users; rollback failed to apply runtime state", details)
+				return
+			}
+		}
+		if repository.IsNotFound(err) {
+			h.renderError(w, http.StatusNotFound, "not_found", "hysteria user not found", details)
+			return
+		}
+		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to delete hysteria user records", details)
+		return
+	}
+
+	for _, id := range ids {
+		current := usersByID[id]
+		h.audit(r, "hysteria.user.delete", auditdomain.EntityHysteriaUser, &id, map[string]any{"username": current.Username, "bulk": true})
+	}
+
+	render.JSON(w, http.StatusOK, map[string]any{"ok": true, "deleted": len(ids)})
+}
+
 func (h *Handler) RevokeHysteriaUser(w http.ResponseWriter, r *http.Request) {
 	h.deleteHysteriaUser(w, r, "hysteria.user.revoke")
 }
 
 func (h *Handler) deleteHysteriaUser(w http.ResponseWriter, r *http.Request, action string) {
 	id := chi.URLParam(r, "id")
+	h.hysteriaStateMu.Lock()
+	defer h.hysteriaStateMu.Unlock()
+
 	current, err := h.repo.GetHysteriaUser(r.Context(), id)
 	if err != nil {
 		if repository.IsNotFound(err) {

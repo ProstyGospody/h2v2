@@ -5,6 +5,7 @@ import {
   HysteriaClient,
   HysteriaClientCreateRequest,
   HysteriaClientDefaults,
+  HysteriaClientDeleteBatchResponse,
   HysteriaClientListResponse,
   HysteriaClientStateBatchResponse,
   HysteriaClientUpdateRequest,
@@ -12,6 +13,7 @@ import {
 } from "@/domain/clients/types";
 
 const CLIENT_FETCH_LIMIT = 500;
+const HYSTERIA_MUTATION_TIMEOUT_MS = 120_000;
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -127,6 +129,7 @@ export function createClient(input: HysteriaClientCreateRequest): Promise<Hyster
   return apiFetch<HysteriaUserPayload>("/api/hysteria/users", {
     method: "POST",
     body: JSON.stringify(input),
+    timeoutMs: HYSTERIA_MUTATION_TIMEOUT_MS,
   });
 }
 
@@ -134,6 +137,7 @@ export function updateClient(clientID: string, input: HysteriaClientUpdateReques
   return apiFetch<HysteriaUserPayload>(`/api/hysteria/users/${clientID}`, {
     method: "PATCH",
     body: JSON.stringify(input),
+    timeoutMs: HYSTERIA_MUTATION_TIMEOUT_MS,
   });
 }
 
@@ -141,6 +145,7 @@ export function deleteClient(clientID: string): Promise<{ ok: boolean }> {
   return apiFetch<{ ok: boolean }>(`/api/hysteria/users/${clientID}`, {
     method: "DELETE",
     body: JSON.stringify({}),
+    timeoutMs: HYSTERIA_MUTATION_TIMEOUT_MS,
   });
 }
 
@@ -148,6 +153,7 @@ export function setClientEnabled(clientID: string, enabled: boolean): Promise<{ 
   return apiFetch<{ ok: boolean; enabled: boolean }>(`/api/hysteria/users/${clientID}/${enabled ? "enable" : "disable"}`, {
     method: "POST",
     body: JSON.stringify({}),
+    timeoutMs: HYSTERIA_MUTATION_TIMEOUT_MS,
   });
 }
 
@@ -156,7 +162,16 @@ export function setClientsEnabledBulk(clientIDs: string[], enabled: boolean): Pr
   return apiFetch<HysteriaClientStateBatchResponse>("/api/hysteria/users/state", {
     method: "POST",
     body: JSON.stringify({ ids, enabled }),
-    timeoutMs: 45_000,
+    timeoutMs: HYSTERIA_MUTATION_TIMEOUT_MS,
+  });
+}
+
+export function deleteClientsBulk(clientIDs: string[]): Promise<HysteriaClientDeleteBatchResponse> {
+  const ids = clientIDs.map((id) => id.trim()).filter((id) => id.length > 0);
+  return apiFetch<HysteriaClientDeleteBatchResponse>("/api/hysteria/users/delete", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+    timeoutMs: HYSTERIA_MUTATION_TIMEOUT_MS,
   });
 }
 

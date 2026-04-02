@@ -52,6 +52,7 @@ func NewRouter(
 			secured.Get("/hysteria/users", h.ListHysteriaUsers)
 			secured.Post("/hysteria/users", h.CreateHysteriaUser)
 			secured.Post("/hysteria/users/state", h.SetHysteriaUsersState)
+			secured.Post("/hysteria/users/delete", h.DeleteHysteriaUsers)
 			secured.Get("/hysteria/users/{id}", h.GetHysteriaUser)
 			secured.Patch("/hysteria/users/{id}", h.UpdateHysteriaUser)
 			secured.Delete("/hysteria/users/{id}", h.DeleteHysteriaUser)

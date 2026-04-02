@@ -7,6 +7,7 @@ import { ClientFormDialog } from "@/components/forms/client-form-dialog";
 import { toCreateRequest, toUpdateRequest, type ClientFormValues } from "@/domain/clients/adapters";
 import {
   createClient,
+  deleteClientsBulk,
   deleteClient,
   getClientArtifacts,
   getClientDefaults,
@@ -290,54 +291,17 @@ export default function UsersPage() {
 
     const targetIDs = [...selectedClientIDs];
     setActionError("");
-    const toastId = toast.notify(`Deleting 0/${targetIDs.length}...`, "info");
+    const toastId = toast.notify(targetIDs.length === 1 ? "Deleting 1 user..." : `Deleting ${targetIDs.length} users...`, "info");
 
     try {
-      const failedIDs: string[] = [];
-      let firstError = "";
-      let deletedCount = 0;
-      let processedCount = 0;
-
-      const results = await Promise.all(
-        targetIDs.map(async (id) => {
-          try {
-            await deleteClient(id);
-            return { id, ok: true as const };
-          } catch (err) {
-            return { id, ok: false as const, err };
-          } finally {
-            processedCount += 1;
-            toast.update(toastId, `Deleting ${processedCount}/${targetIDs.length}...`);
-          }
-        }),
-      );
-
-      results.forEach((result) => {
-        if (result.ok) {
-          deletedCount += 1;
-          return;
-        }
-        failedIDs.push(result.id);
-        if (!firstError) {
-          firstError = result.err instanceof APIError ? result.err.message : "Failed to delete selected users";
-        }
-      });
-
-      if (deletedCount > 0) {
-        toast.update(toastId, deletedCount === 1 ? "1 user deleted" : `${deletedCount} users deleted`, "success");
-      }
-
-      if (failedIDs.length > 0) {
-        toast.update(
-          toastId,
-          deletedCount > 0 ? `Deleted ${deletedCount} of ${targetIDs.length}` : "Failed to delete users",
-          deletedCount > 0 ? "info" : "error",
-        );
-        setSelectedClientIDs(failedIDs);
-        setActionError(firstError || `Deleted ${deletedCount} of ${targetIDs.length} users`);
-      } else {
-        setSelectedClientIDs([]);
-      }
+      const result = await deleteClientsBulk(targetIDs);
+      const deleted = Math.max(0, result.deleted || 0);
+      toast.update(toastId, deleted === 1 ? "1 user deleted" : `${deleted} users deleted`, "success");
+      setSelectedClientIDs([]);
+    } catch (err) {
+      const message = err instanceof APIError ? resolveBulkStateErrorMessage(err) : "Failed to delete users";
+      setActionError(message);
+      toast.update(toastId, message, "error");
     } finally {
       await refreshUsers();
     }

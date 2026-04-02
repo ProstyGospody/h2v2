@@ -90,3 +90,8 @@ export type HysteriaClientStateBatchResponse = {
   enabled: boolean;
   updated: number;
 };
+
+export type HysteriaClientDeleteBatchResponse = {
+  ok: boolean;
+  deleted: number;
+};

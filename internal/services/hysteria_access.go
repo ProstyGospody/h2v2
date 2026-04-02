@@ -210,9 +210,40 @@ func (m *HysteriaAccessManager) ResolveSubscriptionUser(ctx context.Context, tok
 	}
 	ok := verifySubscriptionToken(m.cfg.InternalAuthToken, token, user.ID, user.UpdatedAt)
 	if !ok {
+		if m.verifyLegacySubscriptionTokenFromHistory(ctx, token, user) {
+			return user, nil
+		}
 		return repository.HysteriaUserView{}, ErrInvalidSubscriptionToken
 	}
 	return user, nil
+}
+
+func (m *HysteriaAccessManager) verifyLegacySubscriptionTokenFromHistory(ctx context.Context, token string, user repository.HysteriaUserView) bool {
+	candidateSeconds := make(map[int64]struct{}, 8)
+	candidateSeconds[user.CreatedAt.UTC().Unix()] = struct{}{}
+	candidateSeconds[user.UpdatedAt.UTC().Unix()] = struct{}{}
+
+	logs, err := m.repo.ListAuditLogs(ctx, 500, 0)
+	if err == nil {
+		for _, entry := range logs {
+			if entry.EntityID == nil || strings.TrimSpace(*entry.EntityID) != strings.TrimSpace(user.ID) {
+				continue
+			}
+			action := strings.TrimSpace(entry.Action)
+			if !strings.HasPrefix(action, "hysteria.user.") {
+				continue
+			}
+			candidateSeconds[entry.CreatedAt.UTC().Unix()] = struct{}{}
+		}
+	}
+
+	for unixSec := range candidateSeconds {
+		candidateAt := time.Unix(unixSec, 0).UTC()
+		if verifyLegacySubscriptionToken(m.cfg.InternalAuthToken, token, user.ID, candidateAt) {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *HysteriaAccessManager) managedContent(ctx context.Context) (string, error) {
@@ -583,6 +614,13 @@ func parseSubscriptionTokenSubject(token string) (string, error) {
 }
 
 func verifySubscriptionToken(secret string, token string, userID string, updatedAt time.Time) bool {
+	if verifyStableSubscriptionToken(secret, token, userID) {
+		return true
+	}
+	return verifyLegacySubscriptionToken(secret, token, userID, updatedAt)
+}
+
+func verifyStableSubscriptionToken(secret string, token string, userID string) bool {
 	value := strings.TrimSpace(token)
 	key := strings.TrimSpace(secret)
 	subject := strings.TrimSpace(userID)
@@ -604,12 +642,34 @@ func verifySubscriptionToken(secret string, token string, userID string, updated
 	if err != nil {
 		return false
 	}
-	expectedStable := computeSubscriptionSignature(key, subject)
-	if hmac.Equal(signature, expectedStable) {
-		return true
+	expected := computeSubscriptionSignature(key, subject)
+	return hmac.Equal(signature, expected)
+}
+
+func verifyLegacySubscriptionToken(secret string, token string, userID string, updatedAt time.Time) bool {
+	value := strings.TrimSpace(token)
+	key := strings.TrimSpace(secret)
+	subject := strings.TrimSpace(userID)
+	if value == "" || key == "" || subject == "" {
+		return false
 	}
-	expectedLegacy := computeLegacySubscriptionSignature(key, subject, updatedAt)
-	return hmac.Equal(signature, expectedLegacy)
+	parts := strings.Split(value, ".")
+	if len(parts) != 2 {
+		return false
+	}
+	payloadBytes, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil {
+		return false
+	}
+	if strings.TrimSpace(string(payloadBytes)) != subject {
+		return false
+	}
+	signature, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return false
+	}
+	expected := computeLegacySubscriptionSignature(key, subject, updatedAt)
+	return hmac.Equal(signature, expected)
 }
 
 func computeSubscriptionSignature(secret string, userID string) []byte {

@@ -26,6 +26,7 @@ type Repository interface {
 	GetHysteriaUser(context.Context, string) (HysteriaUserView, error)
 	UpdateHysteriaUser(context.Context, string, string, string, *string, *ClientOverrides) (HysteriaUserView, error)
 	DeleteHysteriaUser(context.Context, string) error
+	DeleteHysteriaUsers(context.Context, []string) error
 	SetHysteriaUserEnabled(context.Context, string, bool) error
 	TouchHysteriaUserLastSeen(context.Context, string, time.Time) error
 	InsertHysteriaSnapshots(context.Context, []HysteriaSnapshot) error

@@ -243,3 +243,49 @@ func TestSQLiteRepositoryHysteriaUserRealtimeRates(t *testing.T) {
 		t.Fatalf("unexpected list upload bps: got=%v want=50", list[0].UploadBps)
 	}
 }
+
+func TestSQLiteRepositoryDeleteHysteriaUsers(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "data", "h2v2.db")
+
+	repo, err := NewSQLiteRepository(dbPath)
+	if err != nil {
+		t.Fatalf("open sqlite repository: %v", err)
+	}
+	t.Cleanup(func() { _ = repo.Close() })
+
+	userA, err := repo.CreateHysteriaUser(ctx, "delete-user-a", "supersecret88", nil, nil)
+	if err != nil {
+		t.Fatalf("create user A: %v", err)
+	}
+	userB, err := repo.CreateHysteriaUser(ctx, "delete-user-b", "supersecret88", nil, nil)
+	if err != nil {
+		t.Fatalf("create user B: %v", err)
+	}
+	userC, err := repo.CreateHysteriaUser(ctx, "delete-user-c", "supersecret88", nil, nil)
+	if err != nil {
+		t.Fatalf("create user C: %v", err)
+	}
+
+	if err := repo.DeleteHysteriaUsers(ctx, []string{userA.ID, userB.ID}); err != nil {
+		t.Fatalf("delete users batch: %v", err)
+	}
+	if _, err := repo.GetHysteriaUser(ctx, userA.ID); !IsNotFound(err) {
+		t.Fatalf("expected user A to be deleted, got err=%v", err)
+	}
+	if _, err := repo.GetHysteriaUser(ctx, userB.ID); !IsNotFound(err) {
+		t.Fatalf("expected user B to be deleted, got err=%v", err)
+	}
+	if _, err := repo.GetHysteriaUser(ctx, userC.ID); err != nil {
+		t.Fatalf("expected user C to remain after first batch, got err=%v", err)
+	}
+
+	err = repo.DeleteHysteriaUsers(ctx, []string{userC.ID, "missing-user-id"})
+	if !IsNotFound(err) {
+		t.Fatalf("expected not found from mixed batch delete, got err=%v", err)
+	}
+	if _, err := repo.GetHysteriaUser(ctx, userC.ID); err != nil {
+		t.Fatalf("expected transaction rollback to keep user C, got err=%v", err)
+	}
+}
