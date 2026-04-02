@@ -1,0 +1,27 @@
+[Unit]
+Description=Sing-Box Server
+After=network.target nss-lookup.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=singbox
+Group=singbox
+SupplementaryGroups=h2v2
+WorkingDirectory=/var/lib/sing-box
+StateDirectory=sing-box
+ExecStartPre=__SINGBOX_BINARY_PATH__ check -c __SINGBOX_CONFIG_PATH__
+ExecStart=__SINGBOX_BINARY_PATH__ run -c __SINGBOX_CONFIG_PATH__
+Restart=on-failure
+RestartSec=2
+LimitNOFILE=1048576
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/etc/h2v2/sing-box /var/lib/sing-box
+
+[Install]
+WantedBy=multi-user.target

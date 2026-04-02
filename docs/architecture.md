@@ -6,12 +6,22 @@ The panel controls two data-plane runtimes:
 
 - Hysteria 2 (`hy2`)
 - Xray VLESS (`vless`)
+- Sing-box core (`core v1`) for VLESS + Hysteria2 unified generation
 
 Control plane services:
 
 - `panel-api` (`127.0.0.1:18080`)
 - `panel-web` (`127.0.0.1:13000`)
 - `caddy` (public HTTPS entrypoint)
+
+## New core v1
+
+`core v1` is implemented on top of separate SQLite `core_*` tables and includes:
+
+- server/inbound/user/access CRUD
+- hashed subscription tokens with revoke/rotate
+- URI/profile/QR generation
+- sing-box config revisioning with `render -> check -> apply`
 
 ## Domain model
 

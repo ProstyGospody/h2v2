@@ -191,6 +191,9 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	if s.cancelJobs != nil {
 		s.cancelJobs()
 	}
+	if s.handler != nil {
+		_ = s.handler.Close()
+	}
 	err := s.httpServer.Shutdown(ctx)
 	_ = s.repo.Close()
 	return err

@@ -48,6 +48,9 @@ type Config struct {
 	XrayRuntimeURL      string
 	XrayRuntimeToken    string
 	XrayServiceName     string
+	SingBoxBinaryPath   string
+	SingBoxConfigPath   string
+	SingBoxServiceName  string
 }
 
 func Load() (Config, error) {
@@ -76,7 +79,7 @@ func Load() (Config, error) {
 		Hy2PollInterval:     getEnvDuration("HY2_POLL_INTERVAL", 20*time.Second),
 		XrayPollInterval:    getEnvDuration("XRAY_POLL_INTERVAL", 20*time.Second),
 		ServicePollInterval: getEnvDuration("SERVICE_POLL_INTERVAL", 60*time.Second),
-		ManagedServices:     parseCSV(getEnv("MANAGED_SERVICES", "h2v2-api,h2v2-web,hysteria-server,xray")),
+		ManagedServices:     parseCSV(getEnv("MANAGED_SERVICES", "h2v2-api,h2v2-web,hysteria-server,xray,sing-box")),
 		SystemctlPath:       getEnv("SYSTEMCTL_PATH", "/usr/bin/systemctl"),
 		SudoPath:            getEnv("SUDO_PATH", "/usr/bin/sudo"),
 		JournalctlPath:      getEnv("JOURNALCTL_PATH", "/usr/bin/journalctl"),
@@ -90,6 +93,9 @@ func Load() (Config, error) {
 		XrayRuntimeURL:      strings.TrimRight(getEnv("XRAY_RUNTIME_URL", "http://127.0.0.1:10085"), "/"),
 		XrayRuntimeToken:    getEnv("XRAY_RUNTIME_TOKEN", ""),
 		XrayServiceName:     getEnv("XRAY_SERVICE_NAME", "xray"),
+		SingBoxBinaryPath:   getEnv("SINGBOX_BINARY_PATH", "/usr/local/bin/sing-box"),
+		SingBoxConfigPath:   getEnv("SINGBOX_CONFIG_PATH", "/etc/h2v2/sing-box/config.json"),
+		SingBoxServiceName:  getEnv("SINGBOX_SERVICE_NAME", "sing-box"),
 	}
 
 	if strings.TrimSpace(cfg.StorageRoot) == "" {

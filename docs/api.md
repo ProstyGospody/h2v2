@@ -105,3 +105,36 @@ Unified endpoints use consistent JSON error envelope:
   "error_type": "validation|not_found|runtime|sync|service"
 }
 ```
+
+## Core v1 (new backend)
+
+`/api/v1` endpoints are backed by new SQLite `core_*` tables and sing-box render/apply flow:
+
+- `GET|POST /api/v1/servers`
+- `GET|PATCH|DELETE /api/v1/servers/{id}`
+- `POST /api/v1/servers/{id}/config/render`
+- `POST /api/v1/servers/{id}/config/validate`
+- `POST /api/v1/servers/{id}/config/apply`
+- `GET /api/v1/servers/{id}/config/revisions`
+- `POST /api/v1/servers/{id}/config/rollback/{revisionID}`
+- `GET|POST /api/v1/inbounds`
+- `GET|PATCH|DELETE /api/v1/inbounds/{id}`
+- `GET|POST /api/v1/users`
+- `GET|PATCH|DELETE /api/v1/users/{id}`
+- `GET /api/v1/users/{id}/access`
+- `POST /api/v1/access`
+- `DELETE /api/v1/access/{id}`
+- `GET /api/v1/users/{id}/artifacts`
+- `GET /api/v1/users/{id}/artifacts/profile.json`
+- `GET /api/v1/users/{id}/artifacts/uris.txt`
+- `GET /api/v1/users/{id}/artifacts/qr.png`
+- `GET /api/v1/users/{id}/subscription/tokens`
+- `POST /api/v1/users/{id}/subscription/tokens`
+- `POST /api/v1/users/{id}/subscription/tokens/rotate`
+- `POST /api/v1/users/{id}/subscription/tokens/revoke`
+
+Public subscription endpoints:
+
+- `GET /sub/{token}/profile.singbox.json`
+- `GET /sub/{token}/uris.txt`
+- `GET /sub/{token}/qr.png`

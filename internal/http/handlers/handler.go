@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"h2v2/internal/config"
+	"h2v2/internal/core"
 	"h2v2/internal/http/middleware"
 	"h2v2/internal/http/render"
 	"h2v2/internal/repository"
@@ -27,6 +28,7 @@ type Handler struct {
 	hysteriaAccess   *services.HysteriaAccessManager
 	userManager      *services.UserManager
 	systemMetrics    *services.SystemMetricsCollector
+	coreService      *core.Service
 	hysteriaStateMu  sync.Mutex
 	protocolMu       sync.Mutex
 	protocolSample   protocolPacketSample
@@ -77,7 +79,24 @@ func New(
 		hysteriaAccess:   hysteriaAccess,
 		userManager:      userManager,
 		systemMetrics:    systemMetrics,
+		coreService:      buildCoreService(cfg, logger, serviceManager),
 	}
+}
+
+func buildCoreService(cfg config.Config, logger *slog.Logger, serviceManager *services.ServiceManager) *core.Service {
+	service, err := core.NewService(cfg, logger, serviceManager)
+	if err != nil {
+		logger.Warn("core service init failed", "error", err)
+		return nil
+	}
+	return service
+}
+
+func (h *Handler) Close() error {
+	if h == nil || h.coreService == nil {
+		return nil
+	}
+	return h.coreService.Close()
 }
 
 func (h *Handler) setAuthCookies(w http.ResponseWriter, sessionToken string, csrfToken string, expiresAt time.Time) {

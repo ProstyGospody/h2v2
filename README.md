@@ -62,12 +62,13 @@ Installer modes:
 - `h2v2-web.service`
 - `hysteria-server.service`
 - `xray.service` (or `${XRAY_SERVICE_NAME}` from env)
+- `sing-box.service` (or `${SINGBOX_SERVICE_NAME}` from env)
 - `caddy.service`
 
 Check status:
 
 ```bash
-systemctl status h2v2-api h2v2-web hysteria-server xray caddy
+systemctl status h2v2-api h2v2-web hysteria-server xray sing-box caddy
 ```
 
 ## API compatibility
@@ -97,6 +98,9 @@ New protocol-agnostic routes:
 - `XRAY_RUNTIME_TOKEN`
 - `XRAY_SERVICE_NAME`
 - `XRAY_POLL_INTERVAL`
+- `SINGBOX_BINARY_PATH`
+- `SINGBOX_CONFIG_PATH`
+- `SINGBOX_SERVICE_NAME`
 
 ## Smoke check
 
