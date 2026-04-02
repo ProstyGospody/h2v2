@@ -6,6 +6,7 @@ import {
   HysteriaClientCreateRequest,
   HysteriaClientDefaults,
   HysteriaClientListResponse,
+  HysteriaClientStateBatchResponse,
   HysteriaClientUpdateRequest,
   HysteriaUserPayload,
 } from "@/domain/clients/types";
@@ -147,6 +148,15 @@ export function setClientEnabled(clientID: string, enabled: boolean): Promise<{ 
   return apiFetch<{ ok: boolean; enabled: boolean }>(`/api/hysteria/users/${clientID}/${enabled ? "enable" : "disable"}`, {
     method: "POST",
     body: JSON.stringify({}),
+  });
+}
+
+export function setClientsEnabledBulk(clientIDs: string[], enabled: boolean): Promise<HysteriaClientStateBatchResponse> {
+  const ids = clientIDs.map((id) => id.trim()).filter((id) => id.length > 0);
+  return apiFetch<HysteriaClientStateBatchResponse>("/api/hysteria/users/state", {
+    method: "POST",
+    body: JSON.stringify({ ids, enabled }),
+    timeoutMs: 45_000,
   });
 }
 

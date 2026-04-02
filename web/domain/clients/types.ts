@@ -84,3 +84,9 @@ export type HysteriaClientUpdateRequest = {
   auth_secret?: string;
   client_overrides?: ClientOverrides;
 };
+
+export type HysteriaClientStateBatchResponse = {
+  ok: boolean;
+  enabled: boolean;
+  updated: number;
+};

@@ -12,6 +12,7 @@ import {
   getClientDefaults,
   listClients,
   setClientEnabled,
+  setClientsEnabledBulk,
   updateClient,
 } from "@/domain/clients/services";
 import { type HysteriaClient, type HysteriaClientDefaults, type HysteriaUserPayload } from "@/domain/clients/types";
@@ -43,6 +44,20 @@ function isEditableTarget(target: EventTarget | null): boolean {
   if (target.isContentEditable) return true;
   const tagName = target.tagName.toLowerCase();
   return tagName === "input" || tagName === "textarea" || tagName === "select";
+}
+
+function resolveBulkStateErrorMessage(error: APIError): string {
+  if (!error.details || typeof error.details !== "object") {
+    return error.message;
+  }
+  const details = error.details as { sync_error?: unknown; rollback_error?: unknown; rollback_sync_error?: unknown };
+  const parts = [details.sync_error, details.rollback_error, details.rollback_sync_error]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map((value) => value.trim());
+  if (parts.length === 0) {
+    return error.message;
+  }
+  return `${error.message}: ${parts.join(" | ")}`;
 }
 
 export default function UsersPage() {
@@ -325,13 +340,20 @@ export default function UsersPage() {
   async function bulkSetEnabled(enabled: boolean) {
     if (!selectedClientIDs.length) return;
     const targetIDs = [...selectedClientIDs];
-    const results = await Promise.allSettled(targetIDs.map((id) => setClientEnabled(id, enabled)));
-    const failCount = results.filter((result) => result.status === "rejected").length;
-    if (failCount > 0) {
-      toast.notify(`Failed to update ${failCount} users`, "error");
-      await refreshUsers();
-    } else {
-      toast.notify(`${targetIDs.length} users ${enabled ? "enabled" : "disabled"}`);
+    setActionError("");
+    try {
+      const result = await setClientsEnabledBulk(targetIDs, enabled);
+      const updated = Math.max(0, result.updated || 0);
+      if (updated > 0) {
+        toast.notify(`${updated} users ${enabled ? "enabled" : "disabled"}`);
+      } else {
+        toast.notify("No users updated", "info");
+      }
+    } catch (err) {
+      const message = err instanceof APIError ? resolveBulkStateErrorMessage(err) : "Failed to update users";
+      setActionError(message);
+      toast.notify(message, "error");
+    } finally {
       await refreshUsers();
     }
   }

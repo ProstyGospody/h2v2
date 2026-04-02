@@ -26,6 +26,7 @@ type Handler struct {
 	hy2ConfigManager *services.HysteriaConfigManager
 	hysteriaAccess   *services.HysteriaAccessManager
 	systemMetrics    *services.SystemMetricsCollector
+	hysteriaStateMu  sync.Mutex
 	protocolMu       sync.Mutex
 	protocolSample   protocolPacketSample
 	networkMu        sync.Mutex

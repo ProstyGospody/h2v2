@@ -33,6 +33,11 @@ type updateHysteriaUserRequest struct {
 	ClientOverrides *hysteriadomain.ClientOverrides `json:"client_overrides"`
 }
 
+type setHysteriaUsersStateRequest struct {
+	IDs     []string `json:"ids"`
+	Enabled *bool    `json:"enabled"`
+}
+
 func (h *Handler) ListHysteriaUsers(w http.ResponseWriter, r *http.Request) {
 	limit, offset := h.parsePagination(r)
 	items, err := h.repo.ListHysteriaUsers(r.Context(), limit, offset)
@@ -274,8 +279,99 @@ func (h *Handler) DisableHysteriaUser(w http.ResponseWriter, r *http.Request) {
 	h.setHysteriaUserState(w, r, false)
 }
 
+func (h *Handler) SetHysteriaUsersState(w http.ResponseWriter, r *http.Request) {
+	var req setHysteriaUsersStateRequest
+	if err := render.DecodeJSON(r, &req); err != nil {
+		h.renderError(w, http.StatusBadRequest, "validation", "invalid request body", nil)
+		return
+	}
+	if req.Enabled == nil {
+		h.renderError(w, http.StatusBadRequest, "validation", "enabled is required", nil)
+		return
+	}
+
+	ids := normalizeHysteriaUserIDs(req.IDs)
+	if len(ids) == 0 {
+		h.renderError(w, http.StatusBadRequest, "validation", "ids must contain at least one user id", nil)
+		return
+	}
+	if len(ids) > 500 {
+		h.renderError(w, http.StatusBadRequest, "validation", "ids limit exceeded", map[string]any{"max": 500})
+		return
+	}
+
+	h.hysteriaStateMu.Lock()
+	defer h.hysteriaStateMu.Unlock()
+
+	currentStates := make(map[string]bool, len(ids))
+	changedIDs := make([]string, 0, len(ids))
+	for _, id := range ids {
+		current, err := h.repo.GetHysteriaUser(r.Context(), id)
+		if err != nil {
+			if repository.IsNotFound(err) {
+				h.renderError(w, http.StatusNotFound, "not_found", "hysteria user not found", map[string]any{"id": id})
+				return
+			}
+			h.renderError(w, http.StatusInternalServerError, "runtime", "failed to load hysteria user", nil)
+			return
+		}
+		currentStates[id] = current.Enabled
+		if current.Enabled != *req.Enabled {
+			changedIDs = append(changedIDs, id)
+		}
+	}
+
+	if len(changedIDs) == 0 {
+		render.JSON(w, http.StatusOK, map[string]any{"ok": true, "enabled": *req.Enabled, "updated": 0})
+		return
+	}
+
+	appliedIDs := make([]string, 0, len(changedIDs))
+	for _, id := range changedIDs {
+		if err := h.repo.SetHysteriaUserEnabled(r.Context(), id, *req.Enabled); err != nil {
+			details := map[string]any{"id": id}
+			if rollbackErr := h.rollbackHysteriaUsersState(r.Context(), appliedIDs, currentStates); rollbackErr != nil {
+				details["rollback_error"] = rollbackErr.Error()
+			}
+			if repository.IsNotFound(err) {
+				h.renderError(w, http.StatusNotFound, "not_found", "hysteria user not found", details)
+				return
+			}
+			h.renderError(w, http.StatusInternalServerError, "runtime", "failed to update hysteria user status", details)
+			return
+		}
+		appliedIDs = append(appliedIDs, id)
+	}
+
+	if err := h.syncManagedHysteria(r.Context()); err != nil {
+		details := map[string]any{"sync_error": err.Error()}
+		if rollbackErr := h.rollbackHysteriaUsersState(r.Context(), changedIDs, currentStates); rollbackErr != nil {
+			details["rollback_error"] = rollbackErr.Error()
+		}
+		if rollbackSyncErr := h.syncManagedHysteria(r.Context()); rollbackSyncErr != nil {
+			details["rollback_sync_error"] = rollbackSyncErr.Error()
+			h.renderError(w, http.StatusInternalServerError, "sync", "failed to sync/restart hysteria config; state batch rollback failed to apply runtime state", details)
+			return
+		}
+		h.renderError(w, http.StatusInternalServerError, "sync", "failed to sync/restart hysteria config; state batch was rolled back", details)
+		return
+	}
+
+	action := "hysteria.user.disable"
+	if *req.Enabled {
+		action = "hysteria.user.enable"
+	}
+	for _, id := range changedIDs {
+		h.audit(r, action, auditdomain.EntityHysteriaUser, &id, map[string]any{"enabled": *req.Enabled, "bulk": true})
+	}
+	render.JSON(w, http.StatusOK, map[string]any{"ok": true, "enabled": *req.Enabled, "updated": len(changedIDs)})
+}
+
 func (h *Handler) setHysteriaUserState(w http.ResponseWriter, r *http.Request, enabled bool) {
 	id := chi.URLParam(r, "id")
+	h.hysteriaStateMu.Lock()
+	defer h.hysteriaStateMu.Unlock()
+
 	current, err := h.repo.GetHysteriaUser(r.Context(), id)
 	if err != nil {
 		if repository.IsNotFound(err) {
@@ -496,6 +592,40 @@ func coalesceClientOverrides(next *hysteriadomain.ClientOverrides, current *hyst
 		return next
 	}
 	return current
+}
+
+func normalizeHysteriaUserIDs(raw []string) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(raw))
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		id := strings.TrimSpace(item)
+		if id == "" {
+			continue
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}
+
+func (h *Handler) rollbackHysteriaUsersState(ctx context.Context, ids []string, states map[string]bool) error {
+	var rollbackErr error
+	for _, id := range ids {
+		state, ok := states[id]
+		if !ok {
+			continue
+		}
+		if err := h.repo.SetHysteriaUserEnabled(ctx, id, state); err != nil && rollbackErr == nil {
+			rollbackErr = err
+		}
+	}
+	return rollbackErr
 }
 
 func (h *Handler) syncManagedHysteria(ctx context.Context) error {
