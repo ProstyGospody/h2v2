@@ -416,7 +416,7 @@ func buildXrayConfig(inbounds []repository.Inbound, users []repository.UserWithC
 		enabledInbounds = append(enabledInbounds, map[string]any{
 			"tag":      "vless-default",
 			"listen":   "127.0.0.1",
-			"port":     8443,
+			"port":     24443,
 			"protocol": "vless",
 			"settings": map[string]any{"clients": []map[string]any{}, "decryption": "none"},
 			"streamSettings": map[string]any{"network": "tcp", "security": "none"},

@@ -576,7 +576,7 @@ EOF
     {
       "tag": "vless-default",
       "listen": "127.0.0.1",
-      "port": 8443,
+      "port": 24443,
       "protocol": "vless",
       "settings": {
         "clients": [],
