@@ -524,8 +524,12 @@ func buildSingBoxVLESSConfigWithStats(
 			if !ok {
 				continue
 			}
+			statsName := strings.TrimSpace(credential.Identity)
+			if statsName == "" {
+				statsName = strings.TrimSpace(user.Name)
+			}
 			entry := map[string]any{
-				"name": firstNonEmpty(user.Name, credential.Identity),
+				"name": statsName,
 				"uuid": credential.Identity,
 			}
 			if runtimeConfig.Flow != "" {
@@ -533,13 +537,9 @@ func buildSingBoxVLESSConfigWithStats(
 			}
 			userEntries = append(userEntries, entry)
 			if enableV2RayStats {
-				nameCandidate := strings.TrimSpace(user.Name)
-				if nameCandidate != "" {
-					statsUsers[nameCandidate] = struct{}{}
-				}
-				uuidCandidate := strings.TrimSpace(credential.Identity)
-				if uuidCandidate != "" {
-					statsUsers[uuidCandidate] = struct{}{}
+				statsCandidate := strings.TrimSpace(statsName)
+				if statsCandidate != "" {
+					statsUsers[statsCandidate] = struct{}{}
 				}
 			}
 		}
