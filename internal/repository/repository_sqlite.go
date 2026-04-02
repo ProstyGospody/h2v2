@@ -430,6 +430,7 @@ func (r *SQLiteRepository) backfillUnifiedSchema(ctx context.Context) error {
 			hu.updated_at_ns,
 			hu.last_seen_at_ns
 		FROM hysteria_users hu
+		WHERE 1 = 1
 		ON CONFLICT(id) DO UPDATE SET
 			name = excluded.name,
 			name_normalized = excluded.name_normalized,
