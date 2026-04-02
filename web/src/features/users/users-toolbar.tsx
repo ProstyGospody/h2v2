@@ -119,7 +119,7 @@ export function UsersToolbar({
                 type="button"
                 onClick={onClearSelection}
                 disabled={!hasSelection}
-                className="header-btn inline-flex w-11 items-center justify-center rounded-2xl text-txt-muted transition-colors hover:bg-surface-3/60 hover:text-txt disabled:pointer-events-none disabled:opacity-50"
+                className="inline-flex h-9 w-11 items-center justify-center rounded-2xl text-txt-muted transition-colors hover:bg-surface-3/60 hover:text-txt disabled:pointer-events-none disabled:opacity-50"
               >
                 <X size={14} strokeWidth={1.9} />
               </button>
@@ -128,7 +128,7 @@ export function UsersToolbar({
                 type="button"
                 onClick={onEnableSelected}
                 disabled={!hasSelection}
-                className="header-btn inline-flex min-w-[116px] flex-1 items-center justify-center gap-1.5 rounded-2xl px-3 text-[13px] font-semibold text-status-success transition-colors hover:bg-status-success/10 disabled:pointer-events-none disabled:opacity-50 sm:flex-none"
+                className="inline-flex h-9 min-w-[116px] flex-1 items-center justify-center gap-1.5 rounded-2xl px-3 text-[13px] font-semibold text-status-success transition-colors hover:bg-status-success/10 disabled:pointer-events-none disabled:opacity-50 sm:flex-none"
               >
                 <Power size={14} strokeWidth={1.8} />
                 Enable
@@ -138,7 +138,7 @@ export function UsersToolbar({
                 type="button"
                 onClick={onDisableSelected}
                 disabled={!hasSelection}
-                className="header-btn inline-flex min-w-[116px] flex-1 items-center justify-center gap-1.5 rounded-2xl px-3 text-[13px] font-semibold text-status-warning transition-colors hover:bg-status-warning/10 disabled:pointer-events-none disabled:opacity-50 sm:flex-none"
+                className="inline-flex h-9 min-w-[116px] flex-1 items-center justify-center gap-1.5 rounded-2xl px-3 text-[13px] font-semibold text-status-warning transition-colors hover:bg-status-warning/10 disabled:pointer-events-none disabled:opacity-50 sm:flex-none"
               >
                 <PowerOff size={14} strokeWidth={1.8} />
                 Disable
@@ -153,7 +153,7 @@ export function UsersToolbar({
                 <button
                   type="button"
                   disabled={!hasSelection}
-                  className="header-btn inline-flex min-w-[116px] flex-1 items-center justify-center gap-1.5 rounded-2xl px-3 text-[13px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10 disabled:pointer-events-none disabled:opacity-50 sm:flex-none"
+                  className="inline-flex h-9 min-w-[116px] flex-1 items-center justify-center gap-1.5 rounded-2xl px-3 text-[13px] font-semibold text-status-danger transition-colors hover:bg-status-danger/10 disabled:pointer-events-none disabled:opacity-50 sm:flex-none"
                 >
                   <Trash2 size={14} strokeWidth={1.8} />
                   Delete
