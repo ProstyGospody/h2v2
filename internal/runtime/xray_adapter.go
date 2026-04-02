@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -284,10 +285,8 @@ func buildXrayConfig(inbounds []repository.Inbound, users []repository.UserWithC
 			continue
 		}
 
-		listenHost := strings.TrimSpace(inbound.Host)
-		if listenHost == "" {
-			listenHost = "0.0.0.0"
-		}
+		publicHost := normalizeHostOnly(inbound.Host)
+		listenHost := resolveXrayListenHost(inbound.Host)
 		listenPort := inbound.Port
 		if listenPort <= 0 {
 			listenPort = 443
@@ -349,7 +348,7 @@ func buildXrayConfig(inbounds []repository.Inbound, users []repository.UserWithC
 			}
 			stream["realitySettings"] = map[string]any{
 				"show":        false,
-				"dest":        firstNonEmpty(readString(params, "dest"), listenHost+":"+strconv.Itoa(listenPort)),
+				"dest":        firstNonEmpty(readString(params, "dest"), firstNonEmpty(publicHost, "www.cloudflare.com")+":443"),
 				"xver":        readInt(params, "xver", 0),
 				"serverNames": serverNames,
 				"privateKey":  privateKey,
@@ -536,6 +535,39 @@ func parseJSONMap(raw string) map[string]any {
 		return map[string]any{}
 	}
 	return out
+}
+
+func normalizeHostOnly(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+		trimmed = strings.TrimPrefix(strings.TrimSuffix(trimmed, "]"), "[")
+	}
+	if host, _, err := net.SplitHostPort(trimmed); err == nil {
+		trimmed = host
+	}
+	trimmed = strings.TrimSpace(trimmed)
+	if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+		trimmed = strings.TrimPrefix(strings.TrimSuffix(trimmed, "]"), "[")
+	}
+	return trimmed
+}
+
+func resolveXrayListenHost(raw string) string {
+	host := normalizeHostOnly(raw)
+	if host == "" {
+		return "0.0.0.0"
+	}
+	switch strings.ToLower(host) {
+	case "localhost":
+		return "127.0.0.1"
+	}
+	if net.ParseIP(host) != nil {
+		return host
+	}
+	return "0.0.0.0"
 }
 
 func readString(source map[string]any, key string) string {
