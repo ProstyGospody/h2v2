@@ -356,11 +356,6 @@ collect_config() {
   PANEL_API_INTERNAL_URL="http://127.0.0.1:${PANEL_API_PORT}"
   PANEL_PUBLIC_URL="https://${PANEL_PUBLIC_HOST}:${PANEL_PUBLIC_PORT}"
   SUBSCRIPTION_PUBLIC_URL="https://${SUBSCRIPTION_PUBLIC_HOST}:${PANEL_PUBLIC_PORT}"
-  if [[ "${SUBSCRIPTION_PUBLIC_HOST}" == "${PANEL_PUBLIC_HOST}" ]]; then
-    CADDY_PUBLIC_HOSTS="${PANEL_PUBLIC_HOST}:${PANEL_PUBLIC_PORT}"
-  else
-    CADDY_PUBLIC_HOSTS="${PANEL_PUBLIC_HOST}:${PANEL_PUBLIC_PORT},${SUBSCRIPTION_PUBLIC_HOST}:${PANEL_PUBLIC_PORT}"
-  fi
   HY2_STATS_URL="http://127.0.0.1:${HY2_STATS_PORT}"
   PANEL_STORAGE_ROOT="${PANEL_STORAGE_ROOT:-/var/lib/h2v2}"
   PANEL_AUDIT_DIR="${PANEL_AUDIT_DIR:-/var/log/h2v2/audit}"
@@ -457,7 +452,6 @@ EOF
   cat > /etc/caddy/h2v2.env <<EOF
 PANEL_PUBLIC_HOST=${PANEL_PUBLIC_HOST}
 PANEL_PUBLIC_PORT=${PANEL_PUBLIC_PORT}
-CADDY_PUBLIC_HOSTS=${CADDY_PUBLIC_HOSTS}
 PANEL_API_PORT=${PANEL_API_PORT}
 PANEL_WEB_PORT=${PANEL_WEB_PORT}
 PANEL_ACME_EMAIL=${PANEL_ACME_EMAIL}
@@ -477,6 +471,28 @@ render_runtime_configs() {
   phase "config render: templates"
   (( DRY_RUN == 1 )) && return 0
   run install -m 0644 "${SRC_DIR}/config/templates/Caddyfile.tmpl" /etc/caddy/Caddyfile
+  if [[ "${SUBSCRIPTION_PUBLIC_HOST}" != "${PANEL_PUBLIC_HOST}" ]]; then
+    cat >> /etc/caddy/Caddyfile <<EOF
+
+${SUBSCRIPTION_PUBLIC_HOST}:${PANEL_PUBLIC_PORT} {
+  encode gzip zstd
+
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Frame-Options "DENY"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "same-origin"
+  }
+
+  @panel_api path /api/* /hysteria/subscription/* /healthz /readyz
+  handle @panel_api {
+    reverse_proxy 127.0.0.1:${PANEL_API_PORT}
+  }
+
+  reverse_proxy 127.0.0.1:${PANEL_WEB_PORT}
+}
+EOF
+  fi
   if [[ "${HY2_DOMAIN}" != "${PANEL_PUBLIC_HOST}" && "${HY2_DOMAIN}" != "${SUBSCRIPTION_PUBLIC_HOST}" ]]; then
     cat >> /etc/caddy/Caddyfile <<EOF
 
