@@ -142,36 +142,55 @@ func NewServer(cfg config.Config, logger *slog.Logger, repo repository.Repositor
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	if s.userManager != nil {
-		if err := s.userManager.SyncAll(ctx); err != nil {
-			s.logger.Warn("failed to sync runtime adapters on startup", "error", err)
-		}
-		if err := s.userManager.CollectRuntime(ctx); err != nil {
-			s.logger.Warn("failed to collect initial runtime counters", "error", err)
-		}
-	} else if s.hysteriaAccess != nil {
-		if syncResult, err := s.hysteriaAccess.Sync(ctx); err != nil {
-			s.logger.Warn("failed to sync hysteria config on startup", "error", err)
-		} else if syncResult.Changed && s.serviceManager != nil {
-			if err := s.serviceManager.Restart(ctx, "hysteria-server"); err != nil {
-				s.logger.Warn("failed to restart hysteria-server after startup sync", "error", err)
-			} else if status, statusErr := s.serviceManager.Status(ctx, "hysteria-server"); statusErr == nil {
-				_ = s.repo.UpsertServiceState(ctx, "hysteria-server", status.StatusText, nil, s.serviceManager.ToJSON(status))
-			}
-		}
-	}
 	jobsCtx, cancel := context.WithCancel(ctx)
 	s.cancelJobs = cancel
 	s.jobs.Start(jobsCtx)
 	if s.handler != nil {
 		s.handler.StartSystemTrendCollector(jobsCtx)
 	}
+	go s.runStartupTasks(jobsCtx)
 
 	s.logger.Info("starting panel api", "listen_addr", s.cfg.ListenAddr)
 	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("listen and serve: %w", err)
 	}
 	return nil
+}
+
+func (s *Server) runStartupTasks(ctx context.Context) {
+	startupCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+
+	if s.userManager != nil {
+		if err := s.userManager.SyncAll(startupCtx); err != nil {
+			s.logger.Warn("failed to sync runtime adapters on startup", "error", err)
+		}
+		if err := s.userManager.CollectRuntime(startupCtx); err != nil {
+			s.logger.Warn("failed to collect initial runtime counters", "error", err)
+		}
+		return
+	}
+
+	if s.hysteriaAccess == nil {
+		return
+	}
+
+	syncResult, err := s.hysteriaAccess.Sync(startupCtx)
+	if err != nil {
+		s.logger.Warn("failed to sync hysteria config on startup", "error", err)
+		return
+	}
+	if !syncResult.Changed || s.serviceManager == nil {
+		return
+	}
+	if err := s.serviceManager.Restart(startupCtx, "hysteria-server"); err != nil {
+		s.logger.Warn("failed to restart hysteria-server after startup sync", "error", err)
+		return
+	}
+	status, statusErr := s.serviceManager.Status(startupCtx, "hysteria-server")
+	if statusErr == nil {
+		_ = s.repo.UpsertServiceState(startupCtx, "hysteria-server", status.StatusText, nil, s.serviceManager.ToJSON(status))
+	}
 }
 
 func (s *Server) Shutdown(ctx context.Context) error {

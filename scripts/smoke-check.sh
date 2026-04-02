@@ -17,6 +17,8 @@ SMOKE_ADMIN_EMAIL="${SMOKE_ADMIN_EMAIL:-${INITIAL_ADMIN_EMAIL:-}}"
 SMOKE_ADMIN_PASSWORD="${SMOKE_ADMIN_PASSWORD:-${INITIAL_ADMIN_PASSWORD:-}}"
 CURL_CONNECT_TIMEOUT="${CURL_CONNECT_TIMEOUT:-3}"
 CURL_MAX_TIME="${CURL_MAX_TIME:-10}"
+SMOKE_HTTP_ATTEMPTS="${SMOKE_HTTP_ATTEMPTS:-20}"
+SMOKE_HTTP_SLEEP_SEC="${SMOKE_HTTP_SLEEP_SEC:-2}"
 
 services=(h2v2-api h2v2-web hysteria-server caddy)
 if [[ ",${MANAGED_SERVICES}," == *",${XRAY_SERVICE_NAME},"* ]]; then
@@ -35,8 +37,19 @@ for service in "${services[@]}"; do
 done
 
 echo "[step] checking panel-api health endpoints"
-curl -fsS --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" "http://127.0.0.1:${PANEL_API_PORT}/healthz" >/dev/null
-curl -fsS --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" "http://127.0.0.1:${PANEL_API_PORT}/readyz" >/dev/null
+wait_http_ok() {
+  local url="$1"
+  local i
+  for ((i=1; i<=SMOKE_HTTP_ATTEMPTS; i++)); do
+    if curl -fsS --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" "${url}" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep "${SMOKE_HTTP_SLEEP_SEC}"
+  done
+  return 1
+}
+wait_http_ok "http://127.0.0.1:${PANEL_API_PORT}/healthz"
+wait_http_ok "http://127.0.0.1:${PANEL_API_PORT}/readyz"
 echo "[ok] panel-api health and readiness checks passed"
 
 echo "[step] checking hysteria listener"

@@ -688,6 +688,23 @@ restart_services() {
   run systemctl restart "${XRAY_SERVICE_NAME}.service"
 }
 
+wait_for_panel_api() {
+  local url="http://127.0.0.1:${PANEL_API_PORT}/healthz"
+  local attempts="${PANEL_API_HEALTH_ATTEMPTS:-30}"
+  local sleep_sec="${PANEL_API_HEALTH_SLEEP_SEC:-2}"
+  local i
+  for ((i=1; i<=attempts; i++)); do
+    if curl -fsS --connect-timeout 2 --max-time 5 "${url}" >/dev/null 2>&1; then
+      return 0
+    fi
+    if ! systemctl is-active --quiet h2v2-api.service; then
+      return 1
+    fi
+    sleep "${sleep_sec}"
+  done
+  return 1
+}
+
 health_checks() {
   phase "health checks"
   (( DRY_RUN == 1 )) && return 0
@@ -696,7 +713,11 @@ health_checks() {
   run systemctl is-active --quiet caddy.service
   run systemctl is-active --quiet hysteria-server.service
   run systemctl is-active --quiet "${XRAY_SERVICE_NAME}.service"
-  run curl -fsS "http://127.0.0.1:${PANEL_API_PORT}/healthz" >/dev/null
+  if ! wait_for_panel_api; then
+    systemctl status h2v2-api.service --no-pager -l || true
+    journalctl -u h2v2-api -n 100 --no-pager || true
+    return 1
+  fi
   SMOKE_ADMIN_EMAIL="${INITIAL_ADMIN_EMAIL}" SMOKE_ADMIN_PASSWORD="${INITIAL_ADMIN_PASSWORD}" run bash "${SRC_DIR}/scripts/smoke-check.sh" "${ENV_FILE}"
 }
 
