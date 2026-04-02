@@ -373,7 +373,7 @@ func TestBuildSingBoxVLESSConfigWithStatsIncludesUsersAndInbounds(t *testing.T) 
 	if !ok {
 		t.Fatalf("stats.users has invalid type: %+v", stats["users"])
 	}
-	if !reflect.DeepEqual(usersList, []string{"2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad", "alpha"}) {
+	if !reflect.DeepEqual(usersList, []string{"2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad"}) {
 		t.Fatalf("unexpected stats.users: %+v", usersList)
 	}
 }
@@ -409,6 +409,13 @@ func TestParseSingBoxUserTrafficName(t *testing.T) {
 			name:      "invalid-direction",
 			raw:       "user>>>demo>>>traffic>>>unknown",
 			wantValid: false,
+		},
+		{
+			name:      "nested-traffic-token",
+			raw:       "user>>>demo>>>scope>>>traffic>>>uplink>>>total",
+			wantUser:  "demo",
+			wantDir:   "uplink",
+			wantValid: true,
 		},
 	}
 
@@ -530,7 +537,7 @@ func TestUnmarshalSingBoxQueryStatsResponse(t *testing.T) {
 	}
 }
 
-func TestBuildSingBoxVLESSConfigWithStatsIncludesUserNameAndUUID(t *testing.T) {
+func TestBuildSingBoxVLESSConfigWithStatsUsesUUIDStatsIdentity(t *testing.T) {
 	inbounds := []repository.Inbound{
 		{
 			ID:         "vless-main",
@@ -562,11 +569,17 @@ func TestBuildSingBoxVLESSConfigWithStatsIncludesUserNameAndUUID(t *testing.T) {
 	v2rayAPI := experimental["v2ray_api"].(map[string]any)
 	stats := v2rayAPI["stats"].(map[string]any)
 	usersList := stats["users"].([]string)
-	if len(usersList) != 2 {
-		t.Fatalf("expected 2 users in stats.users, got %d (%+v)", len(usersList), usersList)
+	if len(usersList) != 1 {
+		t.Fatalf("expected 1 user in stats.users, got %d (%+v)", len(usersList), usersList)
 	}
-	if !reflect.DeepEqual(usersList, []string{"2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad", "alpha"}) {
+	if !reflect.DeepEqual(usersList, []string{"2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad"}) {
 		t.Fatalf("unexpected stats.users: %+v", usersList)
+	}
+
+	inboundItems := config["inbounds"].([]map[string]any)
+	entry := inboundItems[0]["users"].([]map[string]any)[0]
+	if entry["name"] != "2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad" {
+		t.Fatalf("unexpected inbound user stats name: %+v", entry["name"])
 	}
 }
 
@@ -618,6 +631,11 @@ func TestIsSingBoxV2RayAPIUnsupportedError(t *testing.T) {
 			expect: true,
 		},
 		{
+			name:   "unrelated-v2ray-not-found",
+			err:    errors.New("v2ray route not found"),
+			expect: false,
+		},
+		{
 			name:   "unrelated-error",
 			err:    errors.New("permission denied"),
 			expect: false,
@@ -636,5 +654,27 @@ func TestIsSingBoxV2RayAPIUnsupportedError(t *testing.T) {
 				t.Fatalf("unexpected value: got=%v expect=%v", got, tc.expect)
 			}
 		})
+	}
+}
+
+func TestMapVLESSStatsIdentityMapsUUIDAndLegacyName(t *testing.T) {
+	users := []repository.UserWithCredentials{
+		{
+			User: repository.User{ID: "u1", Name: "alpha", Enabled: true},
+			Credentials: []repository.Credential{
+				{Protocol: repository.ProtocolVLESS, Identity: "2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad"},
+			},
+		},
+	}
+
+	mapped := mapVLESSStatsIdentity(users)
+	if mapped["2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad"] != "u1" {
+		t.Fatalf("uuid mapping is missing: %+v", mapped)
+	}
+	if mapped["2B7EE3CD-20F0-4BD3-B9CC-10AEEB6A46AD"] != "u1" {
+		t.Fatalf("uuid case-insensitive mapping is missing: %+v", mapped)
+	}
+	if mapped["alpha"] != "u1" {
+		t.Fatalf("legacy name mapping is missing: %+v", mapped)
 	}
 }

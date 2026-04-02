@@ -177,6 +177,9 @@ func (a *SingBoxAdapter) CollectTraffic(ctx context.Context, users []repository.
 		}
 		userID, ok := identityByName[statsUserName]
 		if !ok {
+			userID, ok = identityByName[strings.ToLower(statsUserName)]
+		}
+		if !ok {
 			continue
 		}
 		counter := repository.TrafficCounter{
@@ -216,6 +219,9 @@ func (a *SingBoxAdapter) CollectOnline(ctx context.Context, users []repository.U
 			continue
 		}
 		userID, ok := identityByName[statsUserName]
+		if !ok {
+			userID, ok = identityByName[strings.ToLower(statsUserName)]
+		}
 		if !ok {
 			continue
 		}
@@ -402,13 +408,33 @@ func (a *SingBoxAdapter) queryV2RayUserStats(ctx context.Context) (map[string]si
 	}
 	defer conn.Close()
 
-	request := &singBoxV2RayQueryStatsRequest{
-		Pattern:  singBoxUserStatPrefix,
-		Patterns: []string{singBoxUserStatPrefix},
+	requests := []singBoxV2RayQueryStatsRequest{
+		{},
+		{Pattern: singBoxUserStatPrefix},
+		{Pattern: "^user>>>.*", Regexp: true},
+		{Patterns: []string{singBoxUserStatPrefix}},
 	}
+
 	response := &singBoxV2RayQueryStatsResponse{}
-	if err := conn.Invoke(ctx, singBoxStatsQueryMethod, request, response); err != nil {
-		return nil, err
+	var queryErr error
+	hadSuccess := false
+	for _, candidate := range requests {
+		response.Stats = nil
+		request := candidate
+		if err := conn.Invoke(ctx, singBoxStatsQueryMethod, &request, response); err != nil {
+			if !hadSuccess && queryErr == nil {
+				queryErr = err
+			}
+			continue
+		}
+		hadSuccess = true
+		queryErr = nil
+		if len(response.Stats) > 0 {
+			break
+		}
+	}
+	if !hadSuccess && queryErr != nil {
+		return nil, queryErr
 	}
 
 	stats := make(map[string]singBoxUserTrafficStats, len(response.Stats))
@@ -524,13 +550,17 @@ func buildSingBoxVLESSConfigWithStats(
 			if !ok {
 				continue
 			}
-			statsName := strings.TrimSpace(credential.Identity)
+			uuidValue := strings.TrimSpace(credential.Identity)
+			if uuidValue == "" {
+				continue
+			}
+			statsName := resolveVLESSStatsName(user, credential)
 			if statsName == "" {
-				statsName = strings.TrimSpace(user.Name)
+				statsName = uuidValue
 			}
 			entry := map[string]any{
 				"name": statsName,
-				"uuid": credential.Identity,
+				"uuid": uuidValue,
 			}
 			if runtimeConfig.Flow != "" {
 				entry["flow"] = runtimeConfig.Flow
@@ -1241,15 +1271,13 @@ func isSingBoxV2RayAPIUnsupportedError(err error) bool {
 	if strings.Contains(message, singBoxFeatureV2RayAPI) {
 		return true
 	}
-	if !strings.Contains(message, "v2ray") {
-		return false
-	}
 	switch {
-	case strings.Contains(message, "unknown"),
-		strings.Contains(message, "unsupported"),
-		strings.Contains(message, "invalid"),
-		strings.Contains(message, "not found"),
-		strings.Contains(message, "no such"):
+	case strings.Contains(message, "unknown field \"v2ray_api\""),
+		strings.Contains(message, "unknown field v2ray_api"),
+		strings.Contains(message, "v2ray api is disabled"),
+		strings.Contains(message, "v2ray api is not enabled"),
+		strings.Contains(message, "v2ray api is unsupported"),
+		strings.Contains(message, "v2ray api is unavailable"):
 		return true
 	default:
 		return false
@@ -1257,22 +1285,41 @@ func isSingBoxV2RayAPIUnsupportedError(err error) bool {
 }
 
 func mapVLESSStatsIdentity(users []repository.UserWithCredentials) map[string]string {
-	identityByName := make(map[string]string, len(users)*2)
+	identityByName := make(map[string]string, len(users)*4)
+	mapIdentity := func(raw string, userID string) {
+		key := strings.TrimSpace(raw)
+		if key == "" {
+			return
+		}
+		identityByName[key] = userID
+		lowerKey := strings.ToLower(key)
+		if lowerKey != key {
+			identityByName[lowerKey] = userID
+		}
+		upperKey := strings.ToUpper(key)
+		if upperKey != key {
+			identityByName[upperKey] = userID
+		}
+	}
 	for _, user := range users {
 		credential, ok := userCredential(user, repository.ProtocolVLESS)
 		if !ok {
 			continue
 		}
-		nameCandidate := strings.TrimSpace(user.Name)
-		if nameCandidate != "" {
-			identityByName[nameCandidate] = user.ID
-		}
-		uuidCandidate := strings.TrimSpace(credential.Identity)
-		if uuidCandidate != "" {
-			identityByName[uuidCandidate] = user.ID
-		}
+		statsName := resolveVLESSStatsName(user, credential)
+		mapIdentity(statsName, user.ID)
+		mapIdentity(credential.Identity, user.ID)
+		mapIdentity(user.Name, user.ID)
 	}
 	return identityByName
+}
+
+func resolveVLESSStatsName(user repository.UserWithCredentials, credential repository.Credential) string {
+	uuidCandidate := strings.TrimSpace(credential.Identity)
+	if uuidCandidate != "" {
+		return uuidCandidate
+	}
+	return strings.TrimSpace(user.Name)
 }
 
 func parseSingBoxUserTrafficName(raw string) (string, string, bool) {
@@ -1282,20 +1329,33 @@ func parseSingBoxUserTrafficName(raw string) (string, string, bool) {
 	}
 	remaining := strings.TrimPrefix(value, singBoxUserStatPrefix)
 	parts := strings.SplitN(remaining, singBoxUserTrafficToken, 2)
-	if len(parts) != 2 {
+	if len(parts) == 2 {
+		userName := strings.TrimSpace(parts[0])
+		direction := strings.ToLower(strings.TrimSpace(parts[1]))
+		if userName != "" && (direction == "uplink" || direction == "downlink") {
+			return userName, direction, true
+		}
+	}
+
+	segments := strings.Split(remaining, ">>>")
+	if len(segments) < 3 {
 		return "", "", false
 	}
-	userName := strings.TrimSpace(parts[0])
-	direction := strings.TrimSpace(parts[1])
+	userName := strings.TrimSpace(segments[0])
 	if userName == "" {
 		return "", "", false
 	}
-	switch direction {
-	case "uplink", "downlink":
-		return userName, direction, true
-	default:
-		return "", "", false
+	for index := 1; index < len(segments)-1; index++ {
+		token := strings.ToLower(strings.TrimSpace(segments[index]))
+		if token != "traffic" {
+			continue
+		}
+		direction := strings.ToLower(strings.TrimSpace(segments[index+1]))
+		if direction == "uplink" || direction == "downlink" {
+			return userName, direction, true
+		}
 	}
+	return "", "", false
 }
 
 func parseSingBoxUserOnlineName(raw string) (string, bool) {
@@ -1323,8 +1383,16 @@ func parseSingBoxUserOnlineName(raw string) (string, bool) {
 
 	for _, tokenRaw := range parts[1:] {
 		token := strings.ToLower(strings.TrimSpace(tokenRaw))
+		token = strings.ReplaceAll(token, "_", "")
+		token = strings.ReplaceAll(token, "-", "")
+		if token == "uplink" || token == "downlink" {
+			return "", false
+		}
 		switch token {
 		case "online", "active", "connection", "connections", "conn", "session", "sessions":
+			return userName, true
+		}
+		if strings.Contains(token, "online") || strings.Contains(token, "connection") || strings.Contains(token, "session") {
 			return userName, true
 		}
 	}
