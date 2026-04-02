@@ -366,7 +366,11 @@ func (r *SQLiteRepository) ensureUnifiedSchema(ctx context.Context) error {
 		 BEGIN
 			 INSERT INTO traffic_counters (user_id, protocol, tx_bytes, rx_bytes, online_count, snapshot_at_ns)
 			 SELECT NEW.user_id, 'hy2', NEW.tx_bytes, NEW.rx_bytes, NEW.online_count, NEW.snapshot_at_ns
-			 WHERE NOT EXISTS (
+			 WHERE EXISTS (
+				 SELECT 1 FROM users u
+				 WHERE u.id = NEW.user_id
+			 )
+			   AND NOT EXISTS (
 				 SELECT 1 FROM traffic_counters tc
 				 WHERE tc.user_id = NEW.user_id
 				   AND tc.protocol = 'hy2'
@@ -458,7 +462,11 @@ func (r *SQLiteRepository) backfillUnifiedSchema(ctx context.Context) error {
 			hu.created_at_ns,
 			hu.updated_at_ns
 		FROM hysteria_users hu
-		WHERE NOT EXISTS (
+		WHERE EXISTS (
+			SELECT 1 FROM users u
+			WHERE u.id = hu.id
+		)
+		  AND NOT EXISTS (
 			SELECT 1 FROM credentials c WHERE c.user_id = hu.id AND c.protocol = 'hy2'
 		)`,
 	); err != nil {
@@ -488,7 +496,11 @@ func (r *SQLiteRepository) backfillUnifiedSchema(ctx context.Context) error {
 		`INSERT INTO traffic_counters (user_id, protocol, tx_bytes, rx_bytes, online_count, snapshot_at_ns)
 		 SELECT hs.user_id, 'hy2', hs.tx_bytes, hs.rx_bytes, hs.online_count, hs.snapshot_at_ns
 		 FROM hysteria_snapshots hs
-		 WHERE NOT EXISTS (
+		 WHERE EXISTS (
+			 SELECT 1 FROM users u
+			 WHERE u.id = hs.user_id
+		 )
+		   AND NOT EXISTS (
 			 SELECT 1 FROM traffic_counters tc
 			 WHERE tc.user_id = hs.user_id AND tc.protocol = 'hy2' AND tc.snapshot_at_ns = hs.snapshot_at_ns
 		 )`,
