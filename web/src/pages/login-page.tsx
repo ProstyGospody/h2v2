@@ -34,19 +34,30 @@ export default function LoginPage() {
     let disposed = false;
     (async () => {
       try {
-        await apiFetch<{ id: string }>("/api/auth/me", { method: "GET", signal: controller.signal });
-        if (!disposed) navigate(redirectTo, { replace: true });
+        await apiFetch<{ id: string }>("/api/auth/me", {
+          method: "GET",
+          signal: controller.signal,
+          timeoutMs: 6000,
+        });
+        if (disposed) return;
+        navigate(redirectTo, { replace: true });
       } catch (err) {
         if (disposed) return;
         if (err instanceof DOMException && err.name === "AbortError") return;
-        setChecking(false);
+        if (!locationState?.error && err instanceof APIError && err.status !== 401) {
+          setError("Server unavailable. Please try again later.");
+        }
+      } finally {
+        if (!disposed) {
+          setChecking(false);
+        }
       }
     })();
     return () => {
       disposed = true;
       controller.abort();
     };
-  }, [navigate, redirectTo]);
+  }, [locationState?.error, navigate, redirectTo]);
 
   const submit = handleSubmit(async ({ email, password }) => {
     setError("");

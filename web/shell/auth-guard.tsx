@@ -10,7 +10,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   const location = useLocation();
   const sessionQuery = useQuery({
     queryKey: ["auth", "session"],
-    queryFn: () => apiFetch<{ id: string }>("/api/auth/me", { method: "GET" }),
+    queryFn: () => apiFetch<{ id: string }>("/api/auth/me", { method: "GET", timeoutMs: 6000 }),
     retry: false,
     refetchOnWindowFocus: false,
   });
