@@ -184,3 +184,94 @@ func TestSingBoxAdapterBuildArtifactsRealityDefaultsToCloudflareSNI(t *testing.T
 		t.Fatalf("expected cloudflare sni fallback, got: %s", artifact.AccessURI)
 	}
 }
+
+func TestSingBoxAdapterBuildArtifactsRealityUsesDestAsSNI(t *testing.T) {
+	adapter := NewSingBoxAdapter("", "", nil, "", "panel.example.com")
+	user := repository.UserWithCredentials{
+		User: repository.User{ID: "u1", Name: "demo", Enabled: true},
+		Credentials: []repository.Credential{
+			{Protocol: repository.ProtocolVLESS, Identity: "2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad"},
+		},
+	}
+	inbounds := []repository.Inbound{
+		{
+			ID:        "vless-enabled",
+			Name:      "Enabled",
+			Protocol:  repository.ProtocolVLESS,
+			Transport: "tcp",
+			Security:  "reality",
+			Host:      "edge.example.com",
+			Port:      443,
+			Enabled:   true,
+			ParamsJSON: `{"privateKey":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","pbk":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","sid":"ab12","dest":"www.speedtest.net:443"}`,
+		},
+	}
+
+	artifact, err := adapter.BuildArtifacts(nil, user, inbounds, "https://sub.example.com/api/subscriptions/token")
+	if err != nil {
+		t.Fatalf("build artifacts: %v", err)
+	}
+	if !strings.Contains(artifact.AccessURI, "sni=www.speedtest.net") {
+		t.Fatalf("expected dest sni fallback, got: %s", artifact.AccessURI)
+	}
+}
+
+func TestBuildSingBoxVLESSConfigRejectsUnsupportedFlow(t *testing.T) {
+	inbounds := []repository.Inbound{
+		{
+			ID:        "vless-main",
+			Name:      "VLESS Main",
+			Protocol:  repository.ProtocolVLESS,
+			Transport: "tcp",
+			Security:  "reality",
+			Host:      "example.com",
+			Port:      443,
+			Enabled:   true,
+			ParamsJSON: `{"flow":"invalid-flow","sni":"cdn.example.com","privateKey":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","sid":"ab12","dest":"www.cloudflare.com:443"}`,
+		},
+	}
+
+	users := []repository.UserWithCredentials{
+		{
+			User: repository.User{ID: "u1", Name: "ok", Enabled: true},
+			Credentials: []repository.Credential{
+				{Protocol: repository.ProtocolVLESS, Identity: "2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad"},
+			},
+		},
+	}
+
+	_, err := buildSingBoxVLESSConfig(inbounds, users, "panel.example.com")
+	if err == nil {
+		t.Fatalf("expected flow validation error")
+	}
+}
+
+func TestBuildSingBoxVLESSConfigRejectsRealityWithWSTransport(t *testing.T) {
+	inbounds := []repository.Inbound{
+		{
+			ID:        "vless-main",
+			Name:      "VLESS Main",
+			Protocol:  repository.ProtocolVLESS,
+			Transport: "ws",
+			Security:  "reality",
+			Host:      "example.com",
+			Port:      443,
+			Enabled:   true,
+			ParamsJSON: `{"flow":"xtls-rprx-vision","path":"/ws","sni":"cdn.example.com","privateKey":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","sid":"ab12","dest":"www.cloudflare.com:443"}`,
+		},
+	}
+
+	users := []repository.UserWithCredentials{
+		{
+			User: repository.User{ID: "u1", Name: "ok", Enabled: true},
+			Credentials: []repository.Credential{
+				{Protocol: repository.ProtocolVLESS, Identity: "2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad"},
+			},
+		},
+	}
+
+	_, err := buildSingBoxVLESSConfig(inbounds, users, "panel.example.com")
+	if err == nil {
+		t.Fatalf("expected reality transport validation error")
+	}
+}

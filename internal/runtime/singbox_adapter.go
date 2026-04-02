@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -17,22 +18,64 @@ import (
 	"h2v2/internal/repository"
 )
 
+const (
+	defaultSingBoxServiceName   = "sing-box"
+	defaultSingBoxBinaryPath    = "/usr/local/bin/sing-box"
+	defaultVLESSListenPort      = 443
+	defaultRealityServerName    = "www.cloudflare.com"
+	defaultRealityHandshakePort = 443
+	defaultVLESSFingerprint     = "chrome"
+	defaultVLESSWSPath          = "/"
+	defaultVLESSGRPCServiceName = "grpc"
+)
+
 type SingBoxAdapter struct {
-	binaryPath  string
-	configPath  string
-	services    ServiceRestarter
-	serviceName string
+	binaryPath   string
+	configPath   string
+	services     ServiceRestarter
+	serviceName  string
 	artifactHost string
+}
+
+type singBoxVLESSRuntimeConfig struct {
+	Tag             string
+	ListenHost      string
+	Port            int
+	Transport       singBoxVLESSTransport
+	Security        string
+	Flow            string
+	ServerName      string
+	TLSInsecure     bool
+	TLSALPN         []string
+	CertificatePath string
+	KeyPath         string
+	Reality         *singBoxRealitySettings
+}
+
+type singBoxVLESSTransport struct {
+	Type        string
+	WSPath      string
+	WSHost      string
+	GRPCService string
+}
+
+type singBoxRealitySettings struct {
+	PrivateKey      string
+	PublicKey       string
+	ShortID         string
+	HandshakeServer string
+	HandshakePort   int
+	Fingerprint     string
 }
 
 func NewSingBoxAdapter(binaryPath string, configPath string, svc ServiceRestarter, serviceName string, artifactHost string) *SingBoxAdapter {
 	name := strings.TrimSpace(serviceName)
 	if name == "" {
-		name = "sing-box"
+		name = defaultSingBoxServiceName
 	}
 	bin := strings.TrimSpace(binaryPath)
 	if bin == "" {
-		bin = "/usr/local/bin/sing-box"
+		bin = defaultSingBoxBinaryPath
 	}
 	return &SingBoxAdapter{
 		binaryPath:   bin,
@@ -95,29 +138,24 @@ func (a *SingBoxAdapter) BuildArtifacts(_ context.Context, user repository.UserW
 	if !ok {
 		return UserArtifacts{}, fmt.Errorf("enabled vless inbound is missing")
 	}
-	params := parseJSONMap(inbound.ParamsJSON)
-	security := normalizeVLESSSecurity(inbound.Security)
-	if security == "reality" {
-		if err := normalizeRealityParams(security, params); err != nil {
-			return UserArtifacts{}, err
-		}
+
+	runtimeConfig, err := parseSingBoxVLESSInbound(inbound, a.artifactHost)
+	if err != nil {
+		return UserArtifacts{}, err
 	}
 
 	serverHost := a.resolveArtifactHost(inbound.Host)
-	transport := normalizeVLESSTransport(inbound.Transport, params)
-	serverPort := normalizeInboundPort(inbound.Port)
-	flow := strings.TrimSpace(readString(params, "flow"))
-	sni := resolveOutboundServerName(params, security, serverHost)
+	serverName := resolveVLESSAccessServerName(runtimeConfig)
 
-	uri, err := buildSingBoxVLESSURI(credential.Identity, serverHost, serverPort, transport, security, flow, sni, params)
+	uri, err := buildSingBoxVLESSURI(credential.Identity, serverHost, runtimeConfig.Port, runtimeConfig, serverName)
 	if err != nil {
 		return UserArtifacts{}, err
 	}
-	singboxNode, err := renderSingBoxVLESSOutbound(user, credential, serverHost, serverPort, transport, security, flow, sni, params)
+	singboxNode, err := renderSingBoxVLESSOutbound(user, credential, serverHost, runtimeConfig.Port, runtimeConfig, serverName)
 	if err != nil {
 		return UserArtifacts{}, err
 	}
-	clashNode := renderClashVLESSNode(user, credential, serverHost, serverPort, transport, security, flow, sni, params)
+	clashNode := renderClashVLESSNode(user, credential, serverHost, runtimeConfig.Port, runtimeConfig, serverName)
 
 	return UserArtifacts{
 		Protocol:     repository.ProtocolVLESS,
@@ -199,19 +237,16 @@ func (a *SingBoxAdapter) restart(ctx context.Context) error {
 
 func buildSingBoxVLESSConfig(inbounds []repository.Inbound, users []repository.UserWithCredentials, artifactHost string) (map[string]any, error) {
 	now := time.Now().UTC()
-	renderedInbounds := make([]map[string]any, 0)
+	renderedInbounds := make([]map[string]any, 0, len(inbounds))
+
 	for _, inbound := range inbounds {
 		if inbound.Protocol != repository.ProtocolVLESS || !inbound.Enabled {
 			continue
 		}
-		params := parseJSONMap(inbound.ParamsJSON)
-		security := normalizeVLESSSecurity(inbound.Security)
-		transport := normalizeVLESSTransport(inbound.Transport, params)
 
-		if security == "reality" {
-			if err := normalizeRealityParams(security, params); err != nil {
-				return nil, fmt.Errorf("vless inbound %s is invalid: %w", firstNonEmpty(inbound.Name, inbound.ID, "vless"), err)
-			}
+		runtimeConfig, err := parseSingBoxVLESSInbound(inbound, artifactHost)
+		if err != nil {
+			return nil, fmt.Errorf("vless inbound %s is invalid: %w", runtimeConfigTagFallback(inbound), err)
 		}
 
 		userEntries := make([]map[string]any, 0, len(users))
@@ -227,8 +262,8 @@ func buildSingBoxVLESSConfig(inbounds []repository.Inbound, users []repository.U
 				"name": firstNonEmpty(user.Name, credential.Identity),
 				"uuid": credential.Identity,
 			}
-			if flow := strings.TrimSpace(readString(params, "flow")); flow != "" {
-				entry["flow"] = flow
+			if runtimeConfig.Flow != "" {
+				entry["flow"] = runtimeConfig.Flow
 			}
 			userEntries = append(userEntries, entry)
 		}
@@ -236,37 +271,11 @@ func buildSingBoxVLESSConfig(inbounds []repository.Inbound, users []repository.U
 			continue
 		}
 
-		item := map[string]any{
-			"type":        "vless",
-			"tag":         firstNonEmpty(inbound.Name, inbound.ID, "vless"),
-			"listen":      resolveSingBoxListenHost(inbound.Host),
-			"listen_port": normalizeInboundPort(inbound.Port),
-			"users":       userEntries,
-		}
-
-		if transport != "tcp" {
-			transportMap := map[string]any{"type": transport}
-			switch transport {
-			case "ws":
-				transportMap["path"] = firstNonEmpty(readString(params, "path"), "/")
-				if host := strings.TrimSpace(readString(params, "host")); host != "" {
-					transportMap["headers"] = map[string]any{"Host": host}
-				}
-			case "grpc":
-				transportMap["service_name"] = firstNonEmpty(readString(params, "service_name"), readString(params, "serviceName"), "grpc")
-			}
-			item["transport"] = transportMap
-		}
-
-		tls, err := buildVLESSInboundTLS(params, security, inbound.Host, artifactHost)
+		inboundPayload, err := renderSingBoxVLESSInbound(runtimeConfig, userEntries)
 		if err != nil {
-			return nil, fmt.Errorf("vless inbound %s tls is invalid: %w", firstNonEmpty(inbound.Name, inbound.ID, "vless"), err)
+			return nil, fmt.Errorf("vless inbound %s is invalid: %w", runtimeConfig.Tag, err)
 		}
-		if len(tls) > 0 {
-			item["tls"] = tls
-		}
-
-		renderedInbounds = append(renderedInbounds, item)
+		renderedInbounds = append(renderedInbounds, inboundPayload)
 	}
 
 	return map[string]any{
@@ -280,97 +289,245 @@ func buildSingBoxVLESSConfig(inbounds []repository.Inbound, users []repository.U
 	}, nil
 }
 
-func buildVLESSInboundTLS(params map[string]any, security string, inboundHost string, artifactHost string) (map[string]any, error) {
-	if security == "none" {
-		return nil, nil
-	}
-	tls := map[string]any{"enabled": true}
-	serverName := strings.TrimSpace(readString(params, "server_name"))
-	if serverName == "" {
-		serverName = strings.TrimSpace(readString(params, "serverName"))
-	}
-	if serverName == "" {
-		serverName = strings.TrimSpace(readString(params, "sni"))
-	}
-	if serverName != "" {
-		tls["server_name"] = serverName
-	}
-	if alpn := readStringSlice(params, "alpn"); len(alpn) > 0 {
-		tls["alpn"] = alpn
-	}
-	if certPath := firstNonEmpty(readString(params, "certificate_path"), readString(params, "certificatePath"), readString(params, "certPath")); certPath != "" {
-		tls["certificate_path"] = certPath
-	}
-	if keyPath := firstNonEmpty(readString(params, "key_path"), readString(params, "keyPath")); keyPath != "" {
-		tls["key_path"] = keyPath
-	}
-	if security != "reality" {
-		return tls, nil
+func parseSingBoxVLESSInbound(inbound repository.Inbound, _ string) (singBoxVLESSRuntimeConfig, error) {
+	params := parseJSONMap(inbound.ParamsJSON)
+	security := normalizeVLESSSecurity(firstNonEmpty(inbound.Security, readString(params, "security")))
+	transport := normalizeVLESSTransport(inbound.Transport, params)
+	flow, err := normalizeVLESSFlow(readString(params, "flow"))
+	if err != nil {
+		return singBoxVLESSRuntimeConfig{}, err
 	}
 
+	serverName := firstNonEmpty(
+		readStringOrFirst(params, "sni"),
+		readStringOrFirst(params, "server_name"),
+		readStringOrFirst(params, "serverName"),
+	)
+	tlsALPN := readStringSlice(params, "alpn")
+	certificatePath := firstNonEmpty(
+		readString(params, "certificate_path"),
+		readString(params, "certificatePath"),
+		readString(params, "certPath"),
+	)
+	keyPath := firstNonEmpty(
+		readString(params, "key_path"),
+		readString(params, "keyPath"),
+	)
+
+	runtimeConfig := singBoxVLESSRuntimeConfig{
+		Tag:             runtimeConfigTagFallback(inbound),
+		ListenHost:      resolveSingBoxListenHost(inbound.Host),
+		Port:            normalizeInboundPort(inbound.Port),
+		Transport:       transport,
+		Security:        security,
+		Flow:            flow,
+		ServerName:      serverName,
+		TLSInsecure:     readBool(params, "insecure", false),
+		TLSALPN:         tlsALPN,
+		CertificatePath: certificatePath,
+		KeyPath:         keyPath,
+	}
+
+	if runtimeConfig.Flow != "" {
+		if runtimeConfig.Security == "none" {
+			return singBoxVLESSRuntimeConfig{}, fmt.Errorf("vless flow requires tls or reality security")
+		}
+		if runtimeConfig.Transport.Type != "tcp" {
+			return singBoxVLESSRuntimeConfig{}, fmt.Errorf("vless flow requires tcp transport")
+		}
+	}
+
+	if security == "none" {
+		return runtimeConfig, nil
+	}
+
+	if security == "tls" {
+		if runtimeConfig.CertificatePath == "" || runtimeConfig.KeyPath == "" {
+			return singBoxVLESSRuntimeConfig{}, fmt.Errorf("tls inbound requires certificate_path and key_path")
+		}
+		return runtimeConfig, nil
+	}
+
+	if security != "reality" {
+		return singBoxVLESSRuntimeConfig{}, fmt.Errorf("unsupported vless security")
+	}
+	if runtimeConfig.Transport.Type != "tcp" {
+		return singBoxVLESSRuntimeConfig{}, fmt.Errorf("reality requires tcp transport")
+	}
+
+	if err := normalizeRealityParams("reality", params); err != nil {
+		return singBoxVLESSRuntimeConfig{}, err
+	}
+
+	reality, err := parseRealitySettings(params, firstNonEmpty(serverName, defaultRealityServerName))
+	if err != nil {
+		return singBoxVLESSRuntimeConfig{}, err
+	}
+	runtimeConfig.Reality = &reality
+
+	if runtimeConfig.ServerName == "" {
+		runtimeConfig.ServerName = inferDomainFromHost(reality.HandshakeServer)
+	}
+	return runtimeConfig, nil
+}
+
+func parseRealitySettings(params map[string]any, fallbackServerName string) (singBoxRealitySettings, error) {
 	privateKey := strings.TrimSpace(readString(params, "privateKey"))
 	if privateKey == "" {
-		return nil, fmt.Errorf("reality private key is missing")
+		return singBoxRealitySettings{}, fmt.Errorf("reality private key is missing")
 	}
 	privateKeyDecoded, err := decodeRealityKey(privateKey)
 	if err != nil {
-		return nil, fmt.Errorf("reality private key is invalid")
+		return singBoxRealitySettings{}, fmt.Errorf("reality private key is invalid")
 	}
 	privateKey = encodeRealityKey(privateKeyDecoded)
 
-	fallbackHost := defaultRealityHandshakeServer(params, inboundHost, artifactHost)
-	handshakeHost, handshakePort, err := resolveRealityHandshakeTarget(params, fallbackHost)
+	publicKey := strings.TrimSpace(readString(params, "pbk"))
+	if publicKey == "" {
+		return singBoxRealitySettings{}, fmt.Errorf("reality public key is missing")
+	}
+	publicKeyDecoded, err := decodeRealityKey(publicKey)
+	if err != nil {
+		return singBoxRealitySettings{}, fmt.Errorf("reality public key is invalid")
+	}
+	publicKey = encodeRealityKey(publicKeyDecoded)
+
+	shortID := strings.ToLower(strings.TrimSpace(readString(params, "sid")))
+	if err := validateSingBoxRealityShortID(shortID); err != nil {
+		return singBoxRealitySettings{}, err
+	}
+
+	handshakeServer, handshakePort := resolveRealityHandshakeTarget(params, fallbackServerName)
+	if handshakeServer == "" {
+		handshakeServer = defaultRealityServerName
+	}
+	if handshakePort <= 0 {
+		handshakePort = defaultRealityHandshakePort
+	}
+
+	return singBoxRealitySettings{
+		PrivateKey:      privateKey,
+		PublicKey:       publicKey,
+		ShortID:         shortID,
+		HandshakeServer: handshakeServer,
+		HandshakePort:   handshakePort,
+		Fingerprint:     firstNonEmpty(readString(params, "fp"), defaultVLESSFingerprint),
+	}, nil
+}
+
+func renderSingBoxVLESSInbound(runtimeConfig singBoxVLESSRuntimeConfig, users []map[string]any) (map[string]any, error) {
+	inbound := map[string]any{
+		"type":        "vless",
+		"tag":         runtimeConfig.Tag,
+		"listen":      runtimeConfig.ListenHost,
+		"listen_port": runtimeConfig.Port,
+		"users":       users,
+	}
+
+	if runtimeConfig.Transport.Type != "tcp" {
+		transportMap := map[string]any{"type": runtimeConfig.Transport.Type}
+		switch runtimeConfig.Transport.Type {
+		case "ws":
+			transportMap["path"] = firstNonEmpty(runtimeConfig.Transport.WSPath, defaultVLESSWSPath)
+			if runtimeConfig.Transport.WSHost != "" {
+				transportMap["headers"] = map[string]any{"Host": runtimeConfig.Transport.WSHost}
+			}
+		case "grpc":
+			transportMap["service_name"] = firstNonEmpty(runtimeConfig.Transport.GRPCService, defaultVLESSGRPCServiceName)
+		default:
+			return nil, fmt.Errorf("unsupported vless transport")
+		}
+		inbound["transport"] = transportMap
+	}
+
+	tls, err := renderSingBoxInboundTLS(runtimeConfig)
 	if err != nil {
 		return nil, err
 	}
+	if len(tls) > 0 {
+		inbound["tls"] = tls
+	}
+
+	return inbound, nil
+}
+
+func renderSingBoxInboundTLS(runtimeConfig singBoxVLESSRuntimeConfig) (map[string]any, error) {
+	if runtimeConfig.Security == "none" {
+		return nil, nil
+	}
+
+	tls := map[string]any{"enabled": true}
+
+	if runtimeConfig.ServerName != "" {
+		tls["server_name"] = runtimeConfig.ServerName
+	}
+	if len(runtimeConfig.TLSALPN) > 0 {
+		tls["alpn"] = runtimeConfig.TLSALPN
+	}
+	if runtimeConfig.CertificatePath != "" {
+		tls["certificate_path"] = runtimeConfig.CertificatePath
+	}
+	if runtimeConfig.KeyPath != "" {
+		tls["key_path"] = runtimeConfig.KeyPath
+	}
+
+	if runtimeConfig.Security != "reality" {
+		return tls, nil
+	}
+	if runtimeConfig.Reality == nil {
+		return nil, fmt.Errorf("reality settings are missing")
+	}
+
 	reality := map[string]any{
 		"enabled":     true,
-		"private_key": privateKey,
+		"private_key": runtimeConfig.Reality.PrivateKey,
 		"handshake": map[string]any{
-			"server":      handshakeHost,
-			"server_port": handshakePort,
+			"server":      runtimeConfig.Reality.HandshakeServer,
+			"server_port": runtimeConfig.Reality.HandshakePort,
 		},
 	}
-	if sid := strings.TrimSpace(readString(params, "sid")); sid != "" {
-		reality["short_id"] = []string{sid}
+	if runtimeConfig.Reality.ShortID != "" {
+		reality["short_id"] = []string{runtimeConfig.Reality.ShortID}
 	}
 	tls["reality"] = reality
 	return tls, nil
 }
 
-func buildSingBoxVLESSURI(uuidValue string, serverHost string, serverPort int, transport string, security string, flow string, sni string, params map[string]any) (string, error) {
+func buildSingBoxVLESSURI(uuidValue string, serverHost string, serverPort int, runtimeConfig singBoxVLESSRuntimeConfig, serverName string) (string, error) {
 	query := url.Values{}
-	query.Set("type", transport)
+	query.Set("type", runtimeConfig.Transport.Type)
 	query.Set("encryption", "none")
 	query.Set("packetEncoding", "xudp")
-	if security == "tls" || security == "reality" {
-		query.Set("security", security)
+
+	if runtimeConfig.Security == "tls" || runtimeConfig.Security == "reality" {
+		query.Set("security", runtimeConfig.Security)
 	}
-	if strings.TrimSpace(sni) != "" {
-		query.Set("sni", strings.TrimSpace(sni))
+	if serverName != "" {
+		query.Set("sni", serverName)
 	}
-	if flow != "" {
-		query.Set("flow", flow)
+	if runtimeConfig.Flow != "" {
+		query.Set("flow", runtimeConfig.Flow)
 	}
-	if security == "reality" {
-		publicKey := strings.TrimSpace(readString(params, "pbk"))
-		if publicKey == "" {
-			return "", fmt.Errorf("reality public key is missing")
+
+	if runtimeConfig.Security == "reality" {
+		if runtimeConfig.Reality == nil {
+			return "", fmt.Errorf("reality settings are missing")
 		}
-		query.Set("pbk", publicKey)
-		if sid := strings.TrimSpace(readString(params, "sid")); sid != "" {
-			query.Set("sid", sid)
+		query.Set("pbk", runtimeConfig.Reality.PublicKey)
+		if runtimeConfig.Reality.ShortID != "" {
+			query.Set("sid", runtimeConfig.Reality.ShortID)
 		}
-		query.Set("fp", firstNonEmpty(readString(params, "fp"), "chrome"))
+		query.Set("fp", runtimeConfig.Reality.Fingerprint)
 	}
-	switch transport {
+
+	switch runtimeConfig.Transport.Type {
 	case "ws":
-		query.Set("path", firstNonEmpty(readString(params, "path"), "/"))
-		if host := strings.TrimSpace(readString(params, "host")); host != "" {
-			query.Set("host", host)
+		query.Set("path", firstNonEmpty(runtimeConfig.Transport.WSPath, defaultVLESSWSPath))
+		if runtimeConfig.Transport.WSHost != "" {
+			query.Set("host", runtimeConfig.Transport.WSHost)
 		}
 	case "grpc":
-		query.Set("serviceName", firstNonEmpty(readString(params, "service_name"), readString(params, "serviceName"), "grpc"))
+		query.Set("serviceName", firstNonEmpty(runtimeConfig.Transport.GRPCService, defaultVLESSGRPCServiceName))
 	}
 
 	uri := &url.URL{
@@ -387,68 +544,67 @@ func renderSingBoxVLESSOutbound(
 	credential repository.Credential,
 	serverHost string,
 	serverPort int,
-	transport string,
-	security string,
-	flow string,
-	sni string,
-	params map[string]any,
+	runtimeConfig singBoxVLESSRuntimeConfig,
+	serverName string,
 ) (map[string]any, error) {
-	out := map[string]any{
-		"type":        "vless",
-		"tag":         "vless-" + firstNonEmpty(user.Name, credential.Identity),
-		"server":      strings.TrimSpace(serverHost),
-		"server_port": serverPort,
-		"uuid":        credential.Identity,
+	outbound := map[string]any{
+		"type":            "vless",
+		"tag":             "vless-" + firstNonEmpty(user.Name, credential.Identity),
+		"server":          strings.TrimSpace(serverHost),
+		"server_port":     serverPort,
+		"uuid":            credential.Identity,
+		"packet_encoding": "xudp",
 	}
-	if flow != "" {
-		out["flow"] = flow
+	if runtimeConfig.Flow != "" {
+		outbound["flow"] = runtimeConfig.Flow
 	}
-	out["packet_encoding"] = "xudp"
-	if security == "tls" || security == "reality" {
+
+	if runtimeConfig.Security == "tls" || runtimeConfig.Security == "reality" {
 		tls := map[string]any{"enabled": true}
-		if strings.TrimSpace(sni) != "" {
-			tls["server_name"] = strings.TrimSpace(sni)
+		if serverName != "" {
+			tls["server_name"] = serverName
 		}
-		if readBool(params, "insecure", false) {
+		if runtimeConfig.TLSInsecure {
 			tls["insecure"] = true
 		}
-		if alpn := readStringSlice(params, "alpn"); len(alpn) > 0 {
-			tls["alpn"] = alpn
+		if len(runtimeConfig.TLSALPN) > 0 {
+			tls["alpn"] = runtimeConfig.TLSALPN
 		}
-		if security == "reality" {
-			publicKey := strings.TrimSpace(readString(params, "pbk"))
-			if publicKey == "" {
-				return nil, fmt.Errorf("reality public key is missing")
+		if runtimeConfig.Security == "reality" {
+			if runtimeConfig.Reality == nil {
+				return nil, fmt.Errorf("reality settings are missing")
 			}
 			reality := map[string]any{
 				"enabled":    true,
-				"public_key": publicKey,
+				"public_key": runtimeConfig.Reality.PublicKey,
 			}
-			if sid := strings.TrimSpace(readString(params, "sid")); sid != "" {
-				reality["short_id"] = sid
+			if runtimeConfig.Reality.ShortID != "" {
+				reality["short_id"] = runtimeConfig.Reality.ShortID
 			}
 			tls["reality"] = reality
 			tls["utls"] = map[string]any{
 				"enabled":     true,
-				"fingerprint": firstNonEmpty(readString(params, "fp"), "chrome"),
+				"fingerprint": runtimeConfig.Reality.Fingerprint,
 			}
 		}
-		out["tls"] = tls
+		outbound["tls"] = tls
 	}
-	if transport != "tcp" {
-		transportMap := map[string]any{"type": transport}
-		switch transport {
+
+	if runtimeConfig.Transport.Type != "tcp" {
+		transportMap := map[string]any{"type": runtimeConfig.Transport.Type}
+		switch runtimeConfig.Transport.Type {
 		case "ws":
-			transportMap["path"] = firstNonEmpty(readString(params, "path"), "/")
-			if host := strings.TrimSpace(readString(params, "host")); host != "" {
-				transportMap["headers"] = map[string]any{"Host": host}
+			transportMap["path"] = firstNonEmpty(runtimeConfig.Transport.WSPath, defaultVLESSWSPath)
+			if runtimeConfig.Transport.WSHost != "" {
+				transportMap["headers"] = map[string]any{"Host": runtimeConfig.Transport.WSHost}
 			}
 		case "grpc":
-			transportMap["service_name"] = firstNonEmpty(readString(params, "service_name"), readString(params, "serviceName"), "grpc")
+			transportMap["service_name"] = firstNonEmpty(runtimeConfig.Transport.GRPCService, defaultVLESSGRPCServiceName)
 		}
-		out["transport"] = transportMap
+		outbound["transport"] = transportMap
 	}
-	return out, nil
+
+	return outbound, nil
 }
 
 func renderClashVLESSNode(
@@ -456,11 +612,8 @@ func renderClashVLESSNode(
 	credential repository.Credential,
 	serverHost string,
 	serverPort int,
-	transport string,
-	security string,
-	flow string,
-	sni string,
-	params map[string]any,
+	runtimeConfig singBoxVLESSRuntimeConfig,
+	serverName string,
 ) string {
 	lines := []string{
 		"- name: " + firstNonEmpty(user.Name, credential.Identity),
@@ -468,42 +621,53 @@ func renderClashVLESSNode(
 		"  server: " + strings.TrimSpace(serverHost),
 		"  port: " + strconv.Itoa(serverPort),
 		"  uuid: " + credential.Identity,
-		"  network: " + transport,
+		"  network: " + runtimeConfig.Transport.Type,
 	}
-	if flow != "" {
-		lines = append(lines, "  flow: "+flow)
+	if runtimeConfig.Flow != "" {
+		lines = append(lines, "  flow: "+runtimeConfig.Flow)
 	}
-	if security == "none" {
+	if runtimeConfig.Security == "none" {
 		lines = append(lines, "  tls: false")
 	} else {
 		lines = append(lines, "  tls: true")
-		if strings.TrimSpace(sni) != "" {
-			lines = append(lines, "  servername: "+strings.TrimSpace(sni))
+		if serverName != "" {
+			lines = append(lines, "  servername: "+serverName)
 		}
-		if security == "reality" {
+		if runtimeConfig.Security == "reality" && runtimeConfig.Reality != nil {
 			lines = append(lines, "  reality-opts:")
-			if publicKey := strings.TrimSpace(readString(params, "pbk")); publicKey != "" {
-				lines = append(lines, "    public-key: "+publicKey)
-			}
-			if sid := strings.TrimSpace(readString(params, "sid")); sid != "" {
-				lines = append(lines, "    short-id: "+sid)
+			lines = append(lines, "    public-key: "+runtimeConfig.Reality.PublicKey)
+			if runtimeConfig.Reality.ShortID != "" {
+				lines = append(lines, "    short-id: "+runtimeConfig.Reality.ShortID)
 			}
 		}
 	}
-	switch transport {
+	switch runtimeConfig.Transport.Type {
 	case "ws":
 		lines = append(lines, "  ws-opts:")
-		lines = append(lines, "    path: "+firstNonEmpty(readString(params, "path"), "/"))
-		if host := strings.TrimSpace(readString(params, "host")); host != "" {
+		lines = append(lines, "    path: "+firstNonEmpty(runtimeConfig.Transport.WSPath, defaultVLESSWSPath))
+		if runtimeConfig.Transport.WSHost != "" {
 			lines = append(lines, "    headers:")
-			lines = append(lines, "      Host: "+host)
+			lines = append(lines, "      Host: "+runtimeConfig.Transport.WSHost)
 		}
 	case "grpc":
 		lines = append(lines, "  grpc-opts:")
-		lines = append(lines, "    grpc-service-name: "+firstNonEmpty(readString(params, "service_name"), readString(params, "serviceName"), "grpc"))
+		lines = append(lines, "    grpc-service-name: "+firstNonEmpty(runtimeConfig.Transport.GRPCService, defaultVLESSGRPCServiceName))
 	}
 	lines = append(lines, "  packet-encoding: xudp")
 	return strings.Join(lines, "\n")
+}
+
+func resolveVLESSAccessServerName(runtimeConfig singBoxVLESSRuntimeConfig) string {
+	if runtimeConfig.ServerName != "" {
+		return runtimeConfig.ServerName
+	}
+	if runtimeConfig.Security != "reality" || runtimeConfig.Reality == nil {
+		return ""
+	}
+	if inferred := inferDomainFromHost(runtimeConfig.Reality.HandshakeServer); inferred != "" {
+		return inferred
+	}
+	return defaultRealityServerName
 }
 
 func selectEnabledVLESSInbound(inbounds []repository.Inbound) (repository.Inbound, bool) {
@@ -528,6 +692,10 @@ func isActiveRuntimeUser(user repository.UserWithCredentials, now time.Time) boo
 	return true
 }
 
+func runtimeConfigTagFallback(inbound repository.Inbound) string {
+	return firstNonEmpty(inbound.Name, inbound.ID, "vless")
+}
+
 func normalizeVLESSSecurity(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "reality":
@@ -539,22 +707,45 @@ func normalizeVLESSSecurity(raw string) string {
 	}
 }
 
-func normalizeVLESSTransport(raw string, params map[string]any) string {
-	transport := strings.ToLower(strings.TrimSpace(raw))
-	if transport == "" {
-		transport = strings.ToLower(strings.TrimSpace(readString(params, "network")))
+func normalizeVLESSTransport(raw string, params map[string]any) singBoxVLESSTransport {
+	transportType := strings.ToLower(strings.TrimSpace(raw))
+	if transportType == "" {
+		transportType = strings.ToLower(strings.TrimSpace(readString(params, "network")))
 	}
-	switch transport {
-	case "ws", "grpc", "tcp":
-		return transport
+	if transportType == "" {
+		transportType = strings.ToLower(strings.TrimSpace(readString(params, "transport_type")))
+	}
+	switch transportType {
+	case "ws":
+		return singBoxVLESSTransport{
+			Type:   "ws",
+			WSPath: firstNonEmpty(readString(params, "path"), defaultVLESSWSPath),
+			WSHost: strings.TrimSpace(readString(params, "host")),
+		}
+	case "grpc":
+		return singBoxVLESSTransport{
+			Type:        "grpc",
+			GRPCService: firstNonEmpty(readString(params, "service_name"), readString(params, "serviceName"), defaultVLESSGRPCServiceName),
+		}
 	default:
-		return "tcp"
+		return singBoxVLESSTransport{Type: "tcp"}
 	}
+}
+
+func normalizeVLESSFlow(raw string) (string, error) {
+	flow := strings.TrimSpace(raw)
+	if flow == "" {
+		return "", nil
+	}
+	if flow != "xtls-rprx-vision" {
+		return "", fmt.Errorf("unsupported vless flow: %s", flow)
+	}
+	return flow, nil
 }
 
 func normalizeInboundPort(port int) int {
 	if port <= 0 {
-		return 443
+		return defaultVLESSListenPort
 	}
 	return port
 }
@@ -578,49 +769,16 @@ func resolveSingBoxListenHost(raw string) string {
 	return "0.0.0.0"
 }
 
-func resolveOutboundServerName(params map[string]any, security string, serverHost string) string {
-	serverName := firstNonEmpty(
-		readString(params, "sni"),
-		readString(params, "server_name"),
-		readString(params, "serverName"),
-	)
-	if strings.TrimSpace(serverName) != "" {
-		return strings.TrimSpace(serverName)
-	}
-	if security != "reality" {
-		return ""
-	}
-	_ = serverHost
-	return "www.cloudflare.com"
-}
+func resolveRealityHandshakeTarget(params map[string]any, fallbackHost string) (string, int) {
+	host, port := parseHostPortLoose(readString(params, "dest"), defaultRealityHandshakePort)
 
-func defaultRealityHandshakeServer(params map[string]any, inboundHost string, artifactHost string) string {
-	candidates := []string{
-		readString(params, "handshake_server"),
-		readString(params, "handshakeServer"),
-		readString(params, "sni"),
-		readString(params, "server_name"),
-		readString(params, "serverName"),
-	}
-	for _, candidate := range candidates {
-		host := normalizePublicEndpointHost(candidate)
-		if host != "" {
-			return host
-		}
-	}
-	_ = inboundHost
-	_ = artifactHost
-	return "www.cloudflare.com"
-}
-
-func resolveRealityHandshakeTarget(params map[string]any, fallbackHost string) (string, int, error) {
-	host, port := parseHostPortLoose(readString(params, "dest"), 443)
-	if strings.TrimSpace(host) == "" {
+	if host == "" {
 		host = strings.TrimSpace(readString(params, "handshake_server"))
 	}
-	if strings.TrimSpace(host) == "" {
+	if host == "" {
 		host = strings.TrimSpace(readString(params, "handshakeServer"))
 	}
+
 	if port <= 0 {
 		port = readInt(params, "handshake_server_port", 0)
 	}
@@ -630,16 +788,43 @@ func resolveRealityHandshakeTarget(params map[string]any, fallbackHost string) (
 	if port <= 0 {
 		port = readInt(params, "handshake_port", 0)
 	}
-	if strings.TrimSpace(host) == "" {
-		host = strings.TrimSpace(fallbackHost)
+
+	host = normalizeHostOnly(host)
+	if host == "" {
+		host = normalizeHostOnly(fallbackHost)
 	}
-	if strings.TrimSpace(host) == "" {
-		host = "www.cloudflare.com"
+	if host == "" {
+		host = defaultRealityServerName
 	}
 	if port <= 0 {
-		port = 443
+		port = defaultRealityHandshakePort
 	}
-	return host, port, nil
+	return host, port
+}
+
+func validateSingBoxRealityShortID(raw string) error {
+	value := strings.ToLower(strings.TrimSpace(raw))
+	if value == "" {
+		return nil
+	}
+	if len(value) > 16 || len(value)%2 != 0 {
+		return fmt.Errorf("reality short id is invalid")
+	}
+	if _, err := hex.DecodeString(value); err != nil {
+		return fmt.Errorf("reality short id is invalid")
+	}
+	return nil
+}
+
+func inferDomainFromHost(raw string) string {
+	host := strings.TrimSpace(normalizeHostOnly(raw))
+	if host == "" {
+		return ""
+	}
+	if net.ParseIP(host) != nil {
+		return ""
+	}
+	return host
 }
 
 func parseHostPortLoose(raw string, fallbackPort int) (string, int) {
@@ -695,4 +880,19 @@ func readBool(source map[string]any, key string, fallback bool) bool {
 	default:
 		return fallback
 	}
+}
+
+func readStringOrFirst(source map[string]any, key string) string {
+	if source == nil {
+		return ""
+	}
+	primary := strings.TrimSpace(readString(source, key))
+	if primary != "" {
+		return primary
+	}
+	parts := readStringSlice(source, key)
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(parts[0])
 }
