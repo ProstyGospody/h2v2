@@ -534,10 +534,15 @@ EOF
   if ! run runuser -u singbox -- "${SINGBOX_BINARY_PATH}" check -c "${SINGBOX_CONFIG_PATH}" >/dev/null 2>&1; then
     fatal "sing-box config validation failed: ${SINGBOX_CONFIG_PATH}"
   fi
-  # Ensure TLS cert files exist so sing-box can start with any saved HY2 inbound config.
-  # On first install a self-signed placeholder is generated; the cert-sync unit replaces
-  # it with the real ACME cert that Caddy obtains for HY2_DOMAIN.
-  if [[ ! -f "${HY2_CERT_PATH}" || ! -f "${HY2_KEY_PATH}" ]]; then
+  # Ensure TLS cert files exist and are valid for HY2_DOMAIN so sing-box can start.
+  # On first install, or when the existing cert covers a different domain (leftover from
+  # a previous install), a self-signed placeholder is generated.  The cert-sync unit
+  # will replace it with the real ACME cert that Caddy obtains for HY2_DOMAIN.
+  cert_ok=0
+  if [[ -f "${HY2_CERT_PATH}" && -f "${HY2_KEY_PATH}" ]]; then
+    openssl x509 -noout -checkhost "${HY2_DOMAIN}" -in "${HY2_CERT_PATH}" 2>/dev/null && cert_ok=1
+  fi
+  if (( cert_ok == 0 )); then
     openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
       -days 3650 -nodes \
       -keyout "${HY2_KEY_PATH}" \
