@@ -99,6 +99,9 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	created, err := h.userManager.CreateUser(r.Context(), input)
 	if err != nil {
+		if h.logger != nil {
+			h.logger.Warn("user create failed", "error", err)
+		}
 		if repository.IsUniqueViolation(err) {
 			h.renderError(w, http.StatusConflict, "validation", "name already exists", nil)
 			return

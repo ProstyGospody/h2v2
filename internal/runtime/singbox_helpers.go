@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"h2v2/internal/repository"
+
+	"golang.org/x/crypto/curve25519"
 )
 
 func firstNonEmpty(values ...string) string {
@@ -350,13 +352,18 @@ func normalizeRealityParams(security string, params map[string]any) error {
 		publicKey = strings.TrimSpace(readString(params, "publicKey"))
 	}
 	if publicKey == "" {
-		return fmt.Errorf("reality public key is missing")
+		derivedPublic, deriveErr := curve25519.X25519(privateDecoded, curve25519.Basepoint)
+		if deriveErr != nil {
+			return fmt.Errorf("reality public key is invalid")
+		}
+		params["pbk"] = encodeRealityKey(derivedPublic)
+	} else {
+		publicDecoded, err := decodeRealityKey(publicKey)
+		if err != nil {
+			return fmt.Errorf("reality public key is invalid")
+		}
+		params["pbk"] = encodeRealityKey(publicDecoded)
 	}
-	publicDecoded, err := decodeRealityKey(publicKey)
-	if err != nil {
-		return fmt.Errorf("reality public key is invalid")
-	}
-	params["pbk"] = encodeRealityKey(publicDecoded)
 	if _, ok := params["publicKey"]; ok {
 		delete(params, "publicKey")
 	}

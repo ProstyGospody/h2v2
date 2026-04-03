@@ -125,3 +125,17 @@ func TestNormalizeRealityParams(t *testing.T) {
 		t.Fatalf("security default should be reality")
 	}
 }
+
+func TestNormalizeRealityParamsDerivesPublicKeyWhenMissing(t *testing.T) {
+	privateKeyRaw := strings.Repeat("C", 32)
+	params := map[string]any{
+		"privateKey": base64.RawURLEncoding.EncodeToString([]byte(privateKeyRaw)),
+	}
+
+	if err := normalizeRealityParams("reality", params); err != nil {
+		t.Fatalf("normalize reality params: %v", err)
+	}
+	if strings.TrimSpace(readString(params, "pbk")) == "" {
+		t.Fatalf("expected derived pbk from private key")
+	}
+}

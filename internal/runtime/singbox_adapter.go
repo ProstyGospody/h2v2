@@ -736,7 +736,7 @@ func parseRealitySettings(params map[string]any, fallbackServerName string) (sin
 	}
 	privateKey = encodeRealityKey(privateKeyDecoded)
 
-	publicKey := strings.TrimSpace(readString(params, "pbk"))
+	publicKey := firstNonEmpty(readString(params, "pbk"), readString(params, "publicKey"))
 	if publicKey == "" {
 		return singBoxRealitySettings{}, fmt.Errorf("reality public key is missing")
 	}
