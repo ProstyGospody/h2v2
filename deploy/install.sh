@@ -534,6 +534,20 @@ EOF
   if ! run runuser -u singbox -- "${SINGBOX_BINARY_PATH}" check -c "${SINGBOX_CONFIG_PATH}" >/dev/null 2>&1; then
     fatal "sing-box config validation failed: ${SINGBOX_CONFIG_PATH}"
   fi
+  # Ensure TLS cert files exist so sing-box can start with any saved HY2 inbound config.
+  # On first install a self-signed placeholder is generated; the cert-sync unit replaces
+  # it with the real ACME cert that Caddy obtains for HY2_DOMAIN.
+  if [[ ! -f "${HY2_CERT_PATH}" || ! -f "${HY2_KEY_PATH}" ]]; then
+    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
+      -days 3650 -nodes \
+      -keyout "${HY2_KEY_PATH}" \
+      -out "${HY2_CERT_PATH}" \
+      -subj "/CN=${HY2_DOMAIN}" \
+      -addext "subjectAltName=DNS:${HY2_DOMAIN}" \
+      2>/dev/null
+    run chown root:h2v2 "${HY2_CERT_PATH}" "${HY2_KEY_PATH}"
+    run chmod 0640 "${HY2_CERT_PATH}" "${HY2_KEY_PATH}"
+  fi
   changed "runtime templates rendered"
 }
 
@@ -610,6 +624,67 @@ on_error() {
   exit 1
 }
 
+install_cert_sync() {
+  phase "build/install: cert-sync"
+  (( DRY_RUN == 1 )) && return 0
+  # Write cert-sync script: copies Caddy's ACME cert for HY2_DOMAIN into
+  # the HY2 cert directory and reloads sing-box so it picks up the real cert.
+  cat > "${BIN_DIR}/cert-sync.sh" <<'SCRIPT'
+#!/usr/bin/env bash
+set -euo pipefail
+ENV_FILE="/opt/h2v2/.env.generated"
+[[ -f "${ENV_FILE}" ]] && { set -a; source "${ENV_FILE}"; set +a; }
+DOMAIN="${HY2_DOMAIN:-}"
+DST_CRT="${HY2_CERT_PATH:-/etc/h2v2/hysteria/server.crt}"
+DST_KEY="${HY2_KEY_PATH:-/etc/h2v2/hysteria/server.key}"
+SINGBOX_SVC="${SINGBOX_SERVICE_NAME:-sing-box}"
+[[ -n "${DOMAIN}" ]] || exit 0
+sync_from() {
+  local crt="$1" key="$2"
+  [[ -f "${crt}" && -f "${key}" ]] || return 1
+  cmp -s "${crt}" "${DST_CRT}" 2>/dev/null && cmp -s "${key}" "${DST_KEY}" 2>/dev/null && return 0
+  install -m 0640 -o root -g h2v2 "${crt}" "${DST_CRT}"
+  install -m 0640 -o root -g h2v2 "${key}" "${DST_KEY}"
+  systemctl reload-or-restart "${SINGBOX_SVC}.service" 2>/dev/null || true
+  logger -t h2v2-cert-sync "synced ${DOMAIN} cert from ${crt}"
+  return 0
+}
+for base in \
+  "/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}" \
+  "/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}"; do
+  sync_from "${base}/${DOMAIN}.crt" "${base}/${DOMAIN}.key" && exit 0
+done
+exit 0
+SCRIPT
+  run chmod 0750 "${BIN_DIR}/cert-sync.sh"
+  run chown root:h2v2 "${BIN_DIR}/cert-sync.sh"
+  cat > /etc/systemd/system/h2v2-cert-sync.service <<EOF
+[Unit]
+Description=H2V2 cert sync (Caddy -> HY2 dir)
+After=caddy.service
+
+[Service]
+Type=oneshot
+ExecStart=${BIN_DIR}/cert-sync.sh
+EOF
+  cat > /etc/systemd/system/h2v2-cert-sync.path <<EOF
+[Unit]
+Description=Watch Caddy cert storage for HY2 cert sync
+
+[Path]
+PathChanged=/var/lib/caddy/.local/share/caddy/certificates
+Unit=h2v2-cert-sync.service
+TriggerLimitIntervalSec=60s
+TriggerLimitBurst=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  run systemctl daemon-reload
+  run systemctl enable h2v2-cert-sync.path
+  changed "cert-sync installed"
+}
+
 bootstrap_admin() {
   phase "finalize: bootstrap admin"
   (( DRY_RUN == 1 )) && return 0
@@ -629,7 +704,12 @@ restart_services() {
   run systemctl restart h2v2-api.service
   run systemctl restart h2v2-web.service
   run systemctl restart caddy.service
+  # Try to sync a real ACME cert from Caddy before starting sing-box.
+  # Caddy may already have a cert from a previous run; if not, the
+  # self-signed placeholder generated earlier keeps sing-box functional.
+  "${BIN_DIR}/cert-sync.sh" 2>/dev/null || true
   run systemctl restart "${SINGBOX_SERVICE_NAME}.service"
+  run systemctl start h2v2-cert-sync.path
 }
 
 wait_for_panel_api() {
@@ -733,6 +813,7 @@ main() {
   write_env_files
   render_runtime_configs
   install_sudoers_and_units
+  install_cert_sync
   bootstrap_admin
   restart_services
   health_checks
