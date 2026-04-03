@@ -671,7 +671,7 @@ func (r *SQLiteRepository) importUsersRawTx(ctx context.Context, tx *sql.Tx, ite
 			item.TrafficUsedTxBytes,
 			item.TrafficUsedRxBytes,
 			nullInt64(item.ExpireAt),
-			nullString(item.Note),
+			nullStringPtr(item.Note),
 			item.Subject,
 			toUnixNano(item.CreatedAt),
 			toUnixNano(item.UpdatedAt),

@@ -62,7 +62,7 @@ func (r *SQLiteRepository) CreateUser(ctx context.Context, input CreateUserInput
 		sqliteBool(input.Enabled),
 		input.TrafficLimitBytes,
 		nullInt64(input.ExpireAt),
-		nullString(note),
+		nullStringPtr(note),
 		subject,
 		toUnixNano(now),
 		toUnixNano(now),
@@ -309,7 +309,7 @@ func (r *SQLiteRepository) UpdateUser(ctx context.Context, id string, input Upda
 		sqliteBool(input.Enabled),
 		input.TrafficLimitBytes,
 		nullInt64(input.ExpireAt),
-		nullString(note),
+		nullStringPtr(note),
 		toUnixNano(now),
 		strings.TrimSpace(id),
 	)
@@ -1436,6 +1436,38 @@ func nullString(value string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+func nullStringPtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
+func computeSnapshotRates(latestTx int64, latestRx int64, latestAt int64, previousTx int64, previousRx int64, previousAt int64) (float64, float64) {
+	if latestAt <= previousAt || previousAt <= 0 {
+		return 0, 0
+	}
+	durationSeconds := float64(latestAt-previousAt) / float64(time.Second)
+	if durationSeconds <= 0 {
+		return 0, 0
+	}
+	txDelta := latestTx - previousTx
+	if txDelta < 0 {
+		txDelta = 0
+	}
+	rxDelta := latestRx - previousRx
+	if rxDelta < 0 {
+		rxDelta = 0
+	}
+	downloadBps := float64(rxDelta) / durationSeconds
+	uploadBps := float64(txDelta) / durationSeconds
+	return downloadBps, uploadBps
 }
 
 func nullInt64(value *time.Time) any {
