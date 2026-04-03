@@ -3,7 +3,6 @@ package repository
 import (
 	"errors"
 	"path/filepath"
-	"strings"
 )
 
 var (
@@ -38,35 +37,6 @@ func paginate[T any](items []T, limit int, offset int) []T {
 		end = len(items)
 	}
 	return append([]T(nil), items[offset:end]...)
-}
-
-func cleanOptional(value *string) *string {
-	if value == nil {
-		return nil
-	}
-	trimmed := strings.TrimSpace(*value)
-	if trimmed == "" {
-		return nil
-	}
-	return &trimmed
-}
-
-func nullValue(value *string) any {
-	if value == nil {
-		return nil
-	}
-	trimmed := strings.TrimSpace(*value)
-	if trimmed == "" {
-		return nil
-	}
-	return trimmed
-}
-
-func maxInt(a int, b int) int {
-	if a >= b {
-		return a
-	}
-	return b
 }
 
 func IsNotFound(err error) bool        { return errors.Is(err, ErrNotFound) }

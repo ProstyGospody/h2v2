@@ -1,4 +1,4 @@
-﻿package repository
+package repository
 
 import (
 	"context"
@@ -62,7 +62,7 @@ func (r *SQLiteRepository) CreateUser(ctx context.Context, input CreateUserInput
 		sqliteBool(input.Enabled),
 		input.TrafficLimitBytes,
 		nullInt64(input.ExpireAt),
-		nullValue(note),
+		nullString(note),
 		subject,
 		toUnixNano(now),
 		toUnixNano(now),
@@ -133,7 +133,10 @@ func (r *SQLiteRepository) ListUsers(ctx context.Context, limit int, offset int,
 	query += ` ORDER BY u.created_at_ns DESC`
 	if limit > 0 {
 		query += ` LIMIT ? OFFSET ?`
-		args = append(args, limit, maxInt(offset, 0))
+		if offset < 0 {
+			offset = 0
+		}
+		args = append(args, limit, offset)
 	}
 
 	rows, err := r.db.QueryContext(resolveCtx(ctx), query, args...)
@@ -306,7 +309,7 @@ func (r *SQLiteRepository) UpdateUser(ctx context.Context, id string, input Upda
 		sqliteBool(input.Enabled),
 		input.TrafficLimitBytes,
 		nullInt64(input.ExpireAt),
-		nullValue(note),
+		nullString(note),
 		toUnixNano(now),
 		strings.TrimSpace(id),
 	)
@@ -908,7 +911,10 @@ func (r *SQLiteRepository) ListTrafficCounters(ctx context.Context, userID strin
 	query += ` ORDER BY snapshot_at_ns DESC, id DESC`
 	if limit > 0 {
 		query += ` LIMIT ? OFFSET ?`
-		args = append(args, limit, maxInt(offset, 0))
+		if offset < 0 {
+			offset = 0
+		}
+		args = append(args, limit, offset)
 	}
 
 	rows, err := r.db.QueryContext(resolveCtx(ctx), query, args...)

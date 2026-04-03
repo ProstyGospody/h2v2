@@ -16,14 +16,28 @@ func (r *SQLiteRepository) InsertAuditLog(ctx context.Context, adminID *string, 
 		}
 		payloadBytes = encoded
 	}
+	var adminValue any
+	if adminID != nil {
+		trimmed := strings.TrimSpace(*adminID)
+		if trimmed != "" {
+			adminValue = trimmed
+		}
+	}
+	var entityValue any
+	if entityID != nil {
+		trimmed := strings.TrimSpace(*entityID)
+		if trimmed != "" {
+			entityValue = trimmed
+		}
+	}
 	_, err := r.db.ExecContext(
 		resolveCtx(ctx),
 		`INSERT INTO audit_logs (admin_id, action, entity_type, entity_id, payload_json, created_at_ns)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
-		nullValue(cleanOptional(adminID)),
+		adminValue,
 		strings.TrimSpace(action),
 		strings.TrimSpace(entityType),
-		nullValue(cleanOptional(entityID)),
+		entityValue,
 		string(payloadBytes),
 		nowNano(),
 	)
@@ -47,7 +61,10 @@ func (r *SQLiteRepository) ListAuditLogs(ctx context.Context, limit int, offset 
 	args := []any{}
 	if limit > 0 {
 		query += ` LIMIT ? OFFSET ?`
-		args = append(args, limit, maxInt(offset, 0))
+		if offset < 0 {
+			offset = 0
+		}
+		args = append(args, limit, offset)
 	}
 	rows, err := r.db.QueryContext(resolveCtx(ctx), query, args...)
 	if err != nil {
@@ -76,6 +93,17 @@ func (r *SQLiteRepository) UpsertServiceState(ctx context.Context, serviceName s
 	trimmedService := strings.TrimSpace(serviceName)
 	trimmedStatus := strings.TrimSpace(status)
 	trimmedRawJSON := strings.TrimSpace(rawJSON)
+	var versionValue any
+	if version != nil {
+		trimmed := strings.TrimSpace(*version)
+		if trimmed != "" {
+			versionValue = trimmed
+		}
+	}
+	var rawJSONValue any
+	if trimmedRawJSON != "" {
+		rawJSONValue = trimmedRawJSON
+	}
 	_, err := r.db.ExecContext(
 		resolveCtx(ctx),
 		`INSERT INTO service_states (service_name, status, version, last_check_at_ns, raw_json)
@@ -87,9 +115,9 @@ func (r *SQLiteRepository) UpsertServiceState(ctx context.Context, serviceName s
 			raw_json = excluded.raw_json`,
 		trimmedService,
 		trimmedStatus,
-		nullValue(cleanOptional(version)),
+		versionValue,
 		nowNano(),
-		nullValue(&trimmedRawJSON),
+		rawJSONValue,
 	)
 	return err
 }
@@ -117,14 +145,28 @@ func (r *SQLiteRepository) importAuditLogsTx(ctx context.Context, tx *sql.Tx, it
 			payload_json = excluded.payload_json,
 			created_at_ns = excluded.created_at_ns`
 	for _, item := range items {
+		var adminValue any
+		if item.AdminID != nil {
+			trimmed := strings.TrimSpace(*item.AdminID)
+			if trimmed != "" {
+				adminValue = trimmed
+			}
+		}
+		var entityValue any
+		if item.EntityID != nil {
+			trimmed := strings.TrimSpace(*item.EntityID)
+			if trimmed != "" {
+				entityValue = trimmed
+			}
+		}
 		if _, err := tx.ExecContext(
 			resolveCtx(ctx),
 			stmt,
 			item.ID,
-			nullValue(item.AdminID),
+			adminValue,
 			item.Action,
 			item.EntityType,
-			nullValue(item.EntityID),
+			entityValue,
 			item.Payload,
 			toUnixNano(item.CreatedAt),
 		); err != nil {
@@ -144,15 +186,29 @@ func (r *SQLiteRepository) importServiceStatesTx(ctx context.Context, tx *sql.Tx
 			last_check_at_ns = excluded.last_check_at_ns,
 			raw_json = excluded.raw_json`
 	for _, item := range items {
+		var versionValue any
+		if item.Version != nil {
+			trimmed := strings.TrimSpace(*item.Version)
+			if trimmed != "" {
+				versionValue = trimmed
+			}
+		}
+		var rawJSONValue any
+		if item.RawJSON != nil {
+			trimmed := strings.TrimSpace(*item.RawJSON)
+			if trimmed != "" {
+				rawJSONValue = trimmed
+			}
+		}
 		if _, err := tx.ExecContext(
 			resolveCtx(ctx),
 			stmt,
 			item.ID,
 			item.ServiceName,
 			item.Status,
-			nullValue(item.Version),
+			versionValue,
 			toUnixNano(item.LastCheckAt),
-			nullValue(item.RawJSON),
+			rawJSONValue,
 		); err != nil {
 			return err
 		}
