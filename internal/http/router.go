@@ -60,6 +60,7 @@ func NewRouter(
 			secured.Get("/system/history", h.GetSystemHistory)
 
 			secured.Route("/v1", func(v1 chi.Router) {
+				v1.Get("/defaults", h.CoreDefaults)
 				v1.Get("/servers", h.ListCoreServers)
 				v1.Post("/servers", h.CreateCoreServer)
 				v1.Get("/servers/{id}", h.GetCoreServer)

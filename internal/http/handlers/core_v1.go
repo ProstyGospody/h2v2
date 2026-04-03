@@ -234,6 +234,15 @@ func buildCoreAccessPayload(items []core.UserAccess, protocolByInboundID map[str
 	}
 	return result
 }
+func (h *Handler) CoreDefaults(w http.ResponseWriter, r *http.Request) {
+	render.JSON(w, http.StatusOK, map[string]any{
+		"hy2_port":      h.cfg.HY2Port,
+		"hy2_domain":    h.cfg.HY2Domain,
+		"hy2_cert_path": h.cfg.HY2CertPath,
+		"hy2_key_path":  h.cfg.HY2KeyPath,
+	})
+}
+
 func (h *Handler) ListCoreServers(w http.ResponseWriter, r *http.Request) {
 	service := h.ensureCoreService(w)
 	if service == nil {

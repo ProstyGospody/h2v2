@@ -499,10 +499,13 @@ ${SUBSCRIPTION_PUBLIC_HOST}:${PANEL_PUBLIC_PORT} {
 }
 EOF
   fi
+  # Always add HY2_DOMAIN block so Caddy provisions an ACME cert for it.
+  # If HY2_DOMAIN equals PANEL_PUBLIC_HOST, Caddy already handles it above,
+  # so we only add a separate block when the domains differ.
   if [[ "${HY2_DOMAIN}" != "${PANEL_PUBLIC_HOST}" && "${HY2_DOMAIN}" != "${SUBSCRIPTION_PUBLIC_HOST}" ]]; then
     cat >> /etc/caddy/Caddyfile <<EOF
 
-${HY2_DOMAIN}:${PANEL_PUBLIC_PORT} {
+${HY2_DOMAIN} {
   respond 204
 }
 EOF
@@ -646,10 +649,16 @@ DST_KEY="${HY2_KEY_PATH:-/etc/h2v2/hysteria/server.key}"
 SINGBOX_SVC="${SINGBOX_SERVICE_NAME:-sing-box}"
 [[ -n "${DOMAIN}" ]] || exit 0
 
-# Find the cert file in any of Caddy's known storage roots.
+# Caddy stores ACME certs under its data directory. The default XDG path is:
+#   /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/<domain>/
+# But it may also be under /root/.local/share/caddy or HOME-relative.
 find_caddy_cert() {
   local domain="$1" crt
-  for root in /var/lib/caddy /root /home; do
+  for root in \
+    /var/lib/caddy/.local/share/caddy \
+    /root/.local/share/caddy \
+    /var/lib/caddy \
+    /root; do
     [[ -d "${root}" ]] || continue
     crt="$(find "${root}" -name "${domain}.crt" -path "*/certificates/*" 2>/dev/null | head -1)"
     [[ -n "${crt}" && -f "${crt%.crt}.key" ]] && echo "${crt}" && return 0
@@ -682,21 +691,20 @@ After=caddy.service
 Type=oneshot
 ExecStart=${BIN_DIR}/cert-sync.sh
 EOF
-  cat > /etc/systemd/system/h2v2-cert-sync.path <<EOF
+  cat > /etc/systemd/system/h2v2-cert-sync.timer <<EOF
 [Unit]
-Description=Watch Caddy cert storage for HY2 cert sync
+Description=Periodic HY2 cert sync from Caddy ACME storage
 
-[Path]
-PathChanged=/var/lib/caddy/.local/share/caddy/certificates
-Unit=h2v2-cert-sync.service
-TriggerLimitIntervalSec=60s
-TriggerLimitBurst=5
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=5min
+Persistent=true
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=timers.target
 EOF
   run systemctl daemon-reload
-  run systemctl enable h2v2-cert-sync.path
+  run systemctl enable h2v2-cert-sync.timer
   changed "cert-sync installed"
 }
 
@@ -741,7 +749,7 @@ restart_services() {
     warn "Caddy cert for ${HY2_DOMAIN} not yet available; sing-box will use self-signed placeholder until cert-sync runs"
   fi
   run systemctl restart "${SINGBOX_SERVICE_NAME}.service"
-  run systemctl start h2v2-cert-sync.path
+  run systemctl start h2v2-cert-sync.timer
 }
 
 wait_for_panel_api() {

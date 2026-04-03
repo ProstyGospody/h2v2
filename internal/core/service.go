@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -220,6 +221,14 @@ func normalizeRealitySettings(value *VLESSInboundSettings) error {
 	if value == nil || !value.RealityEnabled {
 		return nil
 	}
+	// Auto-generate Reality key pair when private key is not provided.
+	if strings.TrimSpace(value.RealityPrivateKey) == "" {
+		privateKey := make([]byte, 32)
+		if _, err := rand.Read(privateKey); err != nil {
+			return fmt.Errorf("failed to generate reality private key: %w", err)
+		}
+		value.RealityPrivateKey = encodeRealityKey(privateKey)
+	}
 	privateDecoded, err := decodeRealityKey(value.RealityPrivateKey)
 	if err != nil {
 		return fmt.Errorf("reality private key is invalid")
@@ -242,16 +251,38 @@ func normalizeRealitySettings(value *VLESSInboundSettings) error {
 	}
 
 	shortID := strings.ToLower(strings.TrimSpace(value.RealityShortID))
-	if shortID != "" {
-		if len(shortID) > 32 || len(shortID)%2 != 0 {
-			return fmt.Errorf("reality short id is invalid")
+	if shortID == "" {
+		// Auto-generate 8-byte (16 hex chars) short ID.
+		buf := make([]byte, 8)
+		if _, err := rand.Read(buf); err != nil {
+			return fmt.Errorf("failed to generate reality short id: %w", err)
 		}
-		if _, err := hex.DecodeString(shortID); err != nil {
-			return fmt.Errorf("reality short id is invalid")
-		}
+		shortID = hex.EncodeToString(buf)
+	}
+	if len(shortID) > 32 || len(shortID)%2 != 0 {
+		return fmt.Errorf("reality short id is invalid")
+	}
+	if _, err := hex.DecodeString(shortID); err != nil {
+		return fmt.Errorf("reality short id is invalid")
 	}
 	value.RealityShortID = shortID
 	value.TLSEnabled = true
+
+	// Default TLS server name to the Reality handshake server for correct SNI.
+	if strings.TrimSpace(value.TLSServerName) == "" {
+		handshake := strings.TrimSpace(value.RealityHandshakeServer)
+		if handshake == "" {
+			handshake = "www.cloudflare.com"
+		}
+		value.TLSServerName = handshake
+	}
+	// Default handshake server if not set.
+	if strings.TrimSpace(value.RealityHandshakeServer) == "" {
+		value.RealityHandshakeServer = "www.cloudflare.com"
+	}
+	if value.RealityHandshakeServerPort <= 0 {
+		value.RealityHandshakeServerPort = 443
+	}
 	return nil
 }
 

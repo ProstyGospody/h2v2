@@ -13,68 +13,30 @@ export type ClientAccess = {
 export type Client = {
   id: string;
   username: string;
-  username_normalized: string;
-  password: string;
   enabled: boolean;
+  traffic_limit_bytes: number;
+  traffic_used_up_bytes: number;
+  traffic_used_down_bytes: number;
+  expire_at: string | null;
   created_at: string;
   updated_at: string;
-  last_seen_at?: string | null;
-  last_tx_bytes: number;
-  last_rx_bytes: number;
-  online_count: number;
-  download_bps: number;
-  upload_bps: number;
-  traffic_limit_bytes: number;
-  expire_at?: string | null;
   protocols: Protocol[];
-  preferred_protocol: Protocol;
   access: ClientAccess[];
 };
 
-export type ClientArtifactsView = {
-  access_url: string;
-  subscription_url: string;
-  access_qr_url: string;
+export type ClientArtifacts = {
+  subscription_import_url: string;
+  subscription_profile_url: string;
+  subscription_uris_url: string;
   subscription_qr_url: string;
-  vless_qr_url: string;
-  hy2_qr_url: string;
-  profile_url: string;
-  uris_url: string;
-  all_uris: string[];
   vless_uris: string[];
   hy2_uris: string[];
+  all_uris: string[];
+  singbox_profile_json: string;
 };
 
-export type UserPayload = {
-  user: Client;
-  artifacts: ClientArtifactsView | null;
-};
-
-export type ClientCreateRequest = {
+export type ClientFormValues = {
   username: string;
-  auth_secret?: string;
-  protocol?: Protocol;
-  uuid?: string;
-  traffic_limit_bytes?: number;
-  expire_at?: string | null;
-};
-
-export type ClientUpdateRequest = {
-  username: string;
-  auth_secret?: string;
-  protocol?: Protocol;
-  uuid?: string;
-  traffic_limit_bytes?: number;
-  expire_at?: string | null;
-};
-
-export type ClientStateBatchResponse = {
-  ok: boolean;
-  enabled: boolean;
-  updated: number;
-};
-
-export type ClientDeleteBatchResponse = {
-  ok: boolean;
-  deleted: number;
+  traffic_limit_gb: string;
+  expire_at: string;
 };

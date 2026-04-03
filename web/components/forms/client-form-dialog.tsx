@@ -1,12 +1,18 @@
 import { Loader2 } from "lucide-react";
-import { FormEvent, useEffect, useId, useState } from "react";
+import { type FormEvent, useEffect, useId, useState } from "react";
 
-import { formFromClient, type ClientFormValues } from "@/domain/clients/adapters";
-import { Client } from "@/domain/clients/types";
-import { Button, Dialog, Input, SelectField } from "@/src/components/ui";
+import { formDefaults, formFromClient } from "@/domain/clients/adapters";
+import type { Client, ClientFormValues } from "@/domain/clients/types";
+import { Button, Dialog, Input } from "@/src/components/ui";
 
 export function ClientFormDialog({
-  open, mode, busy, client, error, onClose, onSubmit,
+  open,
+  mode,
+  busy,
+  client,
+  error,
+  onClose,
+  onSubmit,
 }: {
   open: boolean;
   mode: "create" | "edit";
@@ -16,84 +22,73 @@ export function ClientFormDialog({
   onClose: () => void;
   onSubmit: (values: ClientFormValues) => Promise<void>;
 }) {
-  const [values, setValues] = useState<ClientFormValues>(formFromClient(client));
+  const [values, setValues] = useState<ClientFormValues>(formDefaults());
   const formID = useId();
 
   useEffect(() => {
     if (!open) return;
-    setValues(formFromClient(client));
+    setValues(client ? formFromClient(client) : formDefaults());
   }, [client, mode, open]);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function set<K extends keyof ClientFormValues>(key: K, val: ClientFormValues[K]) {
+    setValues((prev) => ({ ...prev, [key]: val }));
+  }
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
     await onSubmit(values);
   }
 
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => { if (!next && !busy) onClose(); }}
+      onOpenChange={(v) => { if (!v && !busy) onClose(); }}
       title={mode === "create" ? "Create User" : "Edit User"}
-      contentClassName="max-w-[720px]"
+      contentClassName="max-w-[520px]"
       hideClose={busy}
       footer={
         <>
           <Button type="button" onClick={onClose} disabled={busy}>Cancel</Button>
           <Button form={formID} type="submit" variant="primary" disabled={busy}>
-            {busy ? <><Loader2 size={16} strokeWidth={1.8} className="animate-spin" />Save</> : "Save"}
+            {busy ? <><Loader2 size={16} strokeWidth={1.8} className="animate-spin" />Saving...</> : "Save"}
           </Button>
         </>
       }
     >
       <form id={formID} className="space-y-5" onSubmit={submit}>
-        {error && <div className="rounded-xl bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>}
+        {error && (
+          <div className="rounded-xl bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>
+        )}
 
         <Input
-          label="User"
+          label="Username"
           value={values.username}
-          onChange={(event) => setValues((prev) => ({ ...prev, username: event.target.value }))}
+          onChange={(e) => set("username", e.target.value)}
           required
+          autoFocus={mode === "create"}
         />
-
-        <SelectField
-          label="Protocol"
-          value={values.protocol}
-          options={[
-            { value: "hy2", label: "HY2" },
-            { value: "vless", label: "VLESS" },
-          ]}
-          onValueChange={(next) => setValues((prev) => ({ ...prev, protocol: next as ClientFormValues["protocol"] }))}
-        />
-
-        {values.protocol === "hy2" ? (
-          <Input
-            label="Secret"
-            value={values.authSecret}
-            onChange={(event) => setValues((prev) => ({ ...prev, authSecret: event.target.value }))}
-          />
-        ) : (
-          <Input
-            label="UUID"
-            value={values.uuid}
-            onChange={(event) => setValues((prev) => ({ ...prev, uuid: event.target.value }))}
-          />
-        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
-            label="Limit"
+            label="Traffic limit (GB)"
             type="number"
-            value={values.trafficLimitBytes}
-            onChange={(event) => setValues((prev) => ({ ...prev, trafficLimitBytes: event.target.value }))}
+            min="0"
+            step="0.1"
+            placeholder="Unlimited"
+            value={values.traffic_limit_gb}
+            onChange={(e) => set("traffic_limit_gb", e.target.value)}
           />
           <Input
-            label="Expire"
+            label="Expires"
             type="datetime-local"
-            value={values.expireAt}
-            onChange={(event) => setValues((prev) => ({ ...prev, expireAt: event.target.value }))}
+            value={values.expire_at}
+            onChange={(e) => set("expire_at", e.target.value)}
           />
         </div>
 
+        <p className="text-[12px] text-txt-secondary">
+          Access credentials for both VLESS and HY2 are generated automatically.
+        </p>
       </form>
     </Dialog>
   );

@@ -38,6 +38,10 @@ type Config struct {
 	SingBoxBinaryPath   string
 	SingBoxConfigPath   string
 	SingBoxServiceName  string
+	HY2Domain           string
+	HY2Port             int
+	HY2CertPath         string
+	HY2KeyPath          string
 }
 
 func Load() (Config, error) {
@@ -70,6 +74,10 @@ func Load() (Config, error) {
 		SingBoxBinaryPath:   getEnv("SINGBOX_BINARY_PATH", "/usr/local/bin/sing-box"),
 		SingBoxConfigPath:   getEnv("SINGBOX_CONFIG_PATH", "/etc/h2v2/sing-box/config.json"),
 		SingBoxServiceName:  getEnv("SINGBOX_SERVICE_NAME", "sing-box"),
+		HY2Domain:           getEnv("HY2_DOMAIN", ""),
+		HY2Port:             getEnvInt("HY2_PORT", 443),
+		HY2CertPath:         getEnv("HY2_CERT_PATH", "/etc/h2v2/hysteria/server.crt"),
+		HY2KeyPath:          getEnv("HY2_KEY_PATH", "/etc/h2v2/hysteria/server.key"),
 	}
 
 	if strings.TrimSpace(cfg.StorageRoot) == "" {

@@ -1,78 +1,34 @@
-import {
-  Client,
-  ClientCreateRequest,
-  ClientUpdateRequest,
-  Protocol,
-} from "@/domain/clients/types";
+import type { Client, ClientFormValues, Protocol } from "./types";
 
-type ClientFormValues = {
-  username: string;
-  authSecret: string;
-  protocol: Protocol;
-  uuid: string;
-  trafficLimitBytes: string;
-  expireAt: string;
-};
+export function formDefaults(): ClientFormValues {
+  return { username: "", traffic_limit_gb: "", expire_at: "" };
+}
 
-export function formFromClient(client: Client | null): ClientFormValues {
+export function formFromClient(client: Client): ClientFormValues {
+  const limitGB =
+    client.traffic_limit_bytes > 0
+      ? String(+(client.traffic_limit_bytes / 1_073_741_824).toFixed(2))
+      : "";
   return {
-    username: client?.username || "",
-    authSecret: client?.preferred_protocol === "hy2" ? client.password || "" : "",
-    protocol: client?.preferred_protocol || "hy2",
-    uuid: client?.preferred_protocol === "vless" ? client.password || "" : "",
-    trafficLimitBytes: client?.traffic_limit_bytes ? String(client.traffic_limit_bytes) : "",
-    expireAt: client?.expire_at ? client.expire_at.slice(0, 16) : "",
+    username: client.username,
+    traffic_limit_gb: limitGB,
+    expire_at: client.expire_at ? client.expire_at.slice(0, 16) : "",
   };
 }
 
-function toNumberOrUndefined(value: string): number | undefined {
+export function trafficLimitToBytes(gb: string): number {
+  const n = parseFloat(gb.trim());
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.round(n * 1_073_741_824);
+}
+
+export function expireToISO(value: string): string | null {
   const trimmed = value.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return undefined;
-  }
-  return Math.floor(parsed);
+  if (!trimmed) return null;
+  const d = new Date(trimmed);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-function toDateOrNull(value: string): string | null | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-  const parsed = new Date(trimmed);
-  if (Number.isNaN(parsed.getTime())) {
-    return undefined;
-  }
-  return parsed.toISOString();
+export function uniqueProtocols(access: { protocol: Protocol }[]): Protocol[] {
+  return Array.from(new Set(access.map((a) => a.protocol)));
 }
-
-export function toCreateRequest(values: ClientFormValues): ClientCreateRequest {
-  const payload: ClientCreateRequest = {
-    username: values.username,
-    protocol: values.protocol,
-  };
-  if (values.protocol === "hy2" && values.authSecret.trim()) {
-    payload.auth_secret = values.authSecret.trim();
-  }
-  if (values.protocol === "vless" && values.uuid.trim()) {
-    payload.uuid = values.uuid.trim();
-  }
-  const limit = toNumberOrUndefined(values.trafficLimitBytes);
-  if (limit !== undefined) {
-    payload.traffic_limit_bytes = limit;
-  }
-  const expire = toDateOrNull(values.expireAt);
-  if (expire !== undefined) {
-    payload.expire_at = expire;
-  }
-  return payload;
-}
-
-export function toUpdateRequest(values: ClientFormValues): ClientUpdateRequest {
-  return toCreateRequest(values);
-}
-
-export type { ClientFormValues };

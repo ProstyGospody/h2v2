@@ -2,8 +2,6 @@
   email {$PANEL_ACME_EMAIL}
 }
 
-# The installer may append an additional HY2_DOMAIN site block so Caddy can
-# provision the certificate sing-box consumes from synced files.
 {$PANEL_PUBLIC_HOST}:{$PANEL_PUBLIC_PORT} {
   encode gzip zstd
 
