@@ -14,10 +14,6 @@ WorkingDirectory=/opt/h2v2/current
 ExecStart=/opt/h2v2/bin/panel-api serve
 Restart=always
 RestartSec=2
-PrivateTmp=true
-ProtectSystem=full
-ProtectHome=true
-ReadWritePaths=/opt/h2v2 /etc/h2v2 /var/lib/h2v2 /var/log/h2v2 /run/h2v2
 
 [Install]
 WantedBy=multi-user.target

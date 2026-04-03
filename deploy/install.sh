@@ -553,8 +553,8 @@ EOF
   run install -m 0644 "${SRC_DIR}/systemd/h2v2-web.service" /etc/systemd/system/h2v2-web.service
   run install -m 0644 "${SRC_DIR}/systemd/sing-box.service" "/etc/systemd/system/${SINGBOX_SERVICE_NAME}.service"
   run sed -i "s|__SINGBOX_BINARY_PATH__|${SINGBOX_BINARY_PATH}|g; s|__SINGBOX_CONFIG_PATH__|${SINGBOX_CONFIG_PATH}|g" "/etc/systemd/system/${SINGBOX_SERVICE_NAME}.service"
-  run systemctl disable --now hysteria-server.service || true
-  run systemctl disable --now xray.service || true
+  systemctl disable --now hysteria-server.service 2>/dev/null || true
+  systemctl disable --now xray.service 2>/dev/null || true
   run rm -f /etc/systemd/system/hysteria-server.service /etc/systemd/system/xray.service
   if grep -q "__SINGBOX_" "/etc/systemd/system/${SINGBOX_SERVICE_NAME}.service"; then
     fatal "sing-box unit placeholders were not rendered"
