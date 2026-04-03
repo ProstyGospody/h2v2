@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"encoding/base64"
 	"strings"
 	"testing"
 
@@ -83,5 +84,44 @@ func TestRenderVLESSClientConfigIncludesURI(t *testing.T) {
 	)
 	if !strings.Contains(rendered, uri) {
 		t.Fatalf("expected rendered config to include uri: %s", rendered)
+	}
+}
+
+func TestDecodeRealityKeyRejectsInvalidSize(t *testing.T) {
+	_, err := decodeRealityKey("Zm9v")
+	if err == nil {
+		t.Fatalf("expected invalid reality key size error")
+	}
+}
+
+func TestNormalizeRealityParams(t *testing.T) {
+	privateKeyRaw := strings.Repeat("A", 32)
+	publicKeyRaw := strings.Repeat("B", 32)
+	params := map[string]any{
+		"privateKey": base64.RawURLEncoding.EncodeToString([]byte(privateKeyRaw)),
+		"publicKey":  base64.RawURLEncoding.EncodeToString([]byte(publicKeyRaw)),
+		"sid":        "AB12",
+	}
+
+	if err := normalizeRealityParams("reality", params); err != nil {
+		t.Fatalf("normalize reality params: %v", err)
+	}
+	if strings.TrimSpace(readString(params, "privateKey")) == "" {
+		t.Fatalf("privateKey must be present")
+	}
+	if strings.TrimSpace(readString(params, "pbk")) == "" {
+		t.Fatalf("pbk must be present")
+	}
+	if readString(params, "publicKey") != "" {
+		t.Fatalf("legacy publicKey should be removed")
+	}
+	if readString(params, "sid") != "ab12" {
+		t.Fatalf("sid should be normalized to lowercase hex")
+	}
+	if readString(params, "network") != "tcp" {
+		t.Fatalf("network default should be tcp")
+	}
+	if readString(params, "security") != "reality" {
+		t.Fatalf("security default should be reality")
 	}
 }

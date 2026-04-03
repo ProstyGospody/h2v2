@@ -1,7 +1,10 @@
 package runtime
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/url"
 	"strconv"
@@ -295,4 +298,91 @@ func stringFromAny(value any) string {
 	default:
 		return ""
 	}
+}
+
+func decodeRealityKey(value string) ([]byte, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil, fmt.Errorf("reality key is empty")
+	}
+	encodings := []*base64.Encoding{
+		base64.RawURLEncoding,
+		base64.URLEncoding,
+		base64.RawStdEncoding,
+		base64.StdEncoding,
+	}
+	for _, enc := range encodings {
+		decoded, err := enc.DecodeString(trimmed)
+		if err != nil {
+			continue
+		}
+		if len(decoded) == 32 {
+			return decoded, nil
+		}
+	}
+	return nil, fmt.Errorf("reality key must decode to 32 bytes")
+}
+
+func encodeRealityKey(value []byte) string {
+	return base64.RawURLEncoding.EncodeToString(value)
+}
+
+func normalizeRealityParams(security string, params map[string]any) error {
+	if strings.ToLower(strings.TrimSpace(security)) != "reality" {
+		return nil
+	}
+	if params == nil {
+		return fmt.Errorf("reality params are required")
+	}
+
+	privateKey := strings.TrimSpace(readString(params, "privateKey"))
+	if privateKey == "" {
+		return fmt.Errorf("reality private key is missing")
+	}
+	privateDecoded, err := decodeRealityKey(privateKey)
+	if err != nil {
+		return fmt.Errorf("reality private key is invalid")
+	}
+	params["privateKey"] = encodeRealityKey(privateDecoded)
+
+	publicKey := strings.TrimSpace(readString(params, "pbk"))
+	if publicKey == "" {
+		publicKey = strings.TrimSpace(readString(params, "publicKey"))
+	}
+	if publicKey == "" {
+		return fmt.Errorf("reality public key is missing")
+	}
+	publicDecoded, err := decodeRealityKey(publicKey)
+	if err != nil {
+		return fmt.Errorf("reality public key is invalid")
+	}
+	params["pbk"] = encodeRealityKey(publicDecoded)
+	if _, ok := params["publicKey"]; ok {
+		delete(params, "publicKey")
+	}
+
+	shortID := strings.ToLower(strings.TrimSpace(readString(params, "sid")))
+	if shortID != "" {
+		if len(shortID) > 32 || len(shortID)%2 != 0 {
+			return fmt.Errorf("reality short id is invalid")
+		}
+		if _, err := hex.DecodeString(shortID); err != nil {
+			return fmt.Errorf("reality short id is invalid")
+		}
+		params["sid"] = shortID
+	} else {
+		delete(params, "sid")
+	}
+
+	if strings.TrimSpace(readString(params, "fp")) == "" {
+		params["fp"] = defaultVLESSFingerprint
+	}
+	if strings.TrimSpace(readString(params, "network")) == "" {
+		params["network"] = "tcp"
+	}
+	if strings.TrimSpace(readString(params, "security")) == "" {
+		params["security"] = "reality"
+	}
+
+	return nil
 }
