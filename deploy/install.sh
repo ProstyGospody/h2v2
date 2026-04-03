@@ -632,8 +632,9 @@ on_error() {
 install_cert_sync() {
   phase "build/install: cert-sync"
   (( DRY_RUN == 1 )) && return 0
-  # Write cert-sync script: copies Caddy's ACME cert for HY2_DOMAIN into
-  # the HY2 cert directory and reloads sing-box so it picks up the real cert.
+  # Write cert-sync script: locates Caddy's ACME cert for HY2_DOMAIN using
+  # find (robust against storage-path variations) and copies it to the HY2
+  # cert directory, then reloads sing-box.
   cat > "${BIN_DIR}/cert-sync.sh" <<'SCRIPT'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -644,22 +645,31 @@ DST_CRT="${HY2_CERT_PATH:-/etc/h2v2/hysteria/server.crt}"
 DST_KEY="${HY2_KEY_PATH:-/etc/h2v2/hysteria/server.key}"
 SINGBOX_SVC="${SINGBOX_SERVICE_NAME:-sing-box}"
 [[ -n "${DOMAIN}" ]] || exit 0
-sync_from() {
-  local crt="$1" key="$2"
-  [[ -f "${crt}" && -f "${key}" ]] || return 1
-  cmp -s "${crt}" "${DST_CRT}" 2>/dev/null && cmp -s "${key}" "${DST_KEY}" 2>/dev/null && return 0
-  install -m 0640 -o root -g h2v2 "${crt}" "${DST_CRT}"
-  install -m 0640 -o root -g h2v2 "${key}" "${DST_KEY}"
-  systemctl reload-or-restart "${SINGBOX_SVC}.service" 2>/dev/null || true
-  logger -t h2v2-cert-sync "synced ${DOMAIN} cert from ${crt}"
-  return 0
+
+# Find the cert file in any of Caddy's known storage roots.
+find_caddy_cert() {
+  local domain="$1" crt
+  for root in /var/lib/caddy /root /home; do
+    [[ -d "${root}" ]] || continue
+    crt="$(find "${root}" -name "${domain}.crt" -path "*/certificates/*" 2>/dev/null | head -1)"
+    [[ -n "${crt}" && -f "${crt%.crt}.key" ]] && echo "${crt}" && return 0
+  done
+  return 1
 }
-for base in \
-  "/var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}" \
-  "/root/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/${DOMAIN}"; do
-  sync_from "${base}/${DOMAIN}.crt" "${base}/${DOMAIN}.key" && exit 0
-done
-exit 0
+
+crt="$(find_caddy_cert "${DOMAIN}")" || exit 0
+key="${crt%.crt}.key"
+
+# Validate cert covers the right domain before copying.
+openssl x509 -noout -checkhost "${DOMAIN}" -in "${crt}" 2>/dev/null || exit 0
+
+# Skip if already up to date.
+cmp -s "${crt}" "${DST_CRT}" 2>/dev/null && cmp -s "${key}" "${DST_KEY}" 2>/dev/null && exit 0
+
+install -m 0640 -o root -g h2v2 "${crt}" "${DST_CRT}"
+install -m 0640 -o root -g h2v2 "${key}" "${DST_KEY}"
+systemctl reload-or-restart "${SINGBOX_SVC}.service" 2>/dev/null || true
+logger -t h2v2-cert-sync "synced ${DOMAIN} cert from ${crt}"
 SCRIPT
   run chmod 0750 "${BIN_DIR}/cert-sync.sh"
   run chown root:h2v2 "${BIN_DIR}/cert-sync.sh"
@@ -709,10 +719,27 @@ restart_services() {
   run systemctl restart h2v2-api.service
   run systemctl restart h2v2-web.service
   run systemctl restart caddy.service
-  # Try to sync a real ACME cert from Caddy before starting sing-box.
-  # Caddy may already have a cert from a previous run; if not, the
-  # self-signed placeholder generated earlier keeps sing-box functional.
-  "${BIN_DIR}/cert-sync.sh" 2>/dev/null || true
+  # Wait up to 90 s for Caddy to obtain the ACME cert for HY2_DOMAIN, then
+  # sync it to the HY2 cert dir so sing-box starts with a valid certificate.
+  # If the cert does not appear in time, the self-signed placeholder is used.
+  local waited=0 found=0
+  info "waiting for Caddy ACME cert for ${HY2_DOMAIN} (up to 90s)..."
+  while (( waited < 90 )); do
+    for root in /var/lib/caddy /root /home; do
+      [[ -d "${root}" ]] || continue
+      if find "${root}" -name "${HY2_DOMAIN}.crt" -path "*/certificates/*" 2>/dev/null | grep -q .; then
+        found=1; break 2
+      fi
+    done
+    sleep 3
+    (( waited += 3 ))
+  done
+  if (( found == 1 )); then
+    info "Caddy cert found, syncing to HY2 dir"
+    "${BIN_DIR}/cert-sync.sh" 2>/dev/null || true
+  else
+    warn "Caddy cert for ${HY2_DOMAIN} not yet available; sing-box will use self-signed placeholder until cert-sync runs"
+  fi
   run systemctl restart "${SINGBOX_SERVICE_NAME}.service"
   run systemctl start h2v2-cert-sync.path
 }
