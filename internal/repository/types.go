@@ -1,10 +1,6 @@
 package repository
 
-import (
-	"time"
-
-	paneldomain "h2v2/internal/domain/panel"
-)
+import "time"
 
 type Admin struct {
 	ID           string    `json:"id"`
@@ -42,54 +38,4 @@ type ServiceState struct {
 	Version     *string    `json:"version"`
 	LastCheckAt time.Time  `json:"last_check_at"`
 	RawJSON     *string    `json:"raw_json"`
-}
-
-type Protocol = paneldomain.Protocol
-
-const (
-	ProtocolHY2   = paneldomain.ProtocolHY2
-	ProtocolVLESS = paneldomain.ProtocolVLESS
-)
-
-type CredentialType = paneldomain.CredentialType
-
-const (
-	CredentialTypeUserPass = paneldomain.CredentialTypeUserPass
-	CredentialTypeUUID     = paneldomain.CredentialTypeUUID
-)
-
-type User = paneldomain.User
-type Credential = paneldomain.Credential
-type UserWithCredentials = paneldomain.UserWithCredentials
-type Node = paneldomain.Node
-type Inbound = paneldomain.Inbound
-type SubscriptionToken = paneldomain.SubscriptionToken
-type TrafficCounter = paneldomain.TrafficCounter
-
-type CreateUserInput struct {
-	Name              string
-	Note              *string
-	Enabled           bool
-	TrafficLimitBytes int64
-	ExpireAt          *time.Time
-	Credentials       []Credential
-}
-
-type UpdateUserInput struct {
-	Name              string
-	Note              *string
-	Enabled           bool
-	TrafficLimitBytes int64
-	ExpireAt          *time.Time
-	Credentials       []Credential
-}
-
-type BatchUserStateInput struct {
-	UserIDs  []string
-	Enabled  bool
-	Protocol *Protocol
-}
-
-type BatchDeleteUsersInput struct {
-	UserIDs []string
 }

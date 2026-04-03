@@ -23,22 +23,5 @@ func defaultSQLitePath(storageRoot string) string {
 	return filepath.Join(root, "data", "h2v2.db")
 }
 
-func paginate[T any](items []T, limit int, offset int) []T {
-	if offset < 0 {
-		offset = 0
-	}
-	if limit <= 0 {
-		limit = len(items)
-	}
-	if offset >= len(items) {
-		return []T{}
-	}
-	end := offset + limit
-	if end > len(items) {
-		end = len(items)
-	}
-	return append([]T(nil), items[offset:end]...)
-}
-
 func IsNotFound(err error) bool        { return errors.Is(err, ErrNotFound) }
 func IsUniqueViolation(err error) bool { return errors.Is(err, ErrUniqueViolation) }

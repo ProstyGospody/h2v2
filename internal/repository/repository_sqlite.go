@@ -2,11 +2,7 @@ package repository
 
 import (
 	"context"
-	"crypto/rand"
 	"database/sql"
-	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -14,11 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/crypto/curve25519"
 	_ "modernc.org/sqlite"
 )
-
-const sqliteSchemaVersion = 3
 
 type SQLiteRepository struct {
 	db   *sql.DB
@@ -87,53 +80,7 @@ func (r *SQLiteRepository) ensureSchema(ctx context.Context) error {
 	if err := r.ensureBaseSchema(ctx); err != nil {
 		return err
 	}
-
-	version, err := r.sqliteUserVersion(ctx)
-	if err != nil {
-		return err
-	}
-	if version < 1 {
-		if err := r.setSQLiteUserVersion(ctx, 1); err != nil {
-			return err
-		}
-		version = 1
-	}
-	if version < 2 {
-		if err := r.ensureUnifiedSchema(ctx); err != nil {
-			return err
-		}
-		if err := r.backfillUnifiedSchema(ctx); err != nil {
-			return err
-		}
-		if err := r.setSQLiteUserVersion(ctx, 2); err != nil {
-			return err
-		}
-		version = 2
-	}
-	if version < 3 {
-		if err := r.migrateVLESSRealityDefaults(ctx); err != nil {
-			return err
-		}
-		if err := r.setSQLiteUserVersion(ctx, 3); err != nil {
-			return err
-		}
-		version = 3
-	}
-	if version > sqliteSchemaVersion {
-		return fmt.Errorf("sqlite schema version %d is newer than supported %d", version, sqliteSchemaVersion)
-	}
-	if version < sqliteSchemaVersion {
-		if err := r.ensureUnifiedSchema(ctx); err != nil {
-			return err
-		}
-		if err := r.setSQLiteUserVersion(ctx, sqliteSchemaVersion); err != nil {
-			return err
-		}
-	}
-	if err := r.ensureUnifiedSchema(ctx); err != nil {
-		return err
-	}
-	if err := r.migrateVLESSRealityDefaults(ctx); err != nil {
+	if err := r.ensureCoreSchema(ctx); err != nil {
 		return err
 	}
 	return nil
@@ -191,456 +138,156 @@ func (r *SQLiteRepository) ensureBaseSchema(ctx context.Context) error {
 	return nil
 }
 
-func (r *SQLiteRepository) ensureUnifiedSchema(ctx context.Context) error {
+func (r *SQLiteRepository) ensureCoreSchema(ctx context.Context) error {
 	statements := []string{
-		`CREATE TABLE IF NOT EXISTS nodes (
+		`CREATE TABLE IF NOT EXISTS core_schema_migrations (
+			version INTEGER PRIMARY KEY,
+			applied_at_ns INTEGER NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS core_servers (
 			id TEXT PRIMARY KEY,
-			name TEXT NOT NULL,
-			address TEXT NOT NULL,
-			enabled INTEGER NOT NULL,
+			name TEXT NOT NULL UNIQUE,
+			public_host TEXT NOT NULL,
+			panel_public_url TEXT NOT NULL,
+			subscription_base_url TEXT NOT NULL,
+			singbox_binary_path TEXT NOT NULL,
+			singbox_config_path TEXT NOT NULL,
+			singbox_service_name TEXT NOT NULL,
 			created_at_ns INTEGER NOT NULL,
 			updated_at_ns INTEGER NOT NULL
 		);`,
-		`CREATE TABLE IF NOT EXISTS users (
+		`CREATE TABLE IF NOT EXISTS core_inbounds (
 			id TEXT PRIMARY KEY,
+			server_id TEXT NOT NULL,
 			name TEXT NOT NULL,
-			name_normalized TEXT NOT NULL UNIQUE,
+			tag TEXT NOT NULL,
+			protocol TEXT NOT NULL CHECK(protocol IN ('vless', 'hysteria2')),
+			listen TEXT NOT NULL,
+			listen_port INTEGER NOT NULL,
+			enabled INTEGER NOT NULL,
+			template_key TEXT NOT NULL,
+			created_at_ns INTEGER NOT NULL,
+			updated_at_ns INTEGER NOT NULL,
+			FOREIGN KEY(server_id) REFERENCES core_servers(id) ON DELETE CASCADE,
+			UNIQUE(server_id, tag)
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_core_inbounds_server ON core_inbounds(server_id, enabled);`,
+		`CREATE TABLE IF NOT EXISTS core_inbound_vless_settings (
+			inbound_id TEXT PRIMARY KEY,
+			tls_enabled INTEGER NOT NULL,
+			tls_server_name TEXT,
+			tls_alpn_csv TEXT,
+			tls_certificate_path TEXT,
+			tls_key_path TEXT,
+			reality_enabled INTEGER NOT NULL,
+			reality_public_key TEXT,
+			reality_private_key_enc TEXT,
+			reality_short_id TEXT,
+			reality_handshake_server TEXT,
+			reality_handshake_server_port INTEGER,
+			flow TEXT,
+			transport_type TEXT NOT NULL,
+			transport_host TEXT,
+			transport_path TEXT,
+			multiplex_enabled INTEGER NOT NULL,
+			multiplex_protocol TEXT,
+			multiplex_max_connections INTEGER,
+			multiplex_min_streams INTEGER,
+			multiplex_max_streams INTEGER,
+			FOREIGN KEY(inbound_id) REFERENCES core_inbounds(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS core_inbound_hysteria2_settings (
+			inbound_id TEXT PRIMARY KEY,
+			tls_enabled INTEGER NOT NULL,
+			tls_server_name TEXT,
+			tls_certificate_path TEXT,
+			tls_key_path TEXT,
+			up_mbps INTEGER,
+			down_mbps INTEGER,
+			ignore_client_bandwidth INTEGER NOT NULL,
+			obfs_type TEXT,
+			obfs_password_enc TEXT,
+			masquerade_json TEXT,
+			bbr_profile TEXT,
+			brutal_debug INTEGER NOT NULL,
+			FOREIGN KEY(inbound_id) REFERENCES core_inbounds(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS core_users (
+			id TEXT PRIMARY KEY,
+			username TEXT NOT NULL UNIQUE,
 			enabled INTEGER NOT NULL,
 			traffic_limit_bytes INTEGER NOT NULL DEFAULT 0,
-			traffic_used_tx_bytes INTEGER NOT NULL DEFAULT 0,
-			traffic_used_rx_bytes INTEGER NOT NULL DEFAULT 0,
+			traffic_used_up_bytes INTEGER NOT NULL DEFAULT 0,
+			traffic_used_down_bytes INTEGER NOT NULL DEFAULT 0,
 			expire_at_ns INTEGER,
-			note TEXT,
-			subject TEXT NOT NULL UNIQUE,
 			created_at_ns INTEGER NOT NULL,
-			updated_at_ns INTEGER NOT NULL,
-			last_seen_at_ns INTEGER
+			updated_at_ns INTEGER NOT NULL
 		);`,
-		`CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at_ns DESC);`,
-		`CREATE TABLE IF NOT EXISTS credentials (
+		`CREATE INDEX IF NOT EXISTS idx_core_users_enabled ON core_users(enabled, updated_at_ns DESC);`,
+		`CREATE TABLE IF NOT EXISTS core_user_access (
 			id TEXT PRIMARY KEY,
 			user_id TEXT NOT NULL,
-			protocol TEXT NOT NULL,
-			credential_type TEXT NOT NULL,
-			identity TEXT NOT NULL,
-			secret TEXT NOT NULL,
-			data_json TEXT,
-			created_at_ns INTEGER NOT NULL,
-			updated_at_ns INTEGER NOT NULL,
-			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
-			UNIQUE(user_id, protocol)
-		);`,
-		`CREATE INDEX IF NOT EXISTS idx_credentials_protocol_identity ON credentials(protocol, identity);`,
-		`CREATE TABLE IF NOT EXISTS inbounds (
-			id TEXT PRIMARY KEY,
-			node_id TEXT NOT NULL,
-			name TEXT NOT NULL,
-			protocol TEXT NOT NULL,
-			transport TEXT NOT NULL,
-			security TEXT NOT NULL,
-			host TEXT NOT NULL,
-			port INTEGER NOT NULL,
+			inbound_id TEXT NOT NULL,
 			enabled INTEGER NOT NULL,
-			params_json TEXT,
-			runtime_json TEXT,
+			vless_uuid TEXT,
+			vless_flow_override TEXT,
+			hy2_password_enc TEXT,
+			traffic_limit_bytes_override INTEGER,
+			expire_at_ns_override INTEGER,
 			created_at_ns INTEGER NOT NULL,
 			updated_at_ns INTEGER NOT NULL,
-			FOREIGN KEY(node_id) REFERENCES nodes(id) ON DELETE CASCADE
+			FOREIGN KEY(user_id) REFERENCES core_users(id) ON DELETE CASCADE,
+			FOREIGN KEY(inbound_id) REFERENCES core_inbounds(id) ON DELETE CASCADE,
+			UNIQUE(user_id, inbound_id)
 		);`,
-		`CREATE INDEX IF NOT EXISTS idx_inbounds_protocol ON inbounds(protocol);`,
-		`CREATE TABLE IF NOT EXISTS subscription_tokens (
-			user_id TEXT PRIMARY KEY,
-			subject TEXT NOT NULL,
-			version INTEGER NOT NULL,
-			revoked INTEGER NOT NULL,
-			rotated_at_ns INTEGER,
+		`CREATE INDEX IF NOT EXISTS idx_core_user_access_user ON core_user_access(user_id, enabled);`,
+		`CREATE INDEX IF NOT EXISTS idx_core_user_access_inbound ON core_user_access(inbound_id, enabled);`,
+		`CREATE TABLE IF NOT EXISTS core_subscriptions (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL UNIQUE,
+			profile_name TEXT NOT NULL,
+			enabled INTEGER NOT NULL,
+			created_at_ns INTEGER NOT NULL,
 			updated_at_ns INTEGER NOT NULL,
-			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+			FOREIGN KEY(user_id) REFERENCES core_users(id) ON DELETE CASCADE
 		);`,
-		`CREATE TABLE IF NOT EXISTS traffic_counters (
-			id INTEGER PRIMARY KEY,
-			user_id TEXT NOT NULL,
-			protocol TEXT NOT NULL,
-			tx_bytes INTEGER NOT NULL,
-			rx_bytes INTEGER NOT NULL,
-			online_count INTEGER NOT NULL,
-			snapshot_at_ns INTEGER NOT NULL,
-			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+		`CREATE TABLE IF NOT EXISTS core_subscription_tokens (
+			id TEXT PRIMARY KEY,
+			subscription_id TEXT NOT NULL,
+			token_prefix TEXT NOT NULL,
+			token_hash TEXT NOT NULL UNIQUE,
+			token_salt TEXT NOT NULL,
+			revoked_at_ns INTEGER,
+			expires_at_ns INTEGER,
+			last_used_at_ns INTEGER,
+			last_used_ip TEXT,
+			created_at_ns INTEGER NOT NULL,
+			FOREIGN KEY(subscription_id) REFERENCES core_subscriptions(id) ON DELETE CASCADE
 		);`,
-		`CREATE INDEX IF NOT EXISTS idx_traffic_counters_user_at ON traffic_counters(user_id, protocol, snapshot_at_ns DESC);`,
-		`CREATE TABLE IF NOT EXISTS runtime_user_state (
-			user_id TEXT NOT NULL,
-			protocol TEXT NOT NULL,
-			online_count INTEGER NOT NULL,
-			last_sync_at_ns INTEGER NOT NULL,
-			last_error TEXT,
-			PRIMARY KEY(user_id, protocol),
-			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+		`CREATE INDEX IF NOT EXISTS idx_core_subscription_tokens_prefix ON core_subscription_tokens(token_prefix);`,
+		`CREATE TABLE IF NOT EXISTS core_config_revisions (
+			id TEXT PRIMARY KEY,
+			server_id TEXT NOT NULL,
+			revision_no INTEGER NOT NULL,
+			config_hash TEXT NOT NULL,
+			rendered_json TEXT NOT NULL,
+			check_ok INTEGER NOT NULL,
+			check_error TEXT,
+			applied_at_ns INTEGER,
+			rollback_from_revision_id TEXT,
+			created_at_ns INTEGER NOT NULL,
+			FOREIGN KEY(server_id) REFERENCES core_servers(id) ON DELETE CASCADE,
+			UNIQUE(server_id, revision_no)
 		);`,
-		`DROP TRIGGER IF EXISTS trg_hy2_user_insert;`,
-		`DROP TRIGGER IF EXISTS trg_hy2_user_update;`,
-		`DROP TRIGGER IF EXISTS trg_hy2_user_delete;`,
-		`DROP TRIGGER IF EXISTS trg_hy2_snapshot_insert;`,
+		`CREATE INDEX IF NOT EXISTS idx_core_config_revisions_server ON core_config_revisions(server_id, revision_no DESC);`,
 	}
 	for _, stmt := range statements {
 		if _, err := r.db.ExecContext(resolveCtx(ctx), stmt); err != nil {
-			return fmt.Errorf("ensure sqlite unified schema: %w", err)
+			return fmt.Errorf("ensure sqlite core schema: %w", err)
 		}
 	}
-	return nil
-}
-
-func (r *SQLiteRepository) backfillUnifiedSchema(ctx context.Context) error {
-	tx, err := r.db.BeginTx(resolveCtx(ctx), nil)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		}
-	}()
-
-	now := nowNano()
-	if _, err = tx.ExecContext(
-		resolveCtx(ctx),
-		`INSERT INTO nodes (id, name, address, enabled, created_at_ns, updated_at_ns)
-		 VALUES ('local', 'local', '127.0.0.1', 1, ?, ?)
-		 ON CONFLICT(id) DO UPDATE SET
-			 name = excluded.name,
-			 address = excluded.address,
-			 enabled = excluded.enabled,
-			 updated_at_ns = excluded.updated_at_ns`,
-		now,
-		now,
-	); err != nil {
-		return err
-	}
-
-	if _, err = tx.ExecContext(
-		resolveCtx(ctx),
-		`INSERT INTO subscription_tokens (user_id, subject, version, revoked, rotated_at_ns, updated_at_ns)
-		SELECT
-			u.id,
-			u.subject,
-			1,
-			0,
-			NULL,
-			u.updated_at_ns
-		FROM users u
-		WHERE NOT EXISTS (
-			SELECT 1 FROM subscription_tokens st WHERE st.user_id = u.id
-		)`,
-	); err != nil {
-		return err
-	}
-
-	if _, err = tx.ExecContext(
-		resolveCtx(ctx),
-		`INSERT INTO inbounds (
-			id, node_id, name, protocol, transport, security, host, port, enabled, params_json, runtime_json, created_at_ns, updated_at_ns
-		)
-		SELECT 'hy2-default', 'local', 'HY2 Default', 'hy2', 'quic', 'tls', '127.0.0.1', 443, 1, '{}', '{}', ?, ?
-		WHERE NOT EXISTS (SELECT 1 FROM inbounds WHERE protocol = 'hy2')`,
-		now,
-		now,
-	); err != nil {
-		return err
-	}
-
-	if _, err = tx.ExecContext(
-		resolveCtx(ctx),
-		`INSERT INTO inbounds (
-			id, node_id, name, protocol, transport, security, host, port, enabled, params_json, runtime_json, created_at_ns, updated_at_ns
-		)
-		SELECT
-			'vless-default',
-			'local',
-			'VLESS Reality',
-			'vless',
-			'tcp',
-			'reality',
-			'127.0.0.1',
-			443,
-			1,
-			'{"flow":"xtls-rprx-vision","pbk":"","sid":"","sni":"www.cloudflare.com","fp":"chrome","network":"tcp","security":"reality","dest":"www.cloudflare.com:443"}',
-			'{}',
-			?,
-			?
-		WHERE NOT EXISTS (SELECT 1 FROM inbounds WHERE protocol = 'vless')`,
-		now,
-		now,
-	); err != nil {
-		return err
-	}
-
-	return tx.Commit()
-}
-
-func (r *SQLiteRepository) migrateVLESSRealityDefaults(ctx context.Context) error {
-	tx, err := r.db.BeginTx(resolveCtx(ctx), nil)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		}
-	}()
-
-	rows, err := tx.QueryContext(
-		resolveCtx(ctx),
-		`SELECT id, params_json
-		 FROM inbounds
-		 WHERE protocol = 'vless' AND lower(security) = 'reality'`,
-	)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-
-	type updateItem struct {
-		ID         string
-		ParamsJSON string
-	}
-	updates := make([]updateItem, 0)
-	for rows.Next() {
-		var (
-			id        string
-			paramsRaw sql.NullString
-		)
-		if err := rows.Scan(&id, &paramsRaw); err != nil {
-			return err
-		}
-		params := make(map[string]any)
-		if paramsRaw.Valid {
-			trimmed := strings.TrimSpace(paramsRaw.String)
-			if trimmed != "" {
-				if err := json.Unmarshal([]byte(trimmed), &params); err != nil {
-					params = make(map[string]any)
-				}
-			}
-		}
-		normalized, changed, normalizeErr := normalizeLegacyRealityParams(params)
-		if normalizeErr != nil {
-			return fmt.Errorf("normalize vless reality params for inbound %s: %w", id, normalizeErr)
-		}
-		if !changed {
-			continue
-		}
-		encoded, encodeErr := json.Marshal(normalized)
-		if encodeErr != nil {
-			return encodeErr
-		}
-		updates = append(updates, updateItem{ID: id, ParamsJSON: string(encoded)})
-	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	for _, item := range updates {
-		if _, err = tx.ExecContext(
-			resolveCtx(ctx),
-			`UPDATE inbounds SET params_json = ?, updated_at_ns = ? WHERE id = ?`,
-			item.ParamsJSON,
-			nowNano(),
-			item.ID,
-		); err != nil {
-			return err
-		}
-	}
-
-	var enabledCount int
-	if err = tx.QueryRowContext(
-		resolveCtx(ctx),
-		`SELECT COUNT(1) FROM inbounds WHERE protocol = 'vless' AND enabled = 1`,
-	).Scan(&enabledCount); err != nil {
-		return err
-	}
-	if enabledCount == 0 {
-		if _, err = tx.ExecContext(
-			resolveCtx(ctx),
-			`UPDATE inbounds
-			 SET enabled = 1, updated_at_ns = ?
-			 WHERE id = (
-			   SELECT id
-			   FROM inbounds
-			   WHERE protocol = 'vless'
-			   ORDER BY CASE WHEN id = 'vless-default' THEN 0 ELSE 1 END, created_at_ns ASC, id ASC
-			   LIMIT 1
-			 )`,
-			nowNano(),
-		); err != nil {
-			return err
-		}
-	}
-	return tx.Commit()
-}
-
-func normalizeLegacyRealityParams(params map[string]any) (map[string]any, bool, error) {
-	if params == nil {
-		params = make(map[string]any)
-	}
-	changed := false
-	readString := func(key string) string {
-		value, ok := params[key]
-		if !ok || value == nil {
-			return ""
-		}
-		switch typed := value.(type) {
-		case string:
-			return strings.TrimSpace(typed)
-		default:
-			return strings.TrimSpace(fmt.Sprintf("%v", typed))
-		}
-	}
-	setString := func(key string, value string) {
-		trimmed := strings.TrimSpace(value)
-		current := readString(key)
-		if current != trimmed {
-			changed = true
-		}
-		params[key] = trimmed
-	}
-
-	privateKeyRaw := readString("privateKey")
-	privateKey := ""
-	if privateKeyRaw != "" {
-		decoded, err := decodeLegacyRealityKey(privateKeyRaw)
-		if err == nil {
-			privateKey = encodeLegacyRealityKey(decoded)
-		}
-	}
-	publicKeyRaw := readString("pbk")
-	if publicKeyRaw == "" {
-		publicKeyRaw = readString("publicKey")
-	}
-	publicKey := ""
-	if publicKeyRaw != "" {
-		decoded, err := decodeLegacyRealityKey(publicKeyRaw)
-		if err == nil {
-			publicKey = encodeLegacyRealityKey(decoded)
-		}
-	}
-	if privateKey != "" {
-		derivedPublic, derivedErr := deriveLegacyRealityPublicKey(privateKey)
-		if derivedErr != nil {
-			return params, false, derivedErr
-		}
-		if publicKey != derivedPublic {
-			publicKey = derivedPublic
-			changed = true
-		}
-	}
-	if privateKey == "" || publicKey == "" {
-		var pairErr error
-		privateKey, publicKey, pairErr = generateLegacyRealityKeyPair()
-		if pairErr != nil {
-			return params, false, pairErr
-		}
-		changed = true
-	}
-	setString("privateKey", privateKey)
-	setString("pbk", publicKey)
-	if _, exists := params["publicKey"]; exists {
-		delete(params, "publicKey")
-		changed = true
-	}
-
-	sidRaw := strings.ToLower(strings.TrimSpace(readString("sid")))
-	sid := ""
-	if sidRaw != "" {
-		if len(sidRaw) <= 32 && len(sidRaw)%2 == 0 {
-			if _, err := hex.DecodeString(sidRaw); err == nil {
-				sid = sidRaw
-			}
-		}
-	}
-	if sid == "" {
-		if _, exists := params["sid"]; exists {
-			delete(params, "sid")
-			changed = true
-		}
-	} else {
-		setString("sid", sid)
-	}
-
-	if strings.TrimSpace(readString("security")) == "" {
-		setString("security", "reality")
-	}
-	if strings.TrimSpace(readString("network")) == "" {
-		setString("network", "tcp")
-	}
-	if strings.TrimSpace(readString("flow")) == "" {
-		setString("flow", "xtls-rprx-vision")
-	}
-	if strings.TrimSpace(readString("fp")) == "" {
-		setString("fp", "chrome")
-	}
-	return params, changed, nil
-}
-
-func decodeLegacyRealityKey(value string) ([]byte, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return nil, fmt.Errorf("reality key is empty")
-	}
-	encodings := []*base64.Encoding{
-		base64.RawURLEncoding,
-		base64.URLEncoding,
-		base64.RawStdEncoding,
-		base64.StdEncoding,
-	}
-	for _, enc := range encodings {
-		decoded, err := enc.DecodeString(trimmed)
-		if err != nil {
-			continue
-		}
-		if len(decoded) == 32 {
-			return decoded, nil
-		}
-	}
-	return nil, fmt.Errorf("reality key must decode to 32 bytes")
-}
-
-func encodeLegacyRealityKey(value []byte) string {
-	return base64.RawURLEncoding.EncodeToString(value)
-}
-
-func deriveLegacyRealityPublicKey(privateKey string) (string, error) {
-	decoded, err := decodeLegacyRealityKey(privateKey)
-	if err != nil {
-		return "", err
-	}
-	publicKey, err := curve25519.X25519(decoded, curve25519.Basepoint)
-	if err != nil {
-		return "", err
-	}
-	return encodeLegacyRealityKey(publicKey), nil
-}
-
-func generateLegacyRealityKeyPair() (string, string, error) {
-	privateKey := make([]byte, 32)
-	if _, err := rand.Read(privateKey); err != nil {
-		return "", "", err
-	}
-	publicKey, err := curve25519.X25519(privateKey, curve25519.Basepoint)
-	if err != nil {
-		return "", "", err
-	}
-	return encodeLegacyRealityKey(privateKey), encodeLegacyRealityKey(publicKey), nil
-}
-
-func (r *SQLiteRepository) sqliteUserVersion(ctx context.Context) (int, error) {
-	var version int
-	if err := r.db.QueryRowContext(resolveCtx(ctx), `PRAGMA user_version;`).Scan(&version); err != nil {
-		return 0, fmt.Errorf("get sqlite user_version: %w", err)
-	}
-	return version, nil
-}
-
-func (r *SQLiteRepository) setSQLiteUserVersion(ctx context.Context, version int) error {
-	if _, err := r.db.ExecContext(resolveCtx(ctx), fmt.Sprintf(`PRAGMA user_version=%d;`, version)); err != nil {
-		return fmt.Errorf("set sqlite user_version: %w", err)
+	if _, err := r.db.ExecContext(resolveCtx(ctx), `INSERT OR IGNORE INTO core_schema_migrations(version, applied_at_ns) VALUES (1, ?);`, nowNano()); err != nil {
+		return fmt.Errorf("record core schema version: %w", err)
 	}
 	return nil
 }
@@ -690,17 +337,6 @@ func optionalString(raw sql.NullString) *string {
 		return nil
 	}
 	return &trimmed
-}
-
-func optionalInt64(raw sql.NullInt64) *time.Time {
-	if !raw.Valid {
-		return nil
-	}
-	ts := fromUnixNano(raw.Int64)
-	if ts.IsZero() {
-		return nil
-	}
-	return &ts
 }
 
 func translateSQLiteErr(err error) error {

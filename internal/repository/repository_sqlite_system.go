@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 )
 
@@ -145,63 +144,4 @@ func (r *SQLiteRepository) pruneSystemSnapshotsTx(ctx context.Context, tx *sql.T
 		excess,
 	)
 	return err
-}
-
-func (r *SQLiteRepository) importSystemSnapshotsTx(ctx context.Context, tx *sql.Tx, items []SystemSnapshot) error {
-	stmt := `INSERT INTO system_snapshots (id, snapshot_at_ns, cpu_usage_percent, memory_used_percent, network_rx_bps, network_tx_bps)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(id) DO UPDATE SET
-			snapshot_at_ns = excluded.snapshot_at_ns,
-			cpu_usage_percent = excluded.cpu_usage_percent,
-			memory_used_percent = excluded.memory_used_percent,
-			network_rx_bps = excluded.network_rx_bps,
-			network_tx_bps = excluded.network_tx_bps`
-	for _, item := range items {
-		if _, err := tx.ExecContext(
-			resolveCtx(ctx),
-			stmt,
-			item.ID,
-			toUnixNano(item.SnapshotAt),
-			item.CPUUsagePercent,
-			item.MemoryUsedPercent,
-			item.NetworkRxBps,
-			item.NetworkTxBps,
-		); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *SQLiteRepository) listSystemSnapshots(ctx context.Context) ([]SystemSnapshot, error) {
-	rows, err := r.db.QueryContext(
-		resolveCtx(ctx),
-		`SELECT id, snapshot_at_ns, cpu_usage_percent, memory_used_percent, network_rx_bps, network_tx_bps
-		 FROM system_snapshots
-		 ORDER BY id ASC`,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := make([]SystemSnapshot, 0)
-	for rows.Next() {
-		item, err := r.scanSystemSnapshot(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, item)
-	}
-	return out, rows.Err()
-}
-
-func (r *SQLiteRepository) requireSystemSnapshotCount(ctx context.Context, expected int) error {
-	var count int
-	if err := r.db.QueryRowContext(resolveCtx(ctx), `SELECT COUNT(*) FROM system_snapshots`).Scan(&count); err != nil {
-		return err
-	}
-	if count != expected {
-		return fmt.Errorf("system snapshots mismatch: expected=%d got=%d", expected, count)
-	}
-	return nil
 }
