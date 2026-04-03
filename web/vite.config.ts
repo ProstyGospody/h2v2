@@ -48,25 +48,25 @@ export default defineConfig(({ mode }) => {
       sourcemap: false,
       rollupOptions: {
         output: {
-          manualChunks: {
-            "vendor-react": ["react", "react-dom", "react-router-dom"],
-            "vendor-query": ["@tanstack/react-query"],
-            "vendor-motion": ["framer-motion"],
-            "vendor-recharts": ["recharts"],
-            "vendor-table": ["@tanstack/react-table", "@tanstack/react-virtual"],
-            "vendor-radix": [
-              "@radix-ui/react-checkbox",
-              "@radix-ui/react-dialog",
-              "@radix-ui/react-dropdown-menu",
-              "@radix-ui/react-popover",
-              "@radix-ui/react-scroll-area",
-              "@radix-ui/react-select",
-              "@radix-ui/react-separator",
-              "@radix-ui/react-switch",
-              "@radix-ui/react-tabs",
-              "@radix-ui/react-toast",
-              "@radix-ui/react-tooltip",
-            ],
+          manualChunks(id) {
+            if (id.includes("/recharts/") || id.includes("/d3-") || id.includes("/victory-vendor/")) {
+              return "vendor-recharts";
+            }
+            if (id.includes("/@tanstack/react-table") || id.includes("/@tanstack/react-virtual")) {
+              return "vendor-table";
+            }
+            if (id.includes("/framer-motion/") || id.includes("/motion/")) {
+              return "vendor-motion";
+            }
+            if (id.includes("/@tanstack/react-query")) {
+              return "vendor-query";
+            }
+            if (id.includes("/@radix-ui/")) {
+              return "vendor-radix";
+            }
+            if (id.includes("/node_modules/react/") || id.includes("/node_modules/react-dom/") || id.includes("/node_modules/react-router")) {
+              return "vendor-react";
+            }
           },
         },
       },
