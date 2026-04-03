@@ -18,6 +18,8 @@ func NewRouter(
 	repo repository.Repository,
 	h *handlers.Handler,
 ) *chi.Mux {
+	apiLimiter := middleware.NewAPIRateLimiter()
+
 	r := chi.NewRouter()
 	r.Use(chiMiddleware.RequestID)
 	r.Use(chiMiddleware.RealIP)
@@ -32,6 +34,7 @@ func NewRouter(
 	r.Get("/sub/{token}/qr.png", h.CoreSubscriptionQR)
 
 	r.Route("/api", func(api chi.Router) {
+		api.Use(middleware.RateLimit(apiLimiter))
 		api.Route("/auth", func(auth chi.Router) {
 			auth.Post("/login", h.Login)
 			auth.With(

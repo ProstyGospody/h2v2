@@ -52,8 +52,10 @@ func NewStore(dbPath string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
+	// WAL mode allows concurrent readers; writers still serialize via SQLite locking.
+	// busy_timeout=5000ms handles write contention without returning SQLITE_BUSY.
+	db.SetMaxOpenConns(5)
+	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(0)
 	db.SetConnMaxIdleTime(0)
 
@@ -242,17 +244,90 @@ func (s *Store) ensureSchema(ctx context.Context) error {
 			UNIQUE(server_id, revision_no)
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_core_config_revisions_server ON core_config_revisions(server_id, revision_no DESC);`,
+		`CREATE TABLE IF NOT EXISTS core_subscription_rate_hits (
+			key TEXT NOT NULL,
+			hit_at_ns INTEGER NOT NULL
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_core_subscription_rate_hits ON core_subscription_rate_hits(key, hit_at_ns);`,
 	}
 	for _, stmt := range statements {
 		if _, err := s.db.ExecContext(resolveCtx(ctx), stmt); err != nil {
 			return fmt.Errorf("ensure core schema: %w", err)
 		}
 	}
-	_, err := s.db.ExecContext(resolveCtx(ctx), `INSERT OR IGNORE INTO core_schema_migrations(version, applied_at_ns) VALUES (1, ?);`, nowNano())
-	if err != nil {
-		return fmt.Errorf("record core schema version: %w", err)
+	if err := s.runMigrations(ctx); err != nil {
+		return err
 	}
 	return nil
+}
+
+func (s *Store) runMigrations(ctx context.Context) error {
+	type migration struct {
+		version int
+		stmts   []string
+	}
+	migrations := []migration{
+		{version: 1, stmts: nil}, // baseline — schema already applied above
+	}
+	for _, m := range migrations {
+		var count int
+		if err := s.db.QueryRowContext(resolveCtx(ctx), `SELECT COUNT(*) FROM core_schema_migrations WHERE version = ?`, m.version).Scan(&count); err != nil {
+			return fmt.Errorf("migration check v%d: %w", m.version, err)
+		}
+		if count > 0 {
+			continue
+		}
+		for _, stmt := range m.stmts {
+			if _, err := s.db.ExecContext(resolveCtx(ctx), stmt); err != nil {
+				return fmt.Errorf("migration v%d: %w", m.version, err)
+			}
+		}
+		if _, err := s.db.ExecContext(resolveCtx(ctx), `INSERT INTO core_schema_migrations(version, applied_at_ns) VALUES (?, ?)`, m.version, nowNano()); err != nil {
+			return fmt.Errorf("record migration v%d: %w", m.version, err)
+		}
+	}
+	return nil
+}
+
+// AllowSubscriptionRateHit checks and records a rate-limited event for key.
+// Returns true if the request is within limit hits per window.
+// Executed in a single transaction to prevent TOCTOU races.
+// Periodically purges all expired entries across all keys (roughly 1 in 50 calls).
+func (s *Store) AllowSubscriptionRateHit(ctx context.Context, key string, limit int, window time.Duration) (bool, error) {
+	tx, err := s.db.BeginTx(resolveCtx(ctx), nil)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	now := time.Now().UTC()
+	cutoffNs := now.Add(-window).UnixNano()
+
+	// Probabilistic full table cleanup to prevent unbounded growth from abandoned keys.
+	if now.UnixNano()%50 == 0 {
+		if _, err := tx.ExecContext(resolveCtx(ctx), `DELETE FROM core_subscription_rate_hits WHERE hit_at_ns < ?`, cutoffNs); err != nil {
+			return false, err
+		}
+	} else {
+		// Per-key cleanup on every request.
+		if _, err := tx.ExecContext(resolveCtx(ctx), `DELETE FROM core_subscription_rate_hits WHERE key = ? AND hit_at_ns < ?`, key, cutoffNs); err != nil {
+			return false, err
+		}
+	}
+
+	var count int
+	if err := tx.QueryRowContext(resolveCtx(ctx), `SELECT COUNT(*) FROM core_subscription_rate_hits WHERE key = ?`, key).Scan(&count); err != nil {
+		return false, err
+	}
+	if count >= limit {
+		_ = tx.Commit()
+		return false, nil
+	}
+
+	if _, err := tx.ExecContext(resolveCtx(ctx), `INSERT INTO core_subscription_rate_hits(key, hit_at_ns) VALUES (?, ?)`, key, now.UnixNano()); err != nil {
+		return false, err
+	}
+	return true, tx.Commit()
 }
 
 func resolveCtx(ctx context.Context) context.Context {

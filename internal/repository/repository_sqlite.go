@@ -31,8 +31,10 @@ func NewSQLiteRepository(dbPath string) (*SQLiteRepository, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
+	// WAL mode allows concurrent readers; writers still serialize via SQLite locking.
+	// busy_timeout=5000ms handles write contention without returning SQLITE_BUSY.
+	db.SetMaxOpenConns(5)
+	db.SetMaxIdleConns(5)
 	db.SetConnMaxIdleTime(0)
 	db.SetConnMaxLifetime(0)
 

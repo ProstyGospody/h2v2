@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -28,12 +27,22 @@ import (
 	"h2v2/internal/services"
 )
 
+const (
+	subscriptionRateLimit  = 60
+	subscriptionRateWindow = time.Minute
+	singBoxCheckTimeout    = 20 * time.Second
+	defaultRealityHost     = "www.cloudflare.com"
+	defaultRealityPort     = 443
+	defaultSingBoxBinary   = "/usr/local/bin/sing-box"
+	defaultSingBoxConfig   = "/etc/h2v2/sing-box/config.json"
+	defaultSingBoxService  = "sing-box"
+)
+
 type Service struct {
 	cfg            config.Config
 	logger         *slog.Logger
 	store          *Store
 	serviceManager *services.ServiceManager
-	rateLimiter    *subscriptionRateLimiter
 }
 
 func NewService(cfg config.Config, logger *slog.Logger, serviceManager *services.ServiceManager) (*Service, error) {
@@ -46,7 +55,6 @@ func NewService(cfg config.Config, logger *slog.Logger, serviceManager *services
 		logger:         logger,
 		store:          store,
 		serviceManager: serviceManager,
-		rateLimiter:    newSubscriptionRateLimiter(60, time.Minute),
 	}, nil
 }
 
@@ -64,50 +72,6 @@ func (s *Service) Close() error {
 	return s.store.Close()
 }
 
-type subscriptionRateLimiter struct {
-	mu     sync.Mutex
-	limit  int
-	window time.Duration
-	hits   map[string][]time.Time
-}
-
-func newSubscriptionRateLimiter(limit int, window time.Duration) *subscriptionRateLimiter {
-	if limit <= 0 {
-		limit = 60
-	}
-	if window <= 0 {
-		window = time.Minute
-	}
-	return &subscriptionRateLimiter{
-		limit:  limit,
-		window: window,
-		hits:   make(map[string][]time.Time),
-	}
-}
-
-func (l *subscriptionRateLimiter) Allow(key string) bool {
-	if l == nil {
-		return true
-	}
-	now := time.Now().UTC()
-	threshold := now.Add(-l.window)
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	entries := l.hits[key]
-	filtered := entries[:0]
-	for _, item := range entries {
-		if item.After(threshold) {
-			filtered = append(filtered, item)
-		}
-	}
-	if len(filtered) >= l.limit {
-		l.hits[key] = filtered
-		return false
-	}
-	filtered = append(filtered, now)
-	l.hits[key] = filtered
-	return true
-}
 
 func (s *Service) defaultServer(input Server) Server {
 	out := input
@@ -127,19 +91,19 @@ func (s *Service) defaultServer(input Server) Server {
 		out.SingBoxBinaryPath = s.cfg.SingBoxBinaryPath
 	}
 	if strings.TrimSpace(out.SingBoxBinaryPath) == "" {
-		out.SingBoxBinaryPath = "/usr/local/bin/sing-box"
+		out.SingBoxBinaryPath = defaultSingBoxBinary
 	}
 	if strings.TrimSpace(out.SingBoxConfigPath) == "" {
 		out.SingBoxConfigPath = s.cfg.SingBoxConfigPath
 	}
 	if strings.TrimSpace(out.SingBoxConfigPath) == "" {
-		out.SingBoxConfigPath = "/etc/h2v2/sing-box/config.json"
+		out.SingBoxConfigPath = defaultSingBoxConfig
 	}
 	if strings.TrimSpace(out.SingBoxServiceName) == "" {
 		out.SingBoxServiceName = s.cfg.SingBoxServiceName
 	}
 	if strings.TrimSpace(out.SingBoxServiceName) == "" {
-		out.SingBoxServiceName = "sing-box"
+		out.SingBoxServiceName = defaultSingBoxService
 	}
 	return out
 }
@@ -272,16 +236,16 @@ func normalizeRealitySettings(value *VLESSInboundSettings) error {
 	if strings.TrimSpace(value.TLSServerName) == "" {
 		handshake := strings.TrimSpace(value.RealityHandshakeServer)
 		if handshake == "" {
-			handshake = "www.cloudflare.com"
+			handshake = defaultRealityHost
 		}
 		value.TLSServerName = handshake
 	}
 	// Default handshake server if not set.
 	if strings.TrimSpace(value.RealityHandshakeServer) == "" {
-		value.RealityHandshakeServer = "www.cloudflare.com"
+		value.RealityHandshakeServer = defaultRealityHost
 	}
 	if value.RealityHandshakeServerPort <= 0 {
-		value.RealityHandshakeServerPort = 443
+		value.RealityHandshakeServerPort = defaultRealityPort
 	}
 	return nil
 }
@@ -550,7 +514,11 @@ func (s *Service) BuildUserArtifacts(ctx context.Context, userID string) (UserAr
 }
 
 func (s *Service) RenderSubscriptionContentByToken(ctx context.Context, plainToken string, kind string, clientIP string, ifNoneMatch string) (SubscriptionContent, error) {
-	if !s.rateLimiter.Allow(strings.TrimSpace(clientIP) + "|" + tokenPrefix(plainToken)) {
+	rateKey := strings.TrimSpace(clientIP) + "|" + tokenPrefix(plainToken)
+	allowed, err := s.store.AllowSubscriptionRateHit(ctx, rateKey, subscriptionRateLimit, subscriptionRateWindow)
+	if err != nil {
+		s.logger.Warn("subscription rate limiter error, allowing request", "err", err)
+	} else if !allowed {
 		return SubscriptionContent{}, ErrRateLimited
 	}
 	tokenCtx, err := s.store.ResolveSubscriptionToken(ctx, plainToken, clientIP)
@@ -633,11 +601,16 @@ func (s *Service) buildUserURIsAndOutbounds(ctx context.Context, user User) ([]s
 			continue
 		}
 		inbound, err := s.store.GetInbound(ctx, access.InboundID)
-		if err != nil || !inbound.Enabled {
+		if err != nil {
+			s.logger.Warn("buildUserURIsAndOutbounds: failed to get inbound", "user_id", user.ID, "inbound_id", access.InboundID, "err", err)
+			continue
+		}
+		if !inbound.Enabled {
 			continue
 		}
 		server, err := s.store.GetServer(ctx, inbound.ServerID)
 		if err != nil {
+			s.logger.Warn("buildUserURIsAndOutbounds: failed to get server", "user_id", user.ID, "inbound_id", inbound.ID, "server_id", inbound.ServerID, "err", err)
 			continue
 		}
 		host := normalizeClientEndpointHost(server.PublicHost)
@@ -645,12 +618,14 @@ func (s *Service) buildUserURIsAndOutbounds(ctx context.Context, user User) ([]s
 			host = normalizeClientEndpointHost(server.PanelPublicURL)
 		}
 		if host == "" {
+			s.logger.Warn("buildUserURIsAndOutbounds: server has no usable public host, skipping inbound", "user_id", user.ID, "server_id", server.ID, "inbound_id", inbound.ID)
 			continue
 		}
 		switch inbound.Protocol {
 		case InboundProtocolVLESS:
 			uri, outbound, err := buildVLESSClientArtifacts(user, access, inbound, host)
 			if err != nil {
+				s.logger.Warn("buildUserURIsAndOutbounds: failed to build VLESS artifacts", "user_id", user.ID, "inbound_id", inbound.ID, "err", err)
 				continue
 			}
 			uris = append(uris, uri)
@@ -658,6 +633,7 @@ func (s *Service) buildUserURIsAndOutbounds(ctx context.Context, user User) ([]s
 		case InboundProtocolHysteria2:
 			uri, outbound, err := buildHysteria2ClientArtifacts(user, access, inbound, host)
 			if err != nil {
+				s.logger.Warn("buildUserURIsAndOutbounds: failed to build Hysteria2 artifacts", "user_id", user.ID, "inbound_id", inbound.ID, "err", err)
 				continue
 			}
 			uris = append(uris, uri)
@@ -991,7 +967,7 @@ func (s *Service) RollbackServerConfig(ctx context.Context, serverID string, rev
 func (s *Service) checkConfig(ctx context.Context, server Server, content []byte) error {
 	binary := strings.TrimSpace(server.SingBoxBinaryPath)
 	if binary == "" {
-		binary = "/usr/local/bin/sing-box"
+		binary = defaultSingBoxBinary
 	}
 	tmpDir := strings.TrimSpace(s.cfg.RuntimeDir)
 	if tmpDir == "" {
@@ -1013,7 +989,7 @@ func (s *Service) checkConfig(ctx context.Context, server Server, content []byte
 	if err := tmpFile.Close(); err != nil {
 		return err
 	}
-	checkCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	checkCtx, cancel := context.WithTimeout(ctx, singBoxCheckTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(checkCtx, binary, "check", "-c", tmpPath)
 	output, err := cmd.CombinedOutput()

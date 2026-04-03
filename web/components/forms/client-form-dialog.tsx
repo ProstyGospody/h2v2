@@ -1,7 +1,7 @@
 import { Loader2 } from "lucide-react";
-import { type FormEvent, useEffect, useId, useState } from "react";
+import { type FormEvent, useEffect, useId, useMemo, useState } from "react";
 
-import { formDefaults, formFromClient } from "@/domain/clients/adapters";
+import { expireToISO, formDefaults, formFromClient, trafficLimitToBytes } from "@/domain/clients/adapters";
 import type { Client, ClientFormValues } from "@/domain/clients/types";
 import { Button, Dialog, Input } from "@/src/components/ui";
 
@@ -24,6 +24,19 @@ export function ClientFormDialog({
 }) {
   const [values, setValues] = useState<ClientFormValues>(formDefaults());
   const formID = useId();
+
+  const validationWarnings = useMemo(() => {
+    const warnings: string[] = [];
+    const username = values.username.trim();
+    if (username.length > 64) warnings.push("Username must be 64 characters or fewer.");
+    if (values.traffic_limit_gb !== "" && trafficLimitToBytes(values.traffic_limit_gb) === 0) {
+      warnings.push("Traffic limit is too small and will be treated as unlimited. Enter at least 0.001 GB.");
+    }
+    if (values.expire_at !== "" && expireToISO(values.expire_at) === null) {
+      warnings.push("Expiry date is invalid or in the past and will be ignored.");
+    }
+    return warnings;
+  }, [values]);
 
   useEffect(() => {
     if (!open) return;
@@ -60,11 +73,20 @@ export function ClientFormDialog({
           <div className="rounded-xl bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>
         )}
 
+        {validationWarnings.length > 0 && (
+          <div className="space-y-1">
+            {validationWarnings.map((w) => (
+              <div key={w} className="rounded-xl bg-status-warning/8 px-5 py-2.5 text-[13px] text-status-warning">{w}</div>
+            ))}
+          </div>
+        )}
+
         <Input
           label="Username"
           value={values.username}
           onChange={(e) => set("username", e.target.value)}
           required
+          maxLength={64}
           autoFocus={mode === "create"}
         />
 
