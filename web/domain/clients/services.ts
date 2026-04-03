@@ -398,6 +398,13 @@ export async function getClientArtifacts(clientID: string): Promise<UserPayload>
   const hy2URIs = readStringArray(artifacts?.hysteria2_uris);
   const allURIs = readStringArray(artifacts?.all_uris);
 
+  const vlessQRUrl = vlessURIs.length > 0
+    ? `/api/v1/users/${clientID}/artifacts/qr.png?value=${encodeURIComponent(vlessURIs[0])}&size=280`
+    : "";
+  const hy2QRUrl = hy2URIs.length > 0
+    ? `/api/v1/users/${clientID}/artifacts/qr.png?value=${encodeURIComponent(hy2URIs[0])}&size=280`
+    : "";
+
   return {
     user: client,
     artifacts: {
@@ -405,6 +412,8 @@ export async function getClientArtifacts(clientID: string): Promise<UserPayload>
       subscription_url: subscriptionURL,
       access_qr_url: `/api/v1/users/${clientID}/artifacts/qr.png?kind=access&size=320`,
       subscription_qr_url: `/api/v1/users/${clientID}/artifacts/qr.png?kind=subscription&size=320`,
+      vless_qr_url: vlessQRUrl,
+      hy2_qr_url: hy2QRUrl,
       profile_url: readString(artifacts?.subscription_profile_url),
       uris_url: readString(artifacts?.subscription_uris_url),
       all_uris: allURIs,

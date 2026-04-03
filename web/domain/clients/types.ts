@@ -36,6 +36,8 @@ export type ClientArtifactsView = {
   subscription_url: string;
   access_qr_url: string;
   subscription_qr_url: string;
+  vless_qr_url: string;
+  hy2_qr_url: string;
   profile_url: string;
   uris_url: string;
   all_uris: string[];
