@@ -14,15 +14,10 @@ Control plane stack:
 
 ## Core capabilities
 
-- Protocol-agnostic user lifecycle (`enabled`, traffic limits, `expire_at`)
-- Multi-credential users (`HY2 user/pass`, `VLESS UUID`)
-- Unified inbounds (`/api/inbounds`) and users (`/api/users`)
-- Unified subscription endpoint (`/api/subscriptions/{token}`) with:
-  - URI list
-  - Clash YAML
-  - Sing-box JSON
-- HMAC token versioning with rotate/revoke support
-- Runtime-safe sync flow with rollback-first behavior for batch operations
+- Core v1 server/inbound/user/access lifecycle
+- Tokenized subscription profile generation
+- Sing-box config revision flow (`render`, `validate`, `apply`, `rollback`)
+- Public subscription delivery via `/sub/{token}/...`
 
 ## One-command deploy (Ubuntu 24.04 / Debian 12+)
 
@@ -69,15 +64,16 @@ systemctl status h2v2-api h2v2-web sing-box caddy
 
 ## API routes
 
-Protocol-agnostic routes:
+Core routes:
 
-- `/api/users`
-- `/api/users/state`
-- `/api/users/delete`
-- `/api/users/kick`
-- `/api/inbounds`
-- `/api/subscriptions/{token}`
-- `/subscriptions/{token}`
+- `/api/v1/servers`
+- `/api/v1/inbounds`
+- `/api/v1/users`
+- `/api/v1/access`
+- `/api/v1/users/{id}/artifacts`
+- `/sub/{token}/profile.singbox.json`
+- `/sub/{token}/uris.txt`
+- `/sub/{token}/qr.png`
 
 ## Runtime environment
 

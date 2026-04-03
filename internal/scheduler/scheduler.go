@@ -15,7 +15,6 @@ type Jobs struct {
 	cfg            config.Config
 	repo           repository.Repository
 	serviceManager *services.ServiceManager
-	userManager    *services.UserManager
 }
 
 func NewJobs(
@@ -23,20 +22,16 @@ func NewJobs(
 	cfg config.Config,
 	repo repository.Repository,
 	serviceManager *services.ServiceManager,
-	userManager *services.UserManager,
 ) *Jobs {
 	return &Jobs{
 		logger:         logger,
 		cfg:            cfg,
 		repo:           repo,
 		serviceManager: serviceManager,
-		userManager:    userManager,
 	}
 }
 
 func (j *Jobs) Start(ctx context.Context) {
-	trafficInterval := j.cfg.RuntimePollInterval
-	go j.runTicker(ctx, "runtime-poll", trafficInterval, false, j.pollRuntime)
 	go j.runTicker(ctx, "services-poll", j.cfg.ServicePollInterval, true, j.pollServices)
 }
 
@@ -61,16 +56,6 @@ func (j *Jobs) runTicker(ctx context.Context, name string, interval time.Duratio
 			}
 		}
 	}
-}
-
-func (j *Jobs) pollRuntime(ctx context.Context) error {
-	pollCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
-	defer cancel()
-
-	if j.userManager != nil {
-		return j.userManager.CollectRuntime(pollCtx)
-	}
-	return nil
 }
 
 func (j *Jobs) pollServices(ctx context.Context) error {

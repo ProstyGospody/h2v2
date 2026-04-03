@@ -23,7 +23,6 @@ type Handler struct {
 	repo             repository.Repository
 	rateLimiter      *middleware.LoginRateLimiter
 	serviceManager   *services.ServiceManager
-	userManager      *services.UserManager
 	systemMetrics    *services.SystemMetricsCollector
 	coreService      *core.Service
 	protocolMu       sync.Mutex
@@ -58,7 +57,6 @@ func New(
 	repo repository.Repository,
 	rateLimiter *middleware.LoginRateLimiter,
 	serviceManager *services.ServiceManager,
-	userManager *services.UserManager,
 	systemMetrics *services.SystemMetricsCollector,
 ) *Handler {
 	return &Handler{
@@ -67,7 +65,6 @@ func New(
 		repo:           repo,
 		rateLimiter:    rateLimiter,
 		serviceManager: serviceManager,
-		userManager:    userManager,
 		systemMetrics:  systemMetrics,
 		coreService:    buildCoreService(cfg, logger, serviceManager),
 	}

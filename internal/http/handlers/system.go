@@ -54,7 +54,7 @@ type liveServiceStatus struct {
 	Error       string    `json:"error,omitempty"`
 }
 
-type liveHy2Overview struct {
+type liveRuntimeOverview struct {
 	EnabledUsers                 int64     `json:"enabled_users"`
 	TotalTxBytes                 int64     `json:"total_tx_bytes"`
 	TotalRxBytes                 int64     `json:"total_rx_bytes"`
@@ -94,9 +94,9 @@ func (h *Handler) GetSystemLive(w http.ResponseWriter, r *http.Request) {
 		errors = append(errors, "protocol socket metrics unavailable")
 	}
 
-	hy2, hy2Err := h.collectHy2Live(ctx)
-	if hy2Err != "" {
-		errors = append(errors, hy2Err)
+	runtimeOverview, runtimeErr := h.collectRuntimeOverview(ctx)
+	if runtimeErr != "" {
+		errors = append(errors, runtimeErr)
 	}
 
 	serviceStatuses := h.collectProxyServiceStatuses(ctx)
@@ -129,7 +129,7 @@ func (h *Handler) GetSystemLive(w http.ResponseWriter, r *http.Request) {
 			Source:            source,
 			IsStale:           time.Since(snapshot.CollectedAt) > 15*time.Second,
 		},
-		"runtime":  hy2,
+		"runtime":  runtimeOverview,
 		"services": serviceStatuses,
 		"errors":   errors,
 	})
@@ -273,16 +273,16 @@ func (h *Handler) calculateProtocolPacketRates(tcpPackets int64, udpPackets int6
 	return float64(tcpDelta) / seconds, float64(udpDelta) / seconds
 }
 
-func (h *Handler) collectHy2Live(ctx context.Context) (liveHy2Overview, string) {
-	if h.repo == nil {
-		return liveHy2Overview{Source: "unavailable", IsStale: true, CollectedAt: time.Now().UTC()}, "runtime overview unavailable"
+func (h *Handler) collectRuntimeOverview(ctx context.Context) (liveRuntimeOverview, string) {
+	if h.coreService == nil {
+		return liveRuntimeOverview{Source: "unavailable", IsStale: true, CollectedAt: time.Now().UTC()}, "runtime overview unavailable"
 	}
-	users, err := h.repo.ListUsers(ctx, 0, 0, nil)
+	users, err := h.coreService.ListUsers(ctx)
 	if err != nil {
-		return liveHy2Overview{Source: "unavailable", IsStale: true, CollectedAt: time.Now().UTC()}, "runtime overview unavailable"
+		return liveRuntimeOverview{Source: "unavailable", IsStale: true, CollectedAt: time.Now().UTC()}, "runtime overview unavailable"
 	}
 
-	resp := liveHy2Overview{
+	resp := liveRuntimeOverview{
 		EnabledUsers:                 0,
 		TotalTxBytes:                 0,
 		TotalRxBytes:                 0,
@@ -291,7 +291,7 @@ func (h *Handler) collectHy2Live(ctx context.Context) (liveHy2Overview, string) 
 		ConnectionsUDP:               0,
 		ConnectionsBreakdownAvailable: false,
 		CollectedAt:                  time.Now().UTC(),
-		Source:                       "runtime",
+		Source:                       "core",
 		IsStale:                      false,
 	}
 
@@ -299,11 +299,8 @@ func (h *Handler) collectHy2Live(ctx context.Context) (liveHy2Overview, string) 
 		if user.Enabled {
 			resp.EnabledUsers++
 		}
-		resp.TotalTxBytes += user.TrafficUsedTxBytes
-		resp.TotalRxBytes += user.TrafficUsedRxBytes
-		if user.OnlineCount > 0 {
-			resp.OnlineCount += int64(user.OnlineCount)
-		}
+		resp.TotalTxBytes += user.TrafficUsedUpBytes
+		resp.TotalRxBytes += user.TrafficUsedDownBytes
 	}
 	return resp, ""
 }

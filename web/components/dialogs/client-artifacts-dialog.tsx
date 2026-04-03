@@ -1,36 +1,7 @@
 import { Copy } from "lucide-react";
 
-import { Client, UserPayload, Protocol } from "@/domain/clients/types";
+import { Client, UserPayload } from "@/domain/clients/types";
 import { Button, Dialog } from "@/src/components/ui";
-
-function resolveAccessURL(payload: UserPayload | null, preferredProtocol: Protocol): string {
-  const unified = payload?.artifacts?.unified;
-  if (!unified) {
-    return "";
-  }
-
-  const preferred = unified[preferredProtocol]?.access_uri;
-  if (preferred && preferred.trim().length > 0) {
-    return preferred;
-  }
-
-  const fallbackOrder: Protocol[] = ["vless", "hy2"];
-  for (const protocol of fallbackOrder) {
-    const value = unified[protocol]?.access_uri;
-    if (value && value.trim().length > 0) {
-      return value;
-    }
-  }
-
-  for (const item of Object.values(unified)) {
-    const value = item?.access_uri;
-    if (value && value.trim().length > 0) {
-      return value;
-    }
-  }
-
-  return "";
-}
 
 export function ClientArtifactsDialog({
   open, client, payload, loading, onClose, onCopy,
@@ -43,17 +14,10 @@ export function ClientArtifactsDialog({
   onCopy: (value: string) => void;
 }) {
   const currentClient = payload?.user || client;
-  const preferredProtocol: Protocol = (currentClient?.preferred_protocol || "hy2") as Protocol;
-  const accessURL = resolveAccessURL(payload, preferredProtocol);
-  const subscriptionURL = payload?.artifacts?.subscription || "";
-  const accessQRValue = accessURL ? encodeURIComponent(accessURL) : "";
-  const subscriptionQRValue = subscriptionURL ? encodeURIComponent(subscriptionURL) : "";
-  const accessQRSource = currentClient?.id
-    ? (accessQRValue ? `/api/users/${currentClient.id}/qr?size=320&value=${accessQRValue}` : "")
-    : "";
-  const subscriptionQRSource = currentClient?.id
-    ? (subscriptionQRValue ? `/api/users/${currentClient.id}/qr?size=320&value=${subscriptionQRValue}` : "")
-    : "";
+  const accessURL = payload?.artifacts?.access_url || "";
+  const subscriptionURL = payload?.artifacts?.subscription_url || "";
+  const accessQRSource = payload?.artifacts?.access_qr_url || "";
+  const subscriptionQRSource = payload?.artifacts?.subscription_qr_url || "";
 
   return (
     <Dialog

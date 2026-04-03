@@ -11,7 +11,7 @@
 ## Open ports
 
 - Panel HTTPS: `${PANEL_PUBLIC_PORT}` (default `8443`, TCP)
-- Runtime ports: configured in `/api/inbounds` and rendered to `${SINGBOX_CONFIG_PATH}`
+- Runtime ports: configured in `/api/v1/inbounds` and rendered to `${SINGBOX_CONFIG_PATH}`
 
 ## Install
 

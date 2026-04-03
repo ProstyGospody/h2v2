@@ -10,7 +10,7 @@ import (
 	"h2v2/internal/http/handlers"
 )
 
-func TestRouterExposesUnifiedRoutesAndDropsLegacyRoutes(t *testing.T) {
+func TestRouterExposesCoreRoutesAndDropsLegacyRoutes(t *testing.T) {
 	cfg := config.Config{
 		SessionCookieName: "pp_session",
 		CSRFCookieName:    "pp_csrf",
@@ -18,20 +18,13 @@ func TestRouterExposesUnifiedRoutesAndDropsLegacyRoutes(t *testing.T) {
 	}
 	router := NewRouter(cfg, slog.Default(), nil, &handlers.Handler{})
 
-	for _, path := range []string{"/api/storage/sqlite/backup", "/api/services", "/api/users", "/api/inbounds"} {
+	for _, path := range []string{"/api/storage/sqlite/backup", "/api/services", "/api/v1/users", "/api/v1/inbounds"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		resp := httptest.NewRecorder()
 		router.ServeHTTP(resp, req)
 		if resp.Code != http.StatusUnauthorized {
 			t.Fatalf("expected %s to require auth and return 401, got %d", path, resp.Code)
 		}
-	}
-
-	kickReq := httptest.NewRequest(http.MethodPost, "/api/users/kick", nil)
-	kickResp := httptest.NewRecorder()
-	router.ServeHTTP(kickResp, kickReq)
-	if kickResp.Code != http.StatusUnauthorized {
-		t.Fatalf("expected /api/users/kick to require auth and return 401, got %d", kickResp.Code)
 	}
 
 	restoreReq := httptest.NewRequest(http.MethodPost, "/api/storage/sqlite/restore", nil)
@@ -41,14 +34,24 @@ func TestRouterExposesUnifiedRoutesAndDropsLegacyRoutes(t *testing.T) {
 		t.Fatalf("expected /api/storage/sqlite/restore to require auth and return 401, got %d", restoreResp.Code)
 	}
 
-	unifiedSubReq := httptest.NewRequest(http.MethodGet, "/api/subscriptions/demo-token", nil)
-	unifiedSubResp := httptest.NewRecorder()
-	router.ServeHTTP(unifiedSubResp, unifiedSubReq)
-	if unifiedSubResp.Code == http.StatusNotFound || unifiedSubResp.Code == http.StatusUnauthorized {
-		t.Fatalf("expected unified subscription route to be exposed without auth middleware, got %d", unifiedSubResp.Code)
+	for _, path := range []string{
+		"/sub/demo-token/profile.singbox.json",
+		"/sub/demo-token/uris.txt",
+		"/sub/demo-token/qr.png",
+	} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		resp := httptest.NewRecorder()
+		router.ServeHTTP(resp, req)
+		if resp.Code == http.StatusNotFound || resp.Code == http.StatusUnauthorized {
+			t.Fatalf("expected %s to be exposed without auth middleware, got %d", path, resp.Code)
+		}
 	}
 
 	for _, path := range []string{
+		"/api/users",
+		"/api/inbounds",
+		"/api/subscriptions/demo-token",
+		"/subscriptions/demo-token",
 		"/api/clients",
 		"/api/hy2/accounts",
 		"/api/legacy/access",

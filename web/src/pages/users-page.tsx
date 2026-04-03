@@ -401,7 +401,6 @@ function UserCard({
           >
             {client.username}
           </button>
-          <p className="truncate text-[12px] text-txt-muted">{client.note || "-"}</p>
           <UserProtocols client={client} />
         </div>
       </div>
@@ -614,7 +613,7 @@ export default function UsersPage() {
       return true;
     }
     const client = row.original;
-    const haystack = [asText(client.username), asText(client.username_normalized), asText(client.note), asText(client.id)].join(" ").toLowerCase();
+    const haystack = [asText(client.username), asText(client.username_normalized), asText(client.id)].join(" ").toLowerCase();
     return haystack.includes(needle);
   }, []);
 
@@ -707,7 +706,6 @@ export default function UsersPage() {
               >
                 {client.username}
               </button>
-              <p className="truncate text-[12px] text-txt-muted">{client.note || "-"}</p>
               <UserProtocols client={client} />
             </div>
           </div>
@@ -885,12 +883,12 @@ export default function UsersPage() {
   }
 
   async function exportCSV() {
-    const header = "username,enabled,status,traffic_bytes,download_bps,upload_bps,last_seen,note";
+    const header = "username,enabled,status,traffic_bytes,download_bps,upload_bps,last_seen";
     const rows = filteredRows.map((entry) => {
       const client = entry.original;
       const status = resolveStatus(client);
       const traffic = client.last_tx_bytes + client.last_rx_bytes;
-      return `${escapeCSV(client.username)},${client.enabled},${status},${traffic},${client.download_bps || 0},${client.upload_bps || 0},${escapeCSV(client.last_seen_at || client.updated_at)},${escapeCSV(client.note || "")}`;
+      return `${escapeCSV(client.username)},${client.enabled},${status},${traffic},${client.download_bps || 0},${client.upload_bps || 0},${escapeCSV(client.last_seen_at || client.updated_at)}`;
     });
     const blob = new Blob([header + "\n" + rows.join("\n")], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);

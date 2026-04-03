@@ -94,15 +94,6 @@ export function ClientFormDialog({
           />
         </div>
 
-        <div>
-          <label className="mb-2 block text-[13px] font-medium text-txt-secondary">Note</label>
-          <textarea
-            value={values.note}
-            onChange={(event) => setValues((prev) => ({ ...prev, note: event.target.value }))}
-            rows={2}
-            className="w-full rounded-lg bg-[var(--control-bg)] px-4 py-2.5 text-[14px] text-txt-primary outline-none transition-colors placeholder:text-txt-tertiary focus:bg-[var(--control-bg-hover)] focus:shadow-[0_0_0_3px_var(--accent-soft)]"
-          />
-        </div>
       </form>
     </Dialog>
   );

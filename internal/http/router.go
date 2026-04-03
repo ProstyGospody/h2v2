@@ -27,14 +27,11 @@ func NewRouter(
 
 	r.Get("/healthz", h.Healthz)
 	r.Get("/readyz", h.Readyz)
-	r.Get("/subscriptions/{token}", h.UserSubscription)
 	r.Get("/sub/{token}/profile.singbox.json", h.CoreSubscriptionProfile)
 	r.Get("/sub/{token}/uris.txt", h.CoreSubscriptionURIs)
 	r.Get("/sub/{token}/qr.png", h.CoreSubscriptionQR)
 
 	r.Route("/api", func(api chi.Router) {
-		api.Get("/subscriptions/{token}", h.UserSubscription)
-
 		api.Route("/auth", func(auth chi.Router) {
 			auth.Post("/login", h.Login)
 			auth.With(
@@ -61,27 +58,6 @@ func NewRouter(
 
 			secured.Get("/system/live", h.GetSystemLive)
 			secured.Get("/system/history", h.GetSystemHistory)
-
-			secured.Get("/users", h.ListUsers)
-			secured.Post("/users", h.CreateUser)
-			secured.Post("/users/state", h.SetUsersState)
-			secured.Post("/users/delete", h.DeleteUsers)
-			secured.Get("/users/{id}", h.GetUser)
-			secured.Patch("/users/{id}", h.UpdateUser)
-			secured.Delete("/users/{id}", h.DeleteUser)
-			secured.Get("/users/{id}/qr", h.UserQR)
-			secured.Post("/users/{id}/kick", h.KickUser)
-			secured.Post("/users/kick", h.KickUsers)
-			secured.Get("/users/{id}/subscription-token", h.GetUserSubscriptionToken)
-			secured.Post("/users/{id}/subscription-token/rotate", h.RotateUserSubscriptionToken)
-			secured.Post("/users/{id}/subscription-token/revoke", h.RevokeUserSubscriptionToken)
-			secured.Post("/users/{id}/subscription-token/restore", h.RestoreUserSubscriptionToken)
-
-			secured.Get("/inbounds", h.ListInbounds)
-			secured.Post("/inbounds", h.UpsertInbound)
-			secured.Get("/inbounds/{id}", h.GetInbound)
-			secured.Patch("/inbounds/{id}", h.UpsertInbound)
-			secured.Delete("/inbounds/{id}", h.DeleteInbound)
 
 			secured.Route("/v1", func(v1 chi.Router) {
 				v1.Get("/servers", h.ListCoreServers)

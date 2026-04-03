@@ -490,7 +490,7 @@ ${SUBSCRIPTION_PUBLIC_HOST}:${PANEL_PUBLIC_PORT} {
     Referrer-Policy "same-origin"
   }
 
-  @panel_api path /api/* /subscriptions/* /healthz /readyz
+  @panel_api path /api/* /sub/* /healthz /readyz
   handle @panel_api {
     reverse_proxy 127.0.0.1:${PANEL_API_PORT}
   }

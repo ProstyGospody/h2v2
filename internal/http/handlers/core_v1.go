@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -133,6 +134,106 @@ func coreErrorStatus(err error) (int, string) {
 	}
 	return http.StatusInternalServerError, "runtime"
 }
+
+func normalizeCoreAccessProtocol(protocol core.InboundProtocol) string {
+	switch protocol {
+	case core.InboundProtocolVLESS:
+		return "vless"
+	case core.InboundProtocolHysteria2:
+		return "hy2"
+	default:
+		return ""
+	}
+}
+
+func collectCoreServerIDs(serverIDs ...string) []string {
+	if len(serverIDs) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(serverIDs))
+	items := make([]string, 0, len(serverIDs))
+	for _, raw := range serverIDs {
+		id := strings.TrimSpace(raw)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		items = append(items, id)
+	}
+	return items
+}
+
+func (h *Handler) applyCoreServerConfigs(ctx context.Context, service *core.Service, serverIDs ...string) error {
+	if service == nil {
+		return fmt.Errorf("core service is not configured")
+	}
+	ids := collectCoreServerIDs(serverIDs...)
+	if len(ids) == 0 {
+		servers, err := service.ListServers(ctx)
+		if err != nil {
+			return err
+		}
+		for _, item := range servers {
+			if strings.TrimSpace(item.ID) == "" {
+				continue
+			}
+			ids = append(ids, item.ID)
+		}
+	}
+	for _, serverID := range ids {
+		rendered, err := service.RenderServerConfig(ctx, serverID, nil)
+		if err != nil {
+			return err
+		}
+		if _, err := service.ApplyServerConfig(ctx, serverID, rendered.Revision.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *Handler) buildInboundProtocolMap(ctx context.Context, service *core.Service) (map[string]core.InboundProtocol, map[string]string, error) {
+	items, err := service.ListInbounds(ctx, "")
+	if err != nil {
+		return nil, nil, err
+	}
+	protocolByInboundID := make(map[string]core.InboundProtocol, len(items))
+	serverByInboundID := make(map[string]string, len(items))
+	for _, item := range items {
+		id := strings.TrimSpace(item.ID)
+		if id == "" {
+			continue
+		}
+		protocolByInboundID[id] = item.Protocol
+		serverByInboundID[id] = strings.TrimSpace(item.ServerID)
+	}
+	return protocolByInboundID, serverByInboundID, nil
+}
+
+func buildCoreAccessPayload(items []core.UserAccess, protocolByInboundID map[string]core.InboundProtocol) []map[string]any {
+	result := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		protocol := normalizeCoreAccessProtocol(protocolByInboundID[strings.TrimSpace(item.InboundID)])
+		result = append(result, map[string]any{
+			"id":                           item.ID,
+			"user_id":                      item.UserID,
+			"inbound_id":                   item.InboundID,
+			"enabled":                      item.Enabled,
+			"protocol":                     protocol,
+			"vless_uuid":                   item.VLESSUUID,
+			"vless_flow_override":          item.VLESSFlowOverride,
+			"hysteria2_password":           item.Hysteria2Password,
+			"traffic_limit_bytes_override": item.TrafficLimitBytesOverride,
+			"expire_at_override":           item.ExpireAtOverride,
+			"created_at":                   item.CreatedAt,
+			"updated_at":                   item.UpdatedAt,
+		})
+	}
+	return result
+}
 func (h *Handler) ListCoreServers(w http.ResponseWriter, r *http.Request) {
 	service := h.ensureCoreService(w)
 	if service == nil {
@@ -175,6 +276,10 @@ func (h *Handler) CreateCoreServer(w http.ResponseWriter, r *http.Request) {
 			errorType = "validation"
 		}
 		h.renderError(w, status, errorType, err.Error(), nil)
+		return
+	}
+	if err := h.applyCoreServerConfigs(r.Context(), service, created.ID); err != nil {
+		h.renderError(w, http.StatusBadGateway, "service", err.Error(), nil)
 		return
 	}
 	render.JSON(w, http.StatusCreated, created)
@@ -250,6 +355,10 @@ func (h *Handler) UpdateCoreServer(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, status, errorType, err.Error(), nil)
 		return
 	}
+	if err := h.applyCoreServerConfigs(r.Context(), service, item.ID); err != nil {
+		h.renderError(w, http.StatusBadGateway, "service", err.Error(), nil)
+		return
+	}
 	render.JSON(w, http.StatusOK, item)
 }
 
@@ -258,12 +367,17 @@ func (h *Handler) DeleteCoreServer(w http.ResponseWriter, r *http.Request) {
 	if service == nil {
 		return
 	}
-	if err := service.DeleteServer(r.Context(), chi.URLParam(r, "id")); err != nil {
+	serverID := strings.TrimSpace(chi.URLParam(r, "id"))
+	if err := service.DeleteServer(r.Context(), serverID); err != nil {
 		if core.IsNotFound(err) {
 			h.renderError(w, http.StatusNotFound, "not_found", "server not found", nil)
 			return
 		}
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to delete server", nil)
+		return
+	}
+	if err := h.applyCoreServerConfigs(r.Context(), service); err != nil {
+		h.renderError(w, http.StatusBadGateway, "service", err.Error(), nil)
 		return
 	}
 	render.JSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -314,6 +428,10 @@ func (h *Handler) CreateCoreInbound(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		status, errorType := coreErrorStatus(err)
 		h.renderError(w, status, errorType, err.Error(), nil)
+		return
+	}
+	if err := h.applyCoreServerConfigs(r.Context(), service, saved.ServerID); err != nil {
+		h.renderError(w, http.StatusBadGateway, "service", err.Error(), nil)
 		return
 	}
 	render.JSON(w, http.StatusCreated, saved)
@@ -398,6 +516,10 @@ func (h *Handler) UpdateCoreInbound(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, status, errorType, err.Error(), nil)
 		return
 	}
+	if err := h.applyCoreServerConfigs(r.Context(), service, saved.ServerID); err != nil {
+		h.renderError(w, http.StatusBadGateway, "service", err.Error(), nil)
+		return
+	}
 	render.JSON(w, http.StatusOK, saved)
 }
 
@@ -406,12 +528,26 @@ func (h *Handler) DeleteCoreInbound(w http.ResponseWriter, r *http.Request) {
 	if service == nil {
 		return
 	}
-	if err := service.DeleteInbound(r.Context(), chi.URLParam(r, "id")); err != nil {
+	id := strings.TrimSpace(chi.URLParam(r, "id"))
+	current, err := service.GetInbound(r.Context(), id)
+	if err != nil {
+		if core.IsNotFound(err) {
+			h.renderError(w, http.StatusNotFound, "not_found", "inbound not found", nil)
+			return
+		}
+		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to load inbound", nil)
+		return
+	}
+	if err := service.DeleteInbound(r.Context(), id); err != nil {
 		if core.IsNotFound(err) {
 			h.renderError(w, http.StatusNotFound, "not_found", "inbound not found", nil)
 			return
 		}
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to delete inbound", nil)
+		return
+	}
+	if err := h.applyCoreServerConfigs(r.Context(), service, current.ServerID); err != nil {
+		h.renderError(w, http.StatusBadGateway, "service", err.Error(), nil)
 		return
 	}
 	render.JSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -427,7 +563,35 @@ func (h *Handler) ListCoreUsers(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to list users", nil)
 		return
 	}
-	render.JSON(w, http.StatusOK, map[string]any{"items": items})
+	includeAccess := true
+	rawInclude := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("include_access")))
+	if rawInclude == "0" || rawInclude == "false" || rawInclude == "no" {
+		includeAccess = false
+	}
+	if !includeAccess {
+		render.JSON(w, http.StatusOK, map[string]any{"items": items})
+		return
+	}
+
+	protocolByInboundID, _, err := h.buildInboundProtocolMap(r.Context(), service)
+	if err != nil {
+		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to load inbounds", nil)
+		return
+	}
+
+	payload := make([]map[string]any, 0, len(items))
+	for _, user := range items {
+		accessItems, accessErr := service.ListUserAccess(r.Context(), user.ID)
+		if accessErr != nil {
+			h.renderError(w, http.StatusInternalServerError, "runtime", "failed to list access", nil)
+			return
+		}
+		payload = append(payload, map[string]any{
+			"user":   user,
+			"access": buildCoreAccessPayload(accessItems, protocolByInboundID),
+		})
+	}
+	render.JSON(w, http.StatusOK, map[string]any{"items": payload})
 }
 
 func (h *Handler) CreateCoreUser(w http.ResponseWriter, r *http.Request) {
@@ -456,6 +620,10 @@ func (h *Handler) CreateCoreUser(w http.ResponseWriter, r *http.Request) {
 			errorType = "validation"
 		}
 		h.renderError(w, status, errorType, err.Error(), nil)
+		return
+	}
+	if err := h.applyCoreServerConfigs(r.Context(), service); err != nil {
+		h.renderError(w, http.StatusBadGateway, "service", err.Error(), nil)
 		return
 	}
 	render.JSON(w, http.StatusCreated, created)
@@ -522,6 +690,10 @@ func (h *Handler) UpdateCoreUser(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, status, errorType, err.Error(), nil)
 		return
 	}
+	if err := h.applyCoreServerConfigs(r.Context(), service); err != nil {
+		h.renderError(w, http.StatusBadGateway, "service", err.Error(), nil)
+		return
+	}
 	render.JSON(w, http.StatusOK, saved)
 }
 
@@ -538,6 +710,10 @@ func (h *Handler) DeleteCoreUser(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to delete user", nil)
 		return
 	}
+	if err := h.applyCoreServerConfigs(r.Context(), service); err != nil {
+		h.renderError(w, http.StatusBadGateway, "service", err.Error(), nil)
+		return
+	}
 	render.JSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 func (h *Handler) ListCoreUserAccess(w http.ResponseWriter, r *http.Request) {
@@ -550,7 +726,12 @@ func (h *Handler) ListCoreUserAccess(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to list access", nil)
 		return
 	}
-	render.JSON(w, http.StatusOK, map[string]any{"items": items})
+	protocolByInboundID, _, err := h.buildInboundProtocolMap(r.Context(), service)
+	if err != nil {
+		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to load inbounds", nil)
+		return
+	}
+	render.JSON(w, http.StatusOK, map[string]any{"items": buildCoreAccessPayload(items, protocolByInboundID)})
 }
 
 func (h *Handler) UpsertCoreAccess(w http.ResponseWriter, r *http.Request) {
@@ -591,7 +772,18 @@ func (h *Handler) UpsertCoreAccess(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, status, errorType, err.Error(), nil)
 		return
 	}
-	render.JSON(w, http.StatusOK, saved)
+	protocolByInboundID, serverByInboundID, err := h.buildInboundProtocolMap(r.Context(), service)
+	if err != nil {
+		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to load inbounds", nil)
+		return
+	}
+	serverID := strings.TrimSpace(serverByInboundID[strings.TrimSpace(saved.InboundID)])
+	if err := h.applyCoreServerConfigs(r.Context(), service, serverID); err != nil {
+		h.renderError(w, http.StatusBadGateway, "service", err.Error(), nil)
+		return
+	}
+	payload := buildCoreAccessPayload([]core.UserAccess{saved}, protocolByInboundID)
+	render.JSON(w, http.StatusOK, payload[0])
 }
 
 func (h *Handler) DeleteCoreAccess(w http.ResponseWriter, r *http.Request) {
@@ -599,12 +791,35 @@ func (h *Handler) DeleteCoreAccess(w http.ResponseWriter, r *http.Request) {
 	if service == nil {
 		return
 	}
-	if err := service.DeleteUserAccess(r.Context(), chi.URLParam(r, "id")); err != nil {
+	accessID := strings.TrimSpace(chi.URLParam(r, "id"))
+	current, err := service.GetUserAccess(r.Context(), accessID)
+	if err != nil {
+		if core.IsNotFound(err) {
+			h.renderError(w, http.StatusNotFound, "not_found", "access not found", nil)
+			return
+		}
+		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to load access", nil)
+		return
+	}
+	inbound, err := service.GetInbound(r.Context(), current.InboundID)
+	if err != nil {
+		if core.IsNotFound(err) {
+			h.renderError(w, http.StatusNotFound, "not_found", "inbound not found", nil)
+			return
+		}
+		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to load inbound", nil)
+		return
+	}
+	if err := service.DeleteUserAccess(r.Context(), accessID); err != nil {
 		if core.IsNotFound(err) {
 			h.renderError(w, http.StatusNotFound, "not_found", "access not found", nil)
 			return
 		}
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to delete access", nil)
+		return
+	}
+	if err := h.applyCoreServerConfigs(r.Context(), service, inbound.ServerID); err != nil {
+		h.renderError(w, http.StatusBadGateway, "service", err.Error(), nil)
 		return
 	}
 	render.JSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -877,6 +1092,12 @@ func (h *Handler) CoreUserQR(w http.ResponseWriter, r *http.Request) {
 	if service == nil {
 		return
 	}
+	if rawValue := strings.TrimSpace(r.URL.Query().Get("value")); rawValue != "" {
+		if err := renderQRCodePNG(w, rawValue, parseQRSize(r.URL.Query().Get("size"), 320)); err != nil {
+			h.renderError(w, http.StatusInternalServerError, "runtime", "failed to render qr", nil)
+		}
+		return
+	}
 	artifacts, err := service.BuildUserArtifacts(r.Context(), chi.URLParam(r, "id"))
 	if err != nil {
 		if core.IsNotFound(err) {
@@ -886,7 +1107,25 @@ func (h *Handler) CoreUserQR(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to build qr", nil)
 		return
 	}
-	if err := renderQRCodePNG(w, artifacts.SubscriptionImportURL, parseQRSize(r.URL.Query().Get("size"), 320)); err != nil {
+	qrKind := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("kind")))
+	qrValue := strings.TrimSpace(artifacts.SubscriptionImportURL)
+	if qrKind == "access" {
+		qrValue = ""
+		if len(artifacts.VLESSURIs) > 0 {
+			qrValue = strings.TrimSpace(artifacts.VLESSURIs[0])
+		}
+		if qrValue == "" && len(artifacts.Hysteria2URIs) > 0 {
+			qrValue = strings.TrimSpace(artifacts.Hysteria2URIs[0])
+		}
+		if qrValue == "" && len(artifacts.AllURIs) > 0 {
+			qrValue = strings.TrimSpace(artifacts.AllURIs[0])
+		}
+	}
+	if qrValue == "" {
+		h.renderError(w, http.StatusNotFound, "not_found", "qr source is empty", nil)
+		return
+	}
+	if err := renderQRCodePNG(w, qrValue, parseQRSize(r.URL.Query().Get("size"), 320)); err != nil {
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to render qr", nil)
 	}
 }

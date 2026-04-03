@@ -7,7 +7,6 @@ import {
 
 type ClientFormValues = {
   username: string;
-  note: string;
   authSecret: string;
   protocol: Protocol;
   uuid: string;
@@ -18,7 +17,6 @@ type ClientFormValues = {
 export function formFromClient(client: Client | null): ClientFormValues {
   return {
     username: client?.username || "",
-    note: client?.note || "",
     authSecret: client?.preferred_protocol === "hy2" ? client.password || "" : "",
     protocol: client?.preferred_protocol || "hy2",
     uuid: client?.preferred_protocol === "vless" ? client.password || "" : "",
@@ -56,9 +54,6 @@ export function toCreateRequest(values: ClientFormValues): ClientCreateRequest {
     username: values.username,
     protocol: values.protocol,
   };
-  if (values.note.trim()) {
-    payload.note = values.note.trim();
-  }
   if (values.protocol === "hy2" && values.authSecret.trim()) {
     payload.auth_secret = values.authSecret.trim();
   }
