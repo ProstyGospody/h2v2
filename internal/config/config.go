@@ -18,7 +18,6 @@ type Config struct {
 	PanelPublicPort     int
 	StorageRoot         string
 	SQLitePath          string
-	AuditDir            string
 	RuntimeDir          string
 	SessionCookieName   string
 	CSRFCookieName      string
@@ -51,7 +50,6 @@ func Load() (Config, error) {
 		PanelPublicPort:     getEnvInt("PANEL_PUBLIC_PORT", 8443),
 		StorageRoot:         getEnv("PANEL_STORAGE_ROOT", "/var/lib/h2v2"),
 		SQLitePath:          getEnv("PANEL_SQLITE_PATH", ""),
-		AuditDir:            getEnv("PANEL_AUDIT_DIR", "/var/log/h2v2/audit"),
 		RuntimeDir:          getEnv("PANEL_RUNTIME_DIR", "/run/h2v2"),
 		SessionCookieName:   getEnv("SESSION_COOKIE_NAME", "pp_session"),
 		CSRFCookieName:      getEnv("CSRF_COOKIE_NAME", "pp_csrf"),
@@ -82,9 +80,6 @@ func Load() (Config, error) {
 	}
 	if strings.TrimSpace(cfg.SQLitePath) == "" {
 		return Config{}, fmt.Errorf("PANEL_SQLITE_PATH is required")
-	}
-	if strings.TrimSpace(cfg.AuditDir) == "" {
-		return Config{}, fmt.Errorf("PANEL_AUDIT_DIR is required")
 	}
 	if strings.TrimSpace(cfg.RuntimeDir) == "" {
 		return Config{}, fmt.Errorf("PANEL_RUNTIME_DIR is required")

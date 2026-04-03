@@ -52,11 +52,6 @@ func (h *Handler) DownloadSQLiteBackup(w http.ResponseWriter, r *http.Request) {
 		h.logger.Warn("stream sqlite backup failed", "error", err)
 		return
 	}
-
-	h.audit(r, "storage.sqlite.backup.download", "storage", nil, map[string]any{
-		"path": outPath,
-		"size": info.Size(),
-	})
 }
 
 func (h *Handler) RestoreSQLiteBackup(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +67,7 @@ func (h *Handler) RestoreSQLiteBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	src, header, err := r.FormFile("file")
+	src, _, err := r.FormFile("file")
 	if err != nil {
 		h.renderError(w, http.StatusBadRequest, "validation", "backup file is required", nil)
 		return
@@ -115,10 +110,6 @@ func (h *Handler) RestoreSQLiteBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.audit(r, "storage.sqlite.restore.upload", "storage", nil, map[string]any{
-		"filename": strings.TrimSpace(header.Filename),
-		"counts":   counts,
-	})
 	render.JSON(w, http.StatusOK, map[string]any{
 		"ok":     true,
 		"counts": counts,

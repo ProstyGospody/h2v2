@@ -171,17 +171,8 @@ func (r *SQLiteRepository) ensureBaseSchema(ctx context.Context) error {
 			raw_json TEXT
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_service_states_checked ON service_states(last_check_at_ns DESC);`,
-		`CREATE TABLE IF NOT EXISTS audit_logs (
-			id INTEGER PRIMARY KEY,
-			admin_id TEXT,
-			action TEXT NOT NULL,
-			entity_type TEXT NOT NULL,
-			entity_id TEXT,
-			payload_json TEXT NOT NULL,
-			created_at_ns INTEGER NOT NULL,
-			FOREIGN KEY(admin_id) REFERENCES admins(id) ON DELETE SET NULL
-		);`,
-		`CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at_ns DESC);`,
+		`DROP INDEX IF EXISTS idx_audit_logs_created_at;`,
+		`DROP TABLE IF EXISTS audit_logs;`,
 		`CREATE TABLE IF NOT EXISTS system_snapshots (
 			id INTEGER PRIMARY KEY,
 			snapshot_at_ns INTEGER NOT NULL,
@@ -795,33 +786,6 @@ func (r *SQLiteRepository) scanSystemSnapshot(row scanner) (SystemSnapshot, erro
 		return SystemSnapshot{}, translateSQLiteErr(err)
 	}
 	out.SnapshotAt = fromUnixNano(snapshotAt)
-	return out, nil
-}
-
-func (r *SQLiteRepository) scanAuditLog(row scanner) (AuditLog, error) {
-	var (
-		out       AuditLog
-		adminID   sql.NullString
-		entityID  sql.NullString
-		adminMail sql.NullString
-		createdAt int64
-	)
-	if err := row.Scan(
-		&out.ID,
-		&adminID,
-		&out.Action,
-		&out.EntityType,
-		&entityID,
-		&out.Payload,
-		&createdAt,
-		&adminMail,
-	); err != nil {
-		return AuditLog{}, translateSQLiteErr(err)
-	}
-	out.AdminID = optionalString(adminID)
-	out.EntityID = optionalString(entityID)
-	out.AdminEmail = optionalString(adminMail)
-	out.CreatedAt = fromUnixNano(createdAt)
 	return out, nil
 }
 

@@ -35,17 +35,6 @@ type SystemSnapshot struct {
 	NetworkTxBps      float64   `json:"network_tx_bps"`
 }
 
-type AuditLog struct {
-	ID         int64     `json:"id"`
-	AdminID    *string   `json:"admin_id"`
-	Action     string    `json:"action"`
-	EntityType string    `json:"entity_type"`
-	EntityID   *string   `json:"entity_id"`
-	Payload    string    `json:"payload_json"`
-	CreatedAt  time.Time `json:"created_at"`
-	AdminEmail *string   `json:"admin_email"`
-}
-
 type ServiceState struct {
 	ID          int64      `json:"id"`
 	ServiceName string     `json:"service_name"`

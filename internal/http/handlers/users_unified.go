@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	auditdomain "h2v2/internal/domain/audit"
 	"h2v2/internal/http/render"
 	"h2v2/internal/repository"
 	runtimecore "h2v2/internal/runtime"
@@ -109,7 +108,6 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to create user", nil)
 		return
 	}
-	h.audit(r, "user.create", auditdomain.EntityUser, &created.ID, map[string]any{"name": created.Name})
 	render.JSON(w, http.StatusCreated, h.serializeUnifiedUser(r.Context(), created, true))
 }
 
@@ -170,7 +168,6 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to update user", nil)
 		return
 	}
-	h.audit(r, "user.update", auditdomain.EntityUser, &updated.ID, map[string]any{"name": updated.Name})
 	render.JSON(w, http.StatusOK, h.serializeUnifiedUser(r.Context(), updated, true))
 }
 
@@ -192,7 +189,6 @@ func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusInternalServerError, "sync", "failed to delete user", nil)
 		return
 	}
-	h.audit(r, "user.delete", auditdomain.EntityUser, &id, nil)
 	render.JSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -218,9 +214,6 @@ func (h *Handler) DeleteUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		h.renderError(w, http.StatusInternalServerError, "sync", "failed to delete users", nil)
 		return
-	}
-	for _, id := range ids {
-		h.audit(r, "user.delete", auditdomain.EntityUser, &id, map[string]any{"bulk": len(ids) > 1})
 	}
 	render.JSON(w, http.StatusOK, map[string]any{"ok": true, "deleted": len(ids)})
 }
@@ -258,13 +251,6 @@ func (h *Handler) SetUsersState(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusInternalServerError, "sync", "failed to update users state", nil)
 		return
 	}
-	action := "user.disable"
-	if *req.Enabled {
-		action = "user.enable"
-	}
-	for _, id := range ids {
-		h.audit(r, action, auditdomain.EntityUser, &id, map[string]any{"enabled": *req.Enabled, "bulk": len(ids) > 1})
-	}
 	render.JSON(w, http.StatusOK, map[string]any{"ok": true, "updated": updated, "enabled": *req.Enabled})
 }
 
@@ -283,7 +269,6 @@ func (h *Handler) KickUser(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusBadGateway, "service", "failed to kick user session", nil)
 		return
 	}
-	h.audit(r, "user.kick", auditdomain.EntityUser, &id, map[string]any{"kicked": kicked})
 	render.JSON(w, http.StatusOK, map[string]any{"ok": true, "kicked": kicked})
 }
 
@@ -310,9 +295,6 @@ func (h *Handler) KickUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		h.renderError(w, http.StatusBadGateway, "service", "failed to kick user sessions", nil)
 		return
-	}
-	for _, id := range ids {
-		h.audit(r, "user.kick", auditdomain.EntityUser, &id, map[string]any{"bulk": len(ids) > 1})
 	}
 	render.JSON(w, http.StatusOK, map[string]any{"ok": true, "kicked": kicked})
 }
@@ -403,7 +385,6 @@ func (h *Handler) RotateUserSubscriptionToken(w http.ResponseWriter, r *http.Req
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to rotate subscription token", nil)
 		return
 	}
-	h.audit(r, "subscription.token.rotate", auditdomain.EntitySubscription, &id, nil)
 	url := strings.TrimRight(strings.TrimSpace(h.cfg.SubscriptionPublicURL), "/") + "/api/subscriptions/" + token
 	render.JSON(w, http.StatusOK, map[string]any{"token": token, "url": url, "state": state})
 }
@@ -423,7 +404,6 @@ func (h *Handler) RevokeUserSubscriptionToken(w http.ResponseWriter, r *http.Req
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to revoke subscription token", nil)
 		return
 	}
-	h.audit(r, "subscription.token.revoke", auditdomain.EntitySubscription, &id, nil)
 	render.JSON(w, http.StatusOK, map[string]any{"state": state})
 }
 
@@ -442,7 +422,6 @@ func (h *Handler) RestoreUserSubscriptionToken(w http.ResponseWriter, r *http.Re
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to restore subscription token", nil)
 		return
 	}
-	h.audit(r, "subscription.token.restore", auditdomain.EntitySubscription, &id, nil)
 	render.JSON(w, http.StatusOK, map[string]any{"state": state})
 }
 
@@ -534,7 +513,6 @@ func (h *Handler) UpsertInbound(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusInternalServerError, "sync", "failed to save inbound", nil)
 		return
 	}
-	h.audit(r, "inbound.save", auditdomain.EntityInbound, &saved.ID, map[string]any{"protocol": saved.Protocol})
 	render.JSON(w, http.StatusOK, saved)
 }
 
@@ -552,7 +530,6 @@ func (h *Handler) DeleteInbound(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusInternalServerError, "sync", "failed to delete inbound", nil)
 		return
 	}
-	h.audit(r, "inbound.delete", auditdomain.EntityInbound, &id, nil)
 	render.JSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 

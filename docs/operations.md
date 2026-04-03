@@ -30,7 +30,6 @@ journalctl -u caddy -n 200 --no-pager
 - Sing-box config: `/etc/h2v2/sing-box/config.json`
 - SQLite DB: `/var/lib/h2v2/data/h2v2.db`
 - Storage root: `/var/lib/h2v2`
-- Audit dir: `/var/log/h2v2/audit`
 
 ## API checks
 

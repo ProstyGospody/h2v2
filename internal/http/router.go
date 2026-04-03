@@ -62,8 +62,6 @@ func NewRouter(
 			secured.Get("/system/live", h.GetSystemLive)
 			secured.Get("/system/history", h.GetSystemHistory)
 
-			secured.Get("/audit", h.ListAudit)
-
 			secured.Get("/users", h.ListUsers)
 			secured.Post("/users", h.CreateUser)
 			secured.Post("/users/state", h.SetUsersState)

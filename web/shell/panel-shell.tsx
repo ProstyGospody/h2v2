@@ -2,7 +2,6 @@ import {
   Activity,
   ChevronLeft,
   ChevronRight,
-  HardDrive,
   LogOut,
   Moon,
   PanelLeft,
@@ -14,9 +13,8 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { type ReactNode, type TouchEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { Badge, Tooltip, cn } from "@/src/components/ui";
+import { Tooltip, cn } from "@/src/components/ui";
 import { useConfirmDialog } from "@/src/components/ui/ConfirmDialog";
-import { useAuditFeed } from "@/src/state/audit-feed";
 import { hasUnsavedChangesGuard } from "@/src/state/navigation-guard";
 import { applyTheme, resolveTheme, type ThemeMode } from "@/src/theme";
 import { apiFetch } from "@/services/api";
@@ -25,15 +23,13 @@ type NavItem = {
   href: string;
   label: string;
   icon: ReactNode;
-  section: "MAIN" | "SYSTEM";
 };
 
 const SIDEBAR_COLLAPSED_KEY = "panel-sidebar-collapsed";
 
 const navItems: NavItem[] = [
-  { href: "/", label: "Dashboard", icon: <Activity size={24} strokeWidth={1.8} />, section: "MAIN" },
-  { href: "/users", label: "Users", icon: <Users2 size={24} strokeWidth={1.8} />, section: "MAIN" },
-  { href: "/audit", label: "Audit Log", icon: <HardDrive size={24} strokeWidth={1.8} />, section: "SYSTEM" },
+  { href: "/", label: "Dashboard", icon: <Activity size={24} strokeWidth={1.8} /> },
+  { href: "/users", label: "Users", icon: <Users2 size={24} strokeWidth={1.8} /> },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -44,7 +40,6 @@ function isActive(pathname: string, href: string): boolean {
 export function PanelShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const { newCount, markSeen } = useAuditFeed();
   const { confirm } = useConfirmDialog();
 
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -88,12 +83,6 @@ export function PanelShell({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   useEffect(() => {
-    if (pathname === "/audit") {
-      markSeen();
-    }
-  }, [markSeen, pathname]);
-
-  useEffect(() => {
     if (!mobileOpen) return;
     mobileSidebarRef.current?.focus();
   }, [mobileOpen]);
@@ -123,8 +112,6 @@ export function PanelShell({ children }: { children: ReactNode }) {
     navigate("/login", { replace: true });
   }
 
-  const sectionMain = navItems.filter((item) => item.section === "MAIN");
-  const sectionSystem = navItems.filter((item) => item.section === "SYSTEM");
   function resetSwipeTrack() {
     swipeStartXRef.current = null;
     swipeStartYRef.current = null;
@@ -152,16 +139,12 @@ export function PanelShell({ children }: { children: ReactNode }) {
 
   function SidebarNavLink({ item, compact, onNavigate }: { item: NavItem; compact: boolean; onNavigate?: () => void }) {
     const selected = isActive(pathname, item.href);
-    const showAuditBadge = item.href === "/audit" && newCount > 0;
     async function handleNavigate() {
       if (item.href !== pathname) {
         const shouldProceed = await confirmDiscardChanges();
         if (!shouldProceed) {
           return;
         }
-      }
-      if (item.href === "/audit") {
-        markSeen();
       }
       navigate(item.href);
       onNavigate?.();
@@ -190,17 +173,6 @@ export function PanelShell({ children }: { children: ReactNode }) {
         </span>
 
         {!compact && <span className="text-[14px] font-semibold whitespace-nowrap">{item.label}</span>}
-        {showAuditBadge ? (
-          compact ? (
-            <span className="absolute right-1.5 top-1.5 inline-flex min-w-[16px] items-center justify-center rounded-md bg-status-warning/90 px-1 py-0.5 text-[9px] font-bold leading-none text-surface-0">
-              {newCount > 9 ? "9+" : newCount}
-            </span>
-          ) : (
-            <Badge variant="warning" className="ml-auto min-w-[22px] justify-center px-1.5 py-0.5 text-[11px]">
-              {newCount > 99 ? "99+" : newCount}
-            </Badge>
-          )
-        ) : null}
       </button>
     );
 
@@ -237,16 +209,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
           <div>
             {!compact && <p className="mb-2 px-4 text-section-label uppercase text-txt-muted">Main</p>}
             <div className="space-y-1.5">
-              {sectionMain.map((item) => (
-                <SidebarNavLink key={item.href} item={item} compact={compact} onNavigate={() => setMobileOpen(false)} />
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-6">
-            {!compact && <p className="mb-2 px-4 text-section-label uppercase text-txt-muted">System</p>}
-            <div className="space-y-1.5">
-              {sectionSystem.map((item) => (
+              {navItems.map((item) => (
                 <SidebarNavLink key={item.href} item={item} compact={compact} onNavigate={() => setMobileOpen(false)} />
               ))}
             </div>

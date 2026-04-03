@@ -117,7 +117,6 @@ func (h *Handler) runServiceAction(w http.ResponseWriter, r *http.Request, actio
 		raw := h.serviceManager.ToJSON(details)
 		_ = h.repo.UpsertServiceState(ctx, name, details.StatusText, nil, raw)
 	}
-	h.audit(r, "service."+action, "service", &name, map[string]any{"service": name})
 	if statusErr != nil {
 		render.JSON(w, http.StatusOK, map[string]any{"ok": true})
 		return

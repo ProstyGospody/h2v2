@@ -20,8 +20,6 @@ type Repository interface {
 	TouchSession(context.Context, string) error
 	DeleteSessionByHash(context.Context, string) error
 
-	InsertAuditLog(context.Context, *string, string, string, *string, any) error
-	ListAuditLogs(context.Context, int, int) ([]AuditLog, error)
 	UpsertServiceState(context.Context, string, string, *string, string) error
 	GetServiceState(context.Context, string) (ServiceState, error)
 

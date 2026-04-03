@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"h2v2/internal/http/middleware"
 	"h2v2/internal/http/render"
 	"h2v2/internal/repository"
 	"h2v2/internal/security"
@@ -88,7 +87,6 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.setAuthCookies(w, sessionToken, csrfToken, expiresAt)
-	h.audit(r, "auth.login", "admin", &admin.ID, map[string]any{"email": admin.Email, "ip": ip})
 	render.JSON(w, http.StatusOK, map[string]any{
 		"admin": map[string]any{
 			"id":    admin.ID,
@@ -104,10 +102,6 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		_ = h.repo.DeleteSessionByHash(r.Context(), security.HashToken(cookie.Value))
 	}
 	h.clearAuthCookies(w)
-	admin, ok := middleware.AdminFromContext(r.Context())
-	if ok {
-		h.audit(r, "auth.logout", "admin", &admin.ID, nil)
-	}
 	render.JSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 

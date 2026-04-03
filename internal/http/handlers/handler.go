@@ -177,17 +177,6 @@ func (h *Handler) parsePagination(r *http.Request) (limit int, offset int) {
 	return
 }
 
-func (h *Handler) audit(r *http.Request, action string, entityType string, entityID *string, payload any) {
-	admin, ok := middleware.AdminFromContext(r.Context())
-	var adminID *string
-	if ok {
-		adminID = &admin.ID
-	}
-	if err := h.repo.InsertAuditLog(r.Context(), adminID, action, entityType, entityID, payload); err != nil {
-		h.logger.Warn("audit insert failed", "error", err, "action", action)
-	}
-}
-
 func (h *Handler) renderError(w http.ResponseWriter, status int, errorType string, message string, details any) {
 	payload := map[string]any{
 		"error":      message,

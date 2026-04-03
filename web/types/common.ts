@@ -21,17 +21,6 @@ export type ServiceDetails = {
   status_text: string;
 };
 
-export type AuditLogItem = {
-  id: number;
-  admin_id?: string | null;
-  admin_email?: string | null;
-  action: string;
-  entity_type: string;
-  entity_id?: string | null;
-  payload_json: string;
-  created_at: string;
-};
-
 export type SystemLiveResponse = {
   collected_at: string;
   system: {

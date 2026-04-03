@@ -31,7 +31,7 @@ ENV_OVERRIDE_KEYS=(
   HY2_DOMAIN HY2_PORT
   SINGBOX_SERVICE_NAME SINGBOX_BINARY_PATH SINGBOX_CONFIG_PATH
   INITIAL_ADMIN_EMAIL INITIAL_ADMIN_PASSWORD
-  PANEL_SQLITE_PATH PANEL_STORAGE_ROOT PANEL_AUDIT_DIR PANEL_RUNTIME_DIR
+  PANEL_SQLITE_PATH PANEL_STORAGE_ROOT PANEL_RUNTIME_DIR
 )
 
 phase() { printf "\n==> %s\n" "$1"; }
@@ -204,8 +204,8 @@ create_users_and_dirs() {
   run usermod -a -G h2v2 singbox || true
 
   run mkdir -p "${APP_ROOT}" "${BIN_DIR}" "${ETC_ROOT}" "${HY2_DIR}" "${SINGBOX_DIR}"
-  run mkdir -p /var/lib/h2v2 /var/lib/h2v2/backups /var/lib/h2v2/data /var/log/h2v2/audit /var/lib/sing-box /run/h2v2 /run/h2v2/locks /run/h2v2/tmp
-  run chown -R h2v2:h2v2 /var/lib/h2v2 /var/log/h2v2 /run/h2v2
+  run mkdir -p /var/lib/h2v2 /var/lib/h2v2/backups /var/lib/h2v2/data /var/lib/sing-box /run/h2v2 /run/h2v2/locks /run/h2v2/tmp
+  run chown -R h2v2:h2v2 /var/lib/h2v2 /run/h2v2
   run chown -R singbox:singbox /var/lib/sing-box
   run chmod 0750 /run/h2v2 /run/h2v2/locks /run/h2v2/tmp
   run chown root:h2v2 "${HY2_DIR}"
@@ -369,7 +369,6 @@ collect_config() {
   PANEL_PUBLIC_URL="https://${PANEL_PUBLIC_HOST}:${PANEL_PUBLIC_PORT}"
   SUBSCRIPTION_PUBLIC_URL="https://${SUBSCRIPTION_PUBLIC_HOST}:${PANEL_PUBLIC_PORT}"
   PANEL_STORAGE_ROOT="${PANEL_STORAGE_ROOT:-/var/lib/h2v2}"
-  PANEL_AUDIT_DIR="${PANEL_AUDIT_DIR:-/var/log/h2v2/audit}"
   PANEL_RUNTIME_DIR="${PANEL_RUNTIME_DIR:-/run/h2v2}"
   PANEL_SQLITE_PATH="${PANEL_SQLITE_PATH:-${PANEL_STORAGE_ROOT}/data/h2v2.db}"
   SESSION_COOKIE_NAME="${SESSION_COOKIE_NAME:-pp_session}"
@@ -416,7 +415,6 @@ PANEL_API_INTERNAL_URL=${PANEL_API_INTERNAL_URL}
 PANEL_ACME_EMAIL=${PANEL_ACME_EMAIL}
 PANEL_STORAGE_ROOT=${PANEL_STORAGE_ROOT}
 PANEL_SQLITE_PATH=${PANEL_SQLITE_PATH}
-PANEL_AUDIT_DIR=${PANEL_AUDIT_DIR}
 PANEL_RUNTIME_DIR=${PANEL_RUNTIME_DIR}
 
 SESSION_COOKIE_NAME=${SESSION_COOKIE_NAME}
@@ -575,7 +573,7 @@ create_backup() {
     BACKUP_READY=1
     return
   fi
-  run mkdir -p "${BACKUP_DIR}/env" "${BACKUP_DIR}/etc" "${BACKUP_DIR}/systemd" "${BACKUP_DIR}/storage" "${BACKUP_DIR}/audit"
+  run mkdir -p "${BACKUP_DIR}/env" "${BACKUP_DIR}/etc" "${BACKUP_DIR}/systemd" "${BACKUP_DIR}/storage"
   [[ -f "${ENV_FILE}" ]] && run cp -a "${ENV_FILE}" "${BACKUP_DIR}/env/.env.generated"
   [[ -f "${CREDENTIALS_FILE}" ]] && run cp -a "${CREDENTIALS_FILE}" "${BACKUP_DIR}/env/credentials.txt"
   [[ -d "${ETC_ROOT}" ]] && run rsync -a "${ETC_ROOT}/" "${BACKUP_DIR}/etc/h2v2/"
@@ -584,7 +582,6 @@ create_backup() {
     [[ -f "/etc/systemd/system/${u}" ]] && run cp -a "/etc/systemd/system/${u}" "${BACKUP_DIR}/systemd/${u}"
   done
   [[ -d /var/lib/h2v2/data ]] && run rsync -a /var/lib/h2v2/data/ "${BACKUP_DIR}/storage/data/"
-  [[ -d /var/log/h2v2/audit ]] && run rsync -a /var/log/h2v2/audit/ "${BACKUP_DIR}/audit/"
   BACKUP_READY=1
   changed "backup created at ${BACKUP_DIR}"
 }
@@ -602,7 +599,6 @@ rollback_from_backup() {
     [[ -f "${BACKUP_DIR}/systemd/${u}" ]] && run cp -a "${BACKUP_DIR}/systemd/${u}" "/etc/systemd/system/${u}"
   done
   [[ -d "${BACKUP_DIR}/storage/data" ]] && run rsync -a --delete "${BACKUP_DIR}/storage/data/" /var/lib/h2v2/data/
-  [[ -d "${BACKUP_DIR}/audit" ]] && run rsync -a --delete "${BACKUP_DIR}/audit/" /var/log/h2v2/audit/
   run systemctl daemon-reload
   run systemctl restart h2v2-api.service h2v2-web.service caddy.service "${SINGBOX_SERVICE_NAME}.service" || true
 }

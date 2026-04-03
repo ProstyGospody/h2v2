@@ -51,7 +51,6 @@ Installer modes:
 - Initial admin credentials: `/root/h2v2-initial-admin.txt`
 - SQLite DB: `/var/lib/h2v2/data/h2v2.db`
 - Backups: `/var/lib/h2v2/backups/`
-- Audit: `/var/log/h2v2/audit/`
 - Runtime locks/temp: `/run/h2v2/`
 - Sing-box config: `/etc/h2v2/sing-box/config.json`
 

@@ -15,7 +15,6 @@ type EntityCounts struct {
 	Admins              int `json:"admins"`
 	Sessions            int `json:"sessions"`
 	SystemSnapshots     int `json:"system_snapshots"`
-	AuditLogs           int `json:"audit_logs"`
 	ServiceStates       int `json:"service_states"`
 	Nodes               int `json:"nodes"`
 	Users               int `json:"users"`
@@ -34,7 +33,6 @@ type ExportPayload struct {
 	Admins             []Admin             `json:"admins"`
 	Sessions           []Session           `json:"sessions"`
 	SystemSnapshots    []SystemSnapshot    `json:"system_snapshots"`
-	AuditLogs          []AuditLog          `json:"audit_logs"`
 	ServiceStates      []ServiceState      `json:"service_states"`
 	Nodes              []map[string]any    `json:"nodes"`
 	Users              []User              `json:"users"`
@@ -100,10 +98,6 @@ func (r *SQLiteRepository) ExportPayload(ctx context.Context) (ExportPayload, er
 	if err != nil {
 		return ExportPayload{}, err
 	}
-	auditLogs, err := r.listAuditLogs(ctx)
-	if err != nil {
-		return ExportPayload{}, err
-	}
 	serviceStates, err := r.listServiceStates(ctx)
 	if err != nil {
 		return ExportPayload{}, err
@@ -141,7 +135,6 @@ func (r *SQLiteRepository) ExportPayload(ctx context.Context) (ExportPayload, er
 		Admins:             len(admins),
 		Sessions:           len(sessions),
 		SystemSnapshots:    len(systemSnapshots),
-		AuditLogs:          len(auditLogs),
 		ServiceStates:      len(serviceStates),
 		Nodes:              len(nodes),
 		Users:              len(users),
@@ -159,7 +152,6 @@ func (r *SQLiteRepository) ExportPayload(ctx context.Context) (ExportPayload, er
 		Admins:             admins,
 		Sessions:           sessions,
 		SystemSnapshots:    systemSnapshots,
-		AuditLogs:          auditLogs,
 		ServiceStates:      serviceStates,
 		Nodes:              nodes,
 		Users:              users,
@@ -289,7 +281,6 @@ func (r *SQLiteRepository) restoreDataTx(ctx context.Context, tx *sql.Tx, payloa
 		`DELETE FROM users`,
 		`DELETE FROM nodes`,
 		`DELETE FROM system_snapshots`,
-		`DELETE FROM audit_logs`,
 		`DELETE FROM service_states`,
 		`DELETE FROM admins`,
 	}
@@ -327,9 +318,6 @@ func (r *SQLiteRepository) restoreDataTx(ctx context.Context, tx *sql.Tx, payloa
 		return err
 	}
 	if err := r.importSystemSnapshotsTx(ctx, tx, payload.SystemSnapshots); err != nil {
-		return err
-	}
-	if err := r.importAuditLogsTx(ctx, tx, payload.AuditLogs); err != nil {
 		return err
 	}
 	if err := r.importServiceStatesTx(ctx, tx, payload.ServiceStates); err != nil {
@@ -426,10 +414,6 @@ func countEntitiesTx(ctx context.Context, tx *sql.Tx) (EntityCounts, error) {
 	if err != nil {
 		return EntityCounts{}, err
 	}
-	auditLogs, err := getCount("audit_logs")
-	if err != nil {
-		return EntityCounts{}, err
-	}
 	serviceStates, err := getCount("service_states")
 	if err != nil {
 		return EntityCounts{}, err
@@ -466,7 +450,6 @@ func countEntitiesTx(ctx context.Context, tx *sql.Tx) (EntityCounts, error) {
 		Admins:             admins,
 		Sessions:           sessions,
 		SystemSnapshots:    systemSnapshots,
-		AuditLogs:          auditLogs,
 		ServiceStates:      serviceStates,
 		Nodes:              nodes,
 		Users:              users,
