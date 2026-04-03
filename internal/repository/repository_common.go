@@ -51,6 +51,23 @@ func cleanOptional(value *string) *string {
 	return &trimmed
 }
 
+func nullValue(value *string) any {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+	return trimmed
+}
+
+func maxInt(a int, b int) int {
+	if a >= b {
+		return a
+	}
+	return b
+}
+
 func IsNotFound(err error) bool        { return errors.Is(err, ErrNotFound) }
 func IsUniqueViolation(err error) bool { return errors.Is(err, ErrUniqueViolation) }
-
