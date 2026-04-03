@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Outlet, Navigate, createBrowserRouter } from "react-router-dom";
 
 import { AuthGuard } from "@/shell/auth-guard";
@@ -7,9 +8,9 @@ import { ConfirmDialogProvider } from "@/src/components/ui/ConfirmDialog";
 import { ToastProvider } from "@/src/components/ui/Toast";
 import { TooltipProvider } from "@/src/components/ui/Tooltip";
 
-import DashboardPage from "./pages/dashboard-page";
-import LoginPage from "./pages/login-page";
-import UsersPage from "./pages/users-page";
+const DashboardPage = lazy(() => import("./pages/dashboard-page"));
+const LoginPage = lazy(() => import("./pages/login-page"));
+const UsersPage = lazy(() => import("./pages/users-page"));
 
 function PanelLayout() {
   return (
@@ -19,7 +20,9 @@ function PanelLayout() {
           <ToastProvider>
             <PanelShell>
               <ErrorBoundary>
-                <Outlet />
+                <Suspense>
+                  <Outlet />
+                </Suspense>
               </ErrorBoundary>
             </PanelShell>
           </ToastProvider>
@@ -32,7 +35,7 @@ function PanelLayout() {
 export const router = createBrowserRouter([
   {
     path: "/login",
-    element: <LoginPage />,
+    element: <Suspense><LoginPage /></Suspense>,
   },
   {
     path: "/",
