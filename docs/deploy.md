@@ -7,13 +7,11 @@
 - Public DNS records:
   - panel host (`PANEL_PUBLIC_HOST`)
   - subscription host (`SUBSCRIPTION_PUBLIC_HOST`)
-  - HY2 host (`HY2_DOMAIN`)
 
 ## Open ports
 
 - Panel HTTPS: `${PANEL_PUBLIC_PORT}` (default `8443`, TCP)
-- HY2 transport: `${HY2_PORT}` (default `443`, UDP)
-- VLESS inbound port(s): configured in `/api/inbounds` and rendered to `${XRAY_CONFIG_PATH}`
+- Runtime ports: configured in `/api/inbounds` and rendered to `${SINGBOX_CONFIG_PATH}`
 
 ## Install
 
@@ -43,7 +41,6 @@ Modes:
 H2V2_NONINTERACTIVE=1 \
 PANEL_PUBLIC_HOST=panel.example.com \
 SUBSCRIPTION_PUBLIC_HOST=sub.example.com \
-HY2_DOMAIN=hy2.example.com \
 INITIAL_ADMIN_EMAIL=admin@example.com \
 sudo -E bash ./deploy/install.sh --non-interactive
 ```
@@ -52,18 +49,15 @@ sudo -E bash ./deploy/install.sh --non-interactive
 
 - `/opt/h2v2/.env.generated`
 - `/root/h2v2-initial-admin.txt`
-- `/etc/h2v2/hysteria/server.yaml`
-- `/etc/h2v2/xray/config.json`
+- `/etc/h2v2/sing-box/config.json`
 - `/var/lib/h2v2/backups/install-YYYYmmdd-HHMMSS`
 
-## Added runtime env for VLESS/Xray
+## Runtime environment
 
-- `XRAY_BINARY_PATH`
-- `XRAY_CONFIG_PATH`
-- `XRAY_RUNTIME_URL`
-- `XRAY_RUNTIME_TOKEN`
-- `XRAY_SERVICE_NAME`
-- `XRAY_POLL_INTERVAL`
+- `RUNTIME_POLL_INTERVAL`
+- `SINGBOX_BINARY_PATH`
+- `SINGBOX_CONFIG_PATH`
+- `SINGBOX_SERVICE_NAME`
 
 ## Verification
 
@@ -73,7 +67,7 @@ sudo bash ./deploy/verify.sh
 
 Checks include:
 
-- systemd services (`h2v2-api`, `h2v2-web`, `hysteria-server`, `xray`, `caddy`)
+- systemd services (`h2v2-api`, `h2v2-web`, `sing-box`, `caddy`)
 - API health/readiness
-- HY2 listener
+- runtime listeners from configured inbounds
 - admin login flow

@@ -20,19 +20,6 @@ type Repository interface {
 	TouchSession(context.Context, string) error
 	DeleteSessionByHash(context.Context, string) error
 
-	CreateHysteriaUser(context.Context, string, string, *string, *ClientOverrides) (HysteriaUser, error)
-	ListHysteriaUsers(context.Context, int, int) ([]HysteriaUserView, error)
-	ListEnabledHysteriaUsers(context.Context) ([]HysteriaUser, error)
-	GetHysteriaUser(context.Context, string) (HysteriaUserView, error)
-	UpdateHysteriaUser(context.Context, string, string, string, *string, *ClientOverrides) (HysteriaUserView, error)
-	DeleteHysteriaUser(context.Context, string) error
-	DeleteHysteriaUsers(context.Context, []string) error
-	SetHysteriaUserEnabled(context.Context, string, bool) error
-	TouchHysteriaUserLastSeen(context.Context, string, time.Time) error
-	InsertHysteriaSnapshots(context.Context, []HysteriaSnapshot) error
-	GetHysteriaStatsOverview(context.Context) (HysteriaOverview, error)
-	ListHysteriaSnapshots(context.Context, string, int, int) ([]HysteriaSnapshot, error)
-
 	InsertAuditLog(context.Context, *string, string, string, *string, any) error
 	ListAuditLogs(context.Context, int, int) ([]AuditLog, error)
 	UpsertServiceState(context.Context, string, string, *string, string) error

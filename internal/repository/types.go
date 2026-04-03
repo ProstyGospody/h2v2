@@ -3,7 +3,6 @@ package repository
 import (
 	"time"
 
-	hysteriadomain "h2v2/internal/domain/hysteria"
 	paneldomain "h2v2/internal/domain/panel"
 )
 
@@ -26,16 +25,6 @@ type Session struct {
 	IP               string    `json:"ip"`
 	UserAgent        string    `json:"user_agent"`
 }
-
-type HysteriaUser = hysteriadomain.User
-
-type HysteriaUserView = hysteriadomain.UserView
-
-type HysteriaSnapshot = hysteriadomain.Snapshot
-
-type HysteriaOverview = hysteriadomain.Overview
-
-type ClientOverrides = hysteriadomain.ClientOverrides
 
 type SystemSnapshot struct {
 	ID                int64     `json:"id"`

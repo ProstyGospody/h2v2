@@ -10,7 +10,7 @@ import (
 	"h2v2/internal/http/handlers"
 )
 
-func TestRouterExposesHysteriaRoutesAndDropsLegacyRoutes(t *testing.T) {
+func TestRouterExposesUnifiedRoutesAndDropsLegacyRoutes(t *testing.T) {
 	cfg := config.Config{
 		SessionCookieName: "pp_session",
 		CSRFCookieName:    "pp_csrf",
@@ -18,7 +18,7 @@ func TestRouterExposesHysteriaRoutesAndDropsLegacyRoutes(t *testing.T) {
 	}
 	router := NewRouter(cfg, slog.Default(), nil, &handlers.Handler{})
 
-	for _, path := range []string{"/api/hysteria/users", "/api/hysteria/settings", "/api/storage/sqlite/backup", "/api/services", "/api/users", "/api/inbounds"} {
+	for _, path := range []string{"/api/storage/sqlite/backup", "/api/services", "/api/users", "/api/inbounds"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		resp := httptest.NewRecorder()
 		router.ServeHTTP(resp, req)
@@ -41,18 +41,6 @@ func TestRouterExposesHysteriaRoutesAndDropsLegacyRoutes(t *testing.T) {
 		t.Fatalf("expected /api/storage/sqlite/restore to require auth and return 401, got %d", restoreResp.Code)
 	}
 
-	subReq := httptest.NewRequest(http.MethodGet, "/api/hysteria/subscription/demo-token", nil)
-	subResp := httptest.NewRecorder()
-	router.ServeHTTP(subResp, subReq)
-	if subResp.Code == http.StatusNotFound || subResp.Code == http.StatusUnauthorized {
-		t.Fatalf("expected subscription route to be exposed without auth middleware, got %d", subResp.Code)
-	}
-	legacySubReq := httptest.NewRequest(http.MethodGet, "/hysteria/subscription/demo-token", nil)
-	legacySubResp := httptest.NewRecorder()
-	router.ServeHTTP(legacySubResp, legacySubReq)
-	if legacySubResp.Code == http.StatusNotFound || legacySubResp.Code == http.StatusUnauthorized {
-		t.Fatalf("expected legacy subscription route alias to be exposed without auth middleware, got %d", legacySubResp.Code)
-	}
 	unifiedSubReq := httptest.NewRequest(http.MethodGet, "/api/subscriptions/demo-token", nil)
 	unifiedSubResp := httptest.NewRecorder()
 	router.ServeHTTP(unifiedSubResp, unifiedSubReq)
@@ -60,7 +48,12 @@ func TestRouterExposesHysteriaRoutesAndDropsLegacyRoutes(t *testing.T) {
 		t.Fatalf("expected unified subscription route to be exposed without auth middleware, got %d", unifiedSubResp.Code)
 	}
 
-	for _, path := range []string{"/api/clients", "/api/hy2/accounts", "/api/legacy/access", "/api/legacy/settings"} {
+	for _, path := range []string{
+		"/api/clients",
+		"/api/hy2/accounts",
+		"/api/legacy/access",
+		"/api/legacy/settings",
+	} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		resp := httptest.NewRecorder()
 		router.ServeHTTP(resp, req)

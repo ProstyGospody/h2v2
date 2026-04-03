@@ -2,10 +2,10 @@
 
 ## Scope
 
-The panel controls two data-plane runtimes:
+The panel controls sing-box runtime for both protocols:
 
 - Hysteria 2 (`hy2`)
-- Sing-box VLESS (`vless`)
+- VLESS (`vless`)
 - Sing-box core (`core v1`) for VLESS + Hysteria2 unified generation
 
 Control plane services:
@@ -28,11 +28,9 @@ Control plane services:
 Protocol-agnostic entities:
 
 - `User`: lifecycle, traffic limit, expiry, enabled state
-- `Credential`: per-protocol secret/identity (`hy2 user/pass`, `vless uuid`)
+- `Credential`: per-protocol secret/identity (`hy2 password + uuid identity`, `vless uuid`)
 - `Node` + `Inbound`: runtime protocol/transport/security parameters
 - `SubscriptionToken`: subject, version, revoked/rotated state
-
-Legacy HY2 tables remain available for backward-compatible API flows and are mirrored with triggers.
 
 ## Persistence model
 
@@ -46,29 +44,16 @@ SQLite storage (single DB file, WAL mode) now includes unified tables:
 - `traffic_counters`
 - `runtime_user_state`
 
-Legacy tables are preserved:
-
-- `hysteria_users`
-- `hysteria_snapshots`
-
-Sync/compat triggers keep HY2 paths and unified paths consistent.
-
 ## Data migration
 
-On startup, SQLite schema is migrated to `user_version=2` if needed:
-
-- legacy `hysteria_users` are backfilled into `users` + `credentials`
-- legacy snapshots are mirrored into unified `traffic_counters`
-- default `hy2` and `vless` inbounds are created if absent
-
-Legacy API reads/writes continue to work after migration.
+On startup, SQLite schema is migrated to `user_version=2` if needed and default `hy2`/`vless` inbounds are created if absent.
 
 ## Runtime adapter layer
 
 Runtime operations are mediated by protocol adapters:
 
-- `HY2Adapter`
-- `SingBoxAdapter`
+- `SingBoxAdapter` (primary sing-box runtime/config source)
+- `SingBoxHY2Adapter` (HY2 stats/artifacts via the same sing-box runtime state)
 
 Adapter contract:
 
@@ -109,8 +94,6 @@ Default list:
 
 - `h2v2-api`
 - `h2v2-web`
-- `hysteria-server`
 - `sing-box`
-- `xray` (legacy)
 
 Runtime startup and periodic poll collection run through scheduler + adapters.

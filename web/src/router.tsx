@@ -9,7 +9,6 @@ import { TooltipProvider } from "@/src/components/ui/Tooltip";
 import { AuditFeedProvider } from "@/src/state/audit-feed";
 
 import AuditPage from "./pages/audit-page";
-import ConfigPage from "./pages/config-page";
 import DashboardPage from "./pages/dashboard-page";
 import LoginPage from "./pages/login-page";
 import UsersPage from "./pages/users-page";
@@ -50,10 +49,6 @@ export const router = createBrowserRouter([
       {
         path: "users",
         element: <UsersPage />,
-      },
-      {
-        path: "config",
-        element: <ConfigPage />,
       },
       {
         path: "audit",

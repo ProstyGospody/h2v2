@@ -3,7 +3,7 @@
 ## Service status
 
 ```bash
-systemctl status h2v2-api h2v2-web hysteria-server xray caddy
+systemctl status h2v2-api h2v2-web sing-box caddy
 ```
 
 ## Restart / reload
@@ -11,8 +11,7 @@ systemctl status h2v2-api h2v2-web hysteria-server xray caddy
 ```bash
 systemctl restart h2v2-api
 systemctl restart h2v2-web
-systemctl restart hysteria-server
-systemctl restart xray
+systemctl restart sing-box
 systemctl reload caddy
 ```
 
@@ -21,16 +20,14 @@ systemctl reload caddy
 ```bash
 journalctl -u h2v2-api -n 200 --no-pager
 journalctl -u h2v2-web -n 200 --no-pager
-journalctl -u hysteria-server -n 200 --no-pager
-journalctl -u xray -n 200 --no-pager
+journalctl -u sing-box -n 200 --no-pager
 journalctl -u caddy -n 200 --no-pager
 ```
 
 ## Paths
 
 - Panel env: `/opt/h2v2/.env.generated`
-- HY2 config: `/etc/h2v2/hysteria/server.yaml`
-- Xray config: `/etc/h2v2/xray/config.json`
+- Sing-box config: `/etc/h2v2/sing-box/config.json`
 - SQLite DB: `/var/lib/h2v2/data/h2v2.db`
 - Storage root: `/var/lib/h2v2`
 - Audit dir: `/var/log/h2v2/audit`

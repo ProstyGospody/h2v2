@@ -22,14 +22,10 @@ type Handler struct {
 	logger           *slog.Logger
 	repo             repository.Repository
 	rateLimiter      *middleware.LoginRateLimiter
-	hy2Client        *services.HysteriaClient
 	serviceManager   *services.ServiceManager
-	hy2ConfigManager *services.HysteriaConfigManager
-	hysteriaAccess   *services.HysteriaAccessManager
 	userManager      *services.UserManager
 	systemMetrics    *services.SystemMetricsCollector
 	coreService      *core.Service
-	hysteriaStateMu  sync.Mutex
 	protocolMu       sync.Mutex
 	protocolSample   protocolPacketSample
 	networkMu        sync.Mutex
@@ -61,25 +57,19 @@ func New(
 	logger *slog.Logger,
 	repo repository.Repository,
 	rateLimiter *middleware.LoginRateLimiter,
-	hy2Client *services.HysteriaClient,
 	serviceManager *services.ServiceManager,
-	hy2ConfigManager *services.HysteriaConfigManager,
-	hysteriaAccess *services.HysteriaAccessManager,
 	userManager *services.UserManager,
 	systemMetrics *services.SystemMetricsCollector,
 ) *Handler {
 	return &Handler{
-		cfg:              cfg,
-		logger:           logger,
-		repo:             repo,
-		rateLimiter:      rateLimiter,
-		hy2Client:        hy2Client,
-		serviceManager:   serviceManager,
-		hy2ConfigManager: hy2ConfigManager,
-		hysteriaAccess:   hysteriaAccess,
-		userManager:      userManager,
-		systemMetrics:    systemMetrics,
-		coreService:      buildCoreService(cfg, logger, serviceManager),
+		cfg:            cfg,
+		logger:         logger,
+		repo:           repo,
+		rateLimiter:    rateLimiter,
+		serviceManager: serviceManager,
+		userManager:    userManager,
+		systemMetrics:  systemMetrics,
+		coreService:    buildCoreService(cfg, logger, serviceManager),
 	}
 }
 

@@ -14,8 +14,6 @@ import (
 type EntityCounts struct {
 	Admins              int `json:"admins"`
 	Sessions            int `json:"sessions"`
-	HysteriaUsers       int `json:"hysteria_users"`
-	HysteriaSnapshots   int `json:"hysteria_snapshots"`
 	SystemSnapshots     int `json:"system_snapshots"`
 	AuditLogs           int `json:"audit_logs"`
 	ServiceStates       int `json:"service_states"`
@@ -35,8 +33,6 @@ type ExportPayload struct {
 	Counts             EntityCounts        `json:"counts"`
 	Admins             []Admin             `json:"admins"`
 	Sessions           []Session           `json:"sessions"`
-	HysteriaUsers      []HysteriaUser      `json:"hysteria_users"`
-	HysteriaSnapshots  []HysteriaSnapshot  `json:"hysteria_snapshots"`
 	SystemSnapshots    []SystemSnapshot    `json:"system_snapshots"`
 	AuditLogs          []AuditLog          `json:"audit_logs"`
 	ServiceStates      []ServiceState      `json:"service_states"`
@@ -100,14 +96,6 @@ func (r *SQLiteRepository) ExportPayload(ctx context.Context) (ExportPayload, er
 	if err != nil {
 		return ExportPayload{}, err
 	}
-	hysteriaUsers, err := r.listHysteriaUsers(ctx)
-	if err != nil {
-		return ExportPayload{}, err
-	}
-	hysteriaSnapshots, err := r.sortedHysteriaSnapshots(ctx)
-	if err != nil {
-		return ExportPayload{}, err
-	}
 	systemSnapshots, err := r.listSystemSnapshots(ctx)
 	if err != nil {
 		return ExportPayload{}, err
@@ -152,8 +140,6 @@ func (r *SQLiteRepository) ExportPayload(ctx context.Context) (ExportPayload, er
 	counts := EntityCounts{
 		Admins:             len(admins),
 		Sessions:           len(sessions),
-		HysteriaUsers:      len(hysteriaUsers),
-		HysteriaSnapshots:  len(hysteriaSnapshots),
 		SystemSnapshots:    len(systemSnapshots),
 		AuditLogs:          len(auditLogs),
 		ServiceStates:      len(serviceStates),
@@ -172,8 +158,6 @@ func (r *SQLiteRepository) ExportPayload(ctx context.Context) (ExportPayload, er
 		Counts:             counts,
 		Admins:             admins,
 		Sessions:           sessions,
-		HysteriaUsers:      hysteriaUsers,
-		HysteriaSnapshots:  hysteriaSnapshots,
 		SystemSnapshots:    systemSnapshots,
 		AuditLogs:          auditLogs,
 		ServiceStates:      serviceStates,
@@ -297,7 +281,6 @@ func (r *SQLiteRepository) RestoreFromBackup(ctx context.Context, fromPath strin
 func (r *SQLiteRepository) restoreDataTx(ctx context.Context, tx *sql.Tx, payload ExportPayload) error {
 	clearStatements := []string{
 		`DELETE FROM sessions`,
-		`DELETE FROM hysteria_snapshots`,
 		`DELETE FROM traffic_counters`,
 		`DELETE FROM runtime_user_state`,
 		`DELETE FROM subscription_tokens`,
@@ -308,7 +291,6 @@ func (r *SQLiteRepository) restoreDataTx(ctx context.Context, tx *sql.Tx, payloa
 		`DELETE FROM system_snapshots`,
 		`DELETE FROM audit_logs`,
 		`DELETE FROM service_states`,
-		`DELETE FROM hysteria_users`,
 		`DELETE FROM admins`,
 	}
 	for _, stmt := range clearStatements {
@@ -320,13 +302,7 @@ func (r *SQLiteRepository) restoreDataTx(ctx context.Context, tx *sql.Tx, payloa
 	if err := r.importAdminsTx(ctx, tx, payload.Admins); err != nil {
 		return err
 	}
-	if err := r.importHysteriaUsersTx(ctx, tx, payload.HysteriaUsers); err != nil {
-		return err
-	}
 	if err := r.importSessionsTx(ctx, tx, payload.Sessions); err != nil {
-		return err
-	}
-	if err := r.importHysteriaSnapshotsTx(ctx, tx, payload.HysteriaSnapshots); err != nil {
 		return err
 	}
 	if err := r.importNodesRawTx(ctx, tx, payload.Nodes); err != nil {
@@ -446,14 +422,6 @@ func countEntitiesTx(ctx context.Context, tx *sql.Tx) (EntityCounts, error) {
 	if err != nil {
 		return EntityCounts{}, err
 	}
-	hUsers, err := getCount("hysteria_users")
-	if err != nil {
-		return EntityCounts{}, err
-	}
-	hSnapshots, err := getCount("hysteria_snapshots")
-	if err != nil {
-		return EntityCounts{}, err
-	}
 	systemSnapshots, err := getCount("system_snapshots")
 	if err != nil {
 		return EntityCounts{}, err
@@ -497,8 +465,6 @@ func countEntitiesTx(ctx context.Context, tx *sql.Tx) (EntityCounts, error) {
 	return EntityCounts{
 		Admins:             admins,
 		Sessions:           sessions,
-		HysteriaUsers:      hUsers,
-		HysteriaSnapshots:  hSnapshots,
 		SystemSnapshots:    systemSnapshots,
 		AuditLogs:          auditLogs,
 		ServiceStates:      serviceStates,
@@ -538,29 +504,6 @@ func (r *SQLiteRepository) listSessions(ctx context.Context) ([]Session, error) 
 	out := make([]Session, 0)
 	for rows.Next() {
 		item, err := r.scanSession(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, item)
-	}
-	return out, rows.Err()
-}
-
-func (r *SQLiteRepository) listHysteriaUsers(ctx context.Context) ([]HysteriaUser, error) {
-	rows, err := r.db.QueryContext(
-		resolveCtx(ctx),
-		`SELECT
-			id, username, username_normalized, password, enabled, note, client_overrides_json, created_at_ns, updated_at_ns, last_seen_at_ns
-		 FROM hysteria_users
-		 ORDER BY created_at_ns ASC, id ASC`,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := make([]HysteriaUser, 0)
-	for rows.Next() {
-		item, err := r.scanHysteriaUser(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -850,9 +793,6 @@ func (r *SQLiteRepository) importTrafficCountersRawTx(ctx context.Context, tx *s
 			online_count = excluded.online_count,
 			snapshot_at_ns = excluded.snapshot_at_ns`
 	for _, item := range items {
-		if item.Protocol == ProtocolHY2 {
-			continue
-		}
 		if _, err := tx.ExecContext(
 			resolveCtx(ctx),
 			stmt,

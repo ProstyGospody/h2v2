@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func TestSQLiteRepositoryUnifiedUserLifecycle(t *testing.T) {
@@ -135,59 +137,6 @@ func TestSQLiteRepositorySetUsersStateBatchRollback(t *testing.T) {
 	}
 }
 
-func TestSQLiteRepositoryLegacyHysteriaCompatibility(t *testing.T) {
-	ctx := context.Background()
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "data", "h2v2.db")
-
-	repo, err := NewSQLiteRepository(dbPath)
-	if err != nil {
-		t.Fatalf("open sqlite repository: %v", err)
-	}
-	t.Cleanup(func() { _ = repo.Close() })
-
-	unified, err := repo.CreateUser(ctx, CreateUserInput{
-		Name:    "compat-user",
-		Enabled: true,
-		Credentials: []Credential{
-			{Protocol: ProtocolHY2, Identity: "compat-user", Secret: "supersecret88"},
-		},
-	})
-	if err != nil {
-		t.Fatalf("create unified user: %v", err)
-	}
-
-	legacy, err := repo.GetHysteriaUser(ctx, unified.ID)
-	if err != nil {
-		t.Fatalf("get legacy user view: %v", err)
-	}
-	if legacy.User.Username != "compat-user" {
-		t.Fatalf("unexpected legacy username: %s", legacy.User.Username)
-	}
-
-	updatedLegacy, err := repo.UpdateHysteriaUser(ctx, unified.ID, "compat-user-renamed", "supersecret99", nil, nil)
-	if err != nil {
-		t.Fatalf("update legacy user: %v", err)
-	}
-	updatedUnified, err := repo.GetUser(ctx, unified.ID)
-	if err != nil {
-		t.Fatalf("get unified user after legacy update: %v", err)
-	}
-	if updatedUnified.Name != "compat-user-renamed" {
-		t.Fatalf("expected unified name to mirror legacy update, got %s", updatedUnified.Name)
-	}
-	if updatedLegacy.User.Password != "supersecret99" {
-		t.Fatalf("expected legacy password to update")
-	}
-
-	if err := repo.DeleteHysteriaUser(ctx, unified.ID); err != nil {
-		t.Fatalf("delete legacy user: %v", err)
-	}
-	if _, err := repo.GetUser(ctx, unified.ID); !IsNotFound(err) {
-		t.Fatalf("expected unified user to be removed after legacy delete, got %v", err)
-	}
-}
-
 func TestSQLiteRepositoryHY2SecretGenerationAndPreserve(t *testing.T) {
 	ctx := context.Background()
 	tmpDir := t.TempDir()
@@ -210,14 +159,19 @@ func TestSQLiteRepositoryHY2SecretGenerationAndPreserve(t *testing.T) {
 		t.Fatalf("create user without explicit secret: %v", err)
 	}
 	hy2Secret := ""
+	hy2Identity := ""
 	for _, credential := range created.Credentials {
 		if credential.Protocol == ProtocolHY2 {
 			hy2Secret = credential.Secret
+			hy2Identity = credential.Identity
 			break
 		}
 	}
 	if len(hy2Secret) < 8 {
 		t.Fatalf("expected generated hy2 secret, got %q", hy2Secret)
+	}
+	if _, err := uuid.Parse(hy2Identity); err != nil {
+		t.Fatalf("expected hy2 identity to be uuid, got %q", hy2Identity)
 	}
 
 	updated, err := repo.UpdateUser(ctx, created.ID, UpdateUserInput{
@@ -227,7 +181,7 @@ func TestSQLiteRepositoryHY2SecretGenerationAndPreserve(t *testing.T) {
 		ExpireAt:          created.ExpireAt,
 		Note:              created.Note,
 		Credentials: []Credential{
-			{Protocol: ProtocolHY2, Identity: created.Name, Secret: ""},
+			{Protocol: ProtocolHY2, Identity: hy2Identity, Secret: ""},
 		},
 	})
 	if err != nil {

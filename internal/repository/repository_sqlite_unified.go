@@ -32,7 +32,7 @@ func (r *SQLiteRepository) CreateUser(ctx context.Context, input CreateUserInput
 		return UserWithCredentials{}, err
 	}
 
-	credentials, err := normalizeCredentialsInput(input.Credentials, userID, name, now)
+	credentials, err := normalizeCredentialsInput(input.Credentials, userID, now)
 	if err != nil {
 		return UserWithCredentials{}, err
 	}
@@ -100,10 +100,6 @@ func (r *SQLiteRepository) CreateUser(ctx context.Context, input CreateUserInput
 		subject,
 		toUnixNano(now),
 	); err != nil {
-		return UserWithCredentials{}, err
-	}
-
-	if err = upsertLegacyHysteriaFromCredentialsTx(resolveCtx(ctx), tx, userID, input.Enabled, note, toUnixNano(now), credentials); err != nil {
 		return UserWithCredentials{}, err
 	}
 
@@ -282,7 +278,7 @@ func (r *SQLiteRepository) UpdateUser(ctx context.Context, id string, input Upda
 		return UserWithCredentials{}, err
 	}
 
-	credentials, err := normalizeCredentialsInput(input.Credentials, current.ID, name, now)
+	credentials, err := normalizeCredentialsInput(input.Credentials, current.ID, now)
 	if err != nil {
 		return UserWithCredentials{}, err
 	}
@@ -359,10 +355,6 @@ func (r *SQLiteRepository) UpdateUser(ctx context.Context, id string, input Upda
 		return UserWithCredentials{}, err
 	}
 
-	if err = upsertLegacyHysteriaFromCredentialsTx(resolveCtx(ctx), tx, current.ID, input.Enabled, note, toUnixNano(now), credentials); err != nil {
-		return UserWithCredentials{}, err
-	}
-
 	if err = tx.Commit(); err != nil {
 		return UserWithCredentials{}, err
 	}
@@ -398,10 +390,6 @@ func (r *SQLiteRepository) DeleteUsers(ctx context.Context, input BatchDeleteUse
 		}
 		if rows == 0 {
 			err = ErrNotFound
-			return err
-		}
-		if _, execErr = tx.ExecContext(resolveCtx(ctx), `DELETE FROM hysteria_users WHERE id = ?`, id); execErr != nil {
-			err = execErr
 			return err
 		}
 	}
@@ -468,12 +456,6 @@ func (r *SQLiteRepository) SetUsersStateBatch(ctx context.Context, input BatchUs
 		}
 		updated += int(rows)
 
-		if input.Protocol == nil || *input.Protocol == ProtocolHY2 {
-			if _, execErr = tx.ExecContext(resolveCtx(ctx), `UPDATE hysteria_users SET enabled = ?, updated_at_ns = ? WHERE id = ?`, sqliteBool(input.Enabled), now, id); execErr != nil {
-				err = execErr
-				return 0, err
-			}
-		}
 	}
 
 	err = tx.Commit()
@@ -1279,7 +1261,7 @@ func (r *SQLiteRepository) scanTrafficCounter(row scanner) (TrafficCounter, erro
 	return out, nil
 }
 
-func normalizeCredentialsInput(items []Credential, userID string, userName string, now time.Time) ([]Credential, error) {
+func normalizeCredentialsInput(items []Credential, userID string, now time.Time) ([]Credential, error) {
 	if len(items) == 0 {
 		return nil, nil
 	}
@@ -1306,7 +1288,16 @@ func normalizeCredentialsInput(items []Credential, userID string, userName strin
 		switch credential.Protocol {
 		case ProtocolHY2:
 			credential.Type = CredentialTypeUserPass
-			credential.Identity = userName
+			identity := strings.TrimSpace(credential.Identity)
+			if identity == "" {
+				identity = uuid.NewString()
+			}
+			parsedIdentity, parseErr := uuid.Parse(identity)
+			if parseErr != nil {
+				identity = uuid.NewString()
+				parsedIdentity, _ = uuid.Parse(identity)
+			}
+			credential.Identity = strings.ToLower(parsedIdentity.String())
 			credential.Secret = strings.TrimSpace(credential.Secret)
 			if credential.Secret == "" {
 				credential.Secret = strings.ReplaceAll(uuid.NewString(), "-", "")
@@ -1332,55 +1323,6 @@ func normalizeCredentialsInput(items []Credential, userID string, userName strin
 		result = append(result, credential)
 	}
 	return result, nil
-}
-
-func upsertLegacyHysteriaFromCredentialsTx(ctx context.Context, tx *sql.Tx, userID string, enabled bool, note *string, updatedAtNs int64, credentials []Credential) error {
-	var hy2 *Credential
-	for i := range credentials {
-		if credentials[i].Protocol == ProtocolHY2 {
-			hy2 = &credentials[i]
-			break
-		}
-	}
-	if hy2 == nil {
-		_, err := tx.ExecContext(ctx, `DELETE FROM hysteria_users WHERE id = ?`, strings.TrimSpace(userID))
-		return err
-	}
-
-	createdAtNs := updatedAtNs
-	var existingCreated sql.NullInt64
-	if err := tx.QueryRowContext(ctx, `SELECT created_at_ns FROM hysteria_users WHERE id = ? LIMIT 1`, strings.TrimSpace(userID)).Scan(&existingCreated); err == nil {
-		if existingCreated.Valid && existingCreated.Int64 > 0 {
-			createdAtNs = existingCreated.Int64
-		}
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		return err
-	}
-
-	_, err := tx.ExecContext(
-		ctx,
-		`INSERT INTO hysteria_users (
-			id, username, username_normalized, password, enabled, note, client_overrides_json, created_at_ns, updated_at_ns, last_seen_at_ns
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
-		ON CONFLICT(id) DO UPDATE SET
-			username = excluded.username,
-			username_normalized = excluded.username_normalized,
-			password = excluded.password,
-			enabled = excluded.enabled,
-			note = excluded.note,
-			client_overrides_json = excluded.client_overrides_json,
-			updated_at_ns = excluded.updated_at_ns`,
-		strings.TrimSpace(userID),
-		hy2.Identity,
-		hy2.Identity,
-		hy2.Secret,
-		sqliteBool(enabled),
-		nullValue(note),
-		nullString(hy2.DataJSON),
-		createdAtNs,
-		updatedAtNs,
-	)
-	return err
 }
 
 func (r *SQLiteRepository) nodeAddressByID(ctx context.Context, id string) (string, error) {

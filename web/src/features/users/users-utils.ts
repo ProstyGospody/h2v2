@@ -1,4 +1,4 @@
-import { type HysteriaClient } from "@/domain/clients/types";
+import { type Client } from "@/domain/clients/types";
 
 export type ClientFilter = "all" | "online" | "enabled" | "disabled";
 export type SortField = "username" | "traffic" | "last_seen";
@@ -14,7 +14,7 @@ export function initials(value: string): string {
   return clean ? clean.slice(0, 1).toUpperCase() : "?";
 }
 
-export function resolveStatus(client: HysteriaClient): "online" | "offline" | "disabled" {
+export function resolveStatus(client: Client): "online" | "offline" | "disabled" {
   if (!client.enabled) {
     return "disabled";
   }
@@ -37,7 +37,7 @@ export function escapeCSV(value: string): string {
   return `"${escaped}"`;
 }
 
-export function selectedDeleteDescription(selectedIDs: string[], clients: HysteriaClient[]): string {
+export function selectedDeleteDescription(selectedIDs: string[], clients: Client[]): string {
   const names = clients
     .filter((client) => selectedIDs.includes(client.id))
     .map((client) => client.username);

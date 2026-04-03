@@ -75,7 +75,7 @@ func parseCoreProtocol(value string) (core.InboundProtocol, error) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "vless":
 		return core.InboundProtocolVLESS, nil
-	case "hysteria2", "hy2", "hysteria":
+	case "hysteria2", "hy2":
 		return core.InboundProtocolHysteria2, nil
 	default:
 		return "", fmt.Errorf("unsupported protocol")

@@ -406,12 +406,9 @@ func (m *UserManager) CollectRuntime(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		onlineByUser := map[string]int{}
-		if protocol != repository.ProtocolHY2 {
-			onlineByUser, err = adapter.CollectOnline(ctx, users)
-			if err != nil {
-				onlineByUser = map[string]int{}
-			}
+		onlineByUser, err := adapter.CollectOnline(ctx, users)
+		if err != nil {
+			onlineByUser = map[string]int{}
 		}
 		counters = applyOnlineToCounters(counters, onlineByUser)
 		counters, err = m.appendMissingOnlineCounters(ctx, protocol, counters, onlineByUser)
@@ -421,42 +418,6 @@ func (m *UserManager) CollectRuntime(ctx context.Context) error {
 		counters, err = m.stabilizeOnlineFromHistory(ctx, protocol, counters)
 		if err != nil {
 			return err
-		}
-		if protocol == repository.ProtocolHY2 {
-			normalized := make([]repository.TrafficCounter, 0, len(counters))
-			snapshots := make([]repository.HysteriaSnapshot, 0, len(counters))
-			now := time.Now().UTC()
-			for _, counter := range counters {
-				snapshotAt := counter.SnapshotAt
-				if snapshotAt.IsZero() {
-					snapshotAt = now
-				}
-				normalized = append(normalized, repository.TrafficCounter{
-					UserID:     counter.UserID,
-					Protocol:   repository.ProtocolHY2,
-					TxBytes:    counter.TxBytes,
-					RxBytes:    counter.RxBytes,
-					Online:     counter.Online,
-					SnapshotAt: snapshotAt,
-				})
-				snapshots = append(snapshots, repository.HysteriaSnapshot{
-					UserID:     counter.UserID,
-					TxBytes:    counter.TxBytes,
-					RxBytes:    counter.RxBytes,
-					Online:     counter.Online,
-					SnapshotAt: snapshotAt,
-				})
-				if counter.Online > 0 {
-					_ = m.repo.TouchHysteriaUserLastSeen(ctx, counter.UserID, snapshotAt)
-				}
-			}
-			if err := m.repo.InsertTrafficCounters(ctx, normalized); err != nil {
-				return err
-			}
-			if err := m.repo.InsertHysteriaSnapshots(ctx, snapshots); err != nil {
-				return err
-			}
-			continue
 		}
 		if err := m.repo.InsertTrafficCounters(ctx, counters); err != nil {
 			return err
@@ -472,18 +433,19 @@ func (m *UserManager) SyncAll(ctx context.Context) error {
 }
 
 func (m *UserManager) syncAllProtocols(ctx context.Context) error {
+	users, err := m.repo.ListUsers(ctx, 0, 0, nil)
+	if err != nil {
+		return err
+	}
+	inbounds, err := m.repo.ListInbounds(ctx, nil)
+	if err != nil {
+		return err
+	}
+
 	for _, protocol := range m.sortedRuntimeProtocols() {
 		adapter, ok := m.runtime.Adapter(protocol)
 		if !ok {
 			continue
-		}
-		users, err := m.repo.ListUsers(ctx, 0, 0, &protocol)
-		if err != nil {
-			return err
-		}
-		inbounds, err := m.repo.ListInbounds(ctx, &protocol)
-		if err != nil {
-			return err
 		}
 		if err := adapter.SyncConfig(ctx, inbounds, users); err != nil {
 			return err

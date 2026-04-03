@@ -16,8 +16,6 @@ import (
 
 	"golang.org/x/crypto/curve25519"
 	_ "modernc.org/sqlite"
-
-	hysteriadomain "h2v2/internal/domain/hysteria"
 )
 
 const sqliteSchemaVersion = 3
@@ -164,30 +162,6 @@ func (r *SQLiteRepository) ensureBaseSchema(ctx context.Context) error {
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at_ns);`,
 		`CREATE INDEX IF NOT EXISTS idx_sessions_admin ON sessions(admin_id);`,
-		`CREATE TABLE IF NOT EXISTS hysteria_users (
-			id TEXT PRIMARY KEY,
-			username TEXT NOT NULL,
-			username_normalized TEXT NOT NULL UNIQUE,
-			password TEXT NOT NULL,
-			enabled INTEGER NOT NULL,
-			note TEXT,
-			client_overrides_json TEXT,
-			created_at_ns INTEGER NOT NULL,
-			updated_at_ns INTEGER NOT NULL,
-			last_seen_at_ns INTEGER
-		);`,
-		`CREATE INDEX IF NOT EXISTS idx_hysteria_users_created_at ON hysteria_users(created_at_ns DESC);`,
-		`CREATE TABLE IF NOT EXISTS hysteria_snapshots (
-			id INTEGER PRIMARY KEY,
-			user_id TEXT NOT NULL,
-			tx_bytes INTEGER NOT NULL,
-			rx_bytes INTEGER NOT NULL,
-			online_count INTEGER NOT NULL,
-			snapshot_at_ns INTEGER NOT NULL,
-			FOREIGN KEY(user_id) REFERENCES hysteria_users(id) ON DELETE CASCADE
-		);`,
-		`CREATE INDEX IF NOT EXISTS idx_hysteria_snapshots_user_at ON hysteria_snapshots(user_id, snapshot_at_ns DESC);`,
-		`CREATE INDEX IF NOT EXISTS idx_hysteria_snapshots_at ON hysteria_snapshots(snapshot_at_ns DESC);`,
 		`CREATE TABLE IF NOT EXISTS service_states (
 			id INTEGER PRIMARY KEY,
 			service_name TEXT NOT NULL UNIQUE,
@@ -312,87 +286,10 @@ func (r *SQLiteRepository) ensureUnifiedSchema(ctx context.Context) error {
 			PRIMARY KEY(user_id, protocol),
 			FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 		);`,
-		`CREATE TRIGGER IF NOT EXISTS trg_hy2_user_insert
-		 AFTER INSERT ON hysteria_users
-		 BEGIN
-			 INSERT INTO users (
-				 id, name, name_normalized, enabled, traffic_limit_bytes, traffic_used_tx_bytes, traffic_used_rx_bytes,
-				 expire_at_ns, note, subject, created_at_ns, updated_at_ns, last_seen_at_ns
-			 ) VALUES (
-				 NEW.id, NEW.username, NEW.username_normalized, NEW.enabled, 0, 0, 0,
-				 NULL, NEW.note, NEW.id, NEW.created_at_ns, NEW.updated_at_ns, NEW.last_seen_at_ns
-			 )
-			 ON CONFLICT(id) DO UPDATE SET
-				 name = excluded.name,
-				 name_normalized = excluded.name_normalized,
-				 enabled = excluded.enabled,
-				 note = excluded.note,
-				 updated_at_ns = excluded.updated_at_ns,
-				 last_seen_at_ns = excluded.last_seen_at_ns;
-			 INSERT INTO credentials (
-				 id, user_id, protocol, credential_type, identity, secret, data_json, created_at_ns, updated_at_ns
-			 ) VALUES (
-				 lower(hex(randomblob(16))), NEW.id, 'hy2', 'userpass', NEW.username, NEW.password, NEW.client_overrides_json, NEW.created_at_ns, NEW.updated_at_ns
-			 )
-			 ON CONFLICT(user_id, protocol) DO UPDATE SET
-				 credential_type = excluded.credential_type,
-				 identity = excluded.identity,
-				 secret = excluded.secret,
-				 data_json = excluded.data_json,
-				 updated_at_ns = excluded.updated_at_ns;
-			 INSERT INTO subscription_tokens (user_id, subject, version, revoked, rotated_at_ns, updated_at_ns)
-			 VALUES (NEW.id, NEW.id, 1, 0, NULL, NEW.updated_at_ns)
-			 ON CONFLICT(user_id) DO NOTHING;
-		 END;`,
-		`CREATE TRIGGER IF NOT EXISTS trg_hy2_user_update
-		 AFTER UPDATE ON hysteria_users
-		 BEGIN
-			 UPDATE users
-			 SET
-				 name = NEW.username,
-				 name_normalized = NEW.username_normalized,
-				 enabled = NEW.enabled,
-				 note = NEW.note,
-				 updated_at_ns = NEW.updated_at_ns,
-				 last_seen_at_ns = NEW.last_seen_at_ns
-			 WHERE id = NEW.id;
-			 INSERT INTO credentials (
-				 id, user_id, protocol, credential_type, identity, secret, data_json, created_at_ns, updated_at_ns
-			 ) VALUES (
-				 lower(hex(randomblob(16))), NEW.id, 'hy2', 'userpass', NEW.username, NEW.password, NEW.client_overrides_json, NEW.created_at_ns, NEW.updated_at_ns
-			 )
-			 ON CONFLICT(user_id, protocol) DO UPDATE SET
-				 credential_type = excluded.credential_type,
-				 identity = excluded.identity,
-				 secret = excluded.secret,
-				 data_json = excluded.data_json,
-				 updated_at_ns = excluded.updated_at_ns;
-			 UPDATE subscription_tokens
-			 SET updated_at_ns = NEW.updated_at_ns
-			 WHERE user_id = NEW.id;
-		 END;`,
-		`CREATE TRIGGER IF NOT EXISTS trg_hy2_user_delete
-		 AFTER DELETE ON hysteria_users
-		 BEGIN
-			 DELETE FROM users WHERE id = OLD.id;
-		 END;`,
+		`DROP TRIGGER IF EXISTS trg_hy2_user_insert;`,
+		`DROP TRIGGER IF EXISTS trg_hy2_user_update;`,
+		`DROP TRIGGER IF EXISTS trg_hy2_user_delete;`,
 		`DROP TRIGGER IF EXISTS trg_hy2_snapshot_insert;`,
-		`CREATE TRIGGER IF NOT EXISTS trg_hy2_snapshot_insert
-		 AFTER INSERT ON hysteria_snapshots
-		 BEGIN
-			 INSERT INTO traffic_counters (user_id, protocol, tx_bytes, rx_bytes, online_count, snapshot_at_ns)
-			 SELECT NEW.user_id, 'hy2', NEW.tx_bytes, NEW.rx_bytes, NEW.online_count, NEW.snapshot_at_ns
-			 WHERE EXISTS (
-				 SELECT 1 FROM users u
-				 WHERE u.id = NEW.user_id
-			 )
-			   AND NOT EXISTS (
-				 SELECT 1 FROM traffic_counters tc
-				 WHERE tc.user_id = NEW.user_id
-				   AND tc.protocol = 'hy2'
-				   AND tc.snapshot_at_ns = NEW.snapshot_at_ns
-			 );
-		 END;`,
 	}
 	for _, stmt := range statements {
 		if _, err := r.db.ExecContext(resolveCtx(ctx), stmt); err != nil {
@@ -431,66 +328,6 @@ func (r *SQLiteRepository) backfillUnifiedSchema(ctx context.Context) error {
 
 	if _, err = tx.ExecContext(
 		resolveCtx(ctx),
-		`INSERT INTO users (
-			id, name, name_normalized, enabled, traffic_limit_bytes, traffic_used_tx_bytes, traffic_used_rx_bytes,
-			expire_at_ns, note, subject, created_at_ns, updated_at_ns, last_seen_at_ns
-		)
-		SELECT
-			hu.id,
-			hu.username,
-			hu.username_normalized,
-			hu.enabled,
-			0,
-			0,
-			0,
-			NULL,
-			hu.note,
-			hu.id,
-			hu.created_at_ns,
-			hu.updated_at_ns,
-			hu.last_seen_at_ns
-		FROM hysteria_users hu
-		WHERE 1 = 1
-		ON CONFLICT(id) DO UPDATE SET
-			name = excluded.name,
-			name_normalized = excluded.name_normalized,
-			enabled = excluded.enabled,
-			note = excluded.note,
-			updated_at_ns = excluded.updated_at_ns,
-			last_seen_at_ns = excluded.last_seen_at_ns`,
-	); err != nil {
-		return err
-	}
-
-	if _, err = tx.ExecContext(
-		resolveCtx(ctx),
-		`INSERT INTO credentials (
-			id, user_id, protocol, credential_type, identity, secret, data_json, created_at_ns, updated_at_ns
-		)
-		SELECT
-			lower(hex(randomblob(16))),
-			hu.id,
-			'hy2',
-			'userpass',
-			hu.username,
-			hu.password,
-			hu.client_overrides_json,
-			hu.created_at_ns,
-			hu.updated_at_ns
-		FROM hysteria_users hu
-		WHERE EXISTS (
-			SELECT 1 FROM users u
-			WHERE u.id = hu.id
-		)
-		  AND NOT EXISTS (
-			SELECT 1 FROM credentials c WHERE c.user_id = hu.id AND c.protocol = 'hy2'
-		)`,
-	); err != nil {
-		return err
-	}
-
-	if _, err = tx.ExecContext(
-		resolveCtx(ctx),
 		`INSERT INTO subscription_tokens (user_id, subject, version, revoked, rotated_at_ns, updated_at_ns)
 		SELECT
 			u.id,
@@ -503,23 +340,6 @@ func (r *SQLiteRepository) backfillUnifiedSchema(ctx context.Context) error {
 		WHERE NOT EXISTS (
 			SELECT 1 FROM subscription_tokens st WHERE st.user_id = u.id
 		)`,
-	); err != nil {
-		return err
-	}
-
-	if _, err = tx.ExecContext(
-		resolveCtx(ctx),
-		`INSERT INTO traffic_counters (user_id, protocol, tx_bytes, rx_bytes, online_count, snapshot_at_ns)
-		 SELECT hs.user_id, 'hy2', hs.tx_bytes, hs.rx_bytes, hs.online_count, hs.snapshot_at_ns
-		 FROM hysteria_snapshots hs
-		 WHERE EXISTS (
-			 SELECT 1 FROM users u
-			 WHERE u.id = hs.user_id
-		 )
-		   AND NOT EXISTS (
-			 SELECT 1 FROM traffic_counters tc
-			 WHERE tc.user_id = hs.user_id AND tc.protocol = 'hy2' AND tc.snapshot_at_ns = hs.snapshot_at_ns
-		 )`,
 	); err != nil {
 		return err
 	}
@@ -892,31 +712,6 @@ func optionalInt64(raw sql.NullInt64) *time.Time {
 	return &ts
 }
 
-func encodeClientOverrides(value *hysteriadomain.ClientOverrides) (*string, error) {
-	normalized := hysteriadomain.NormalizeClientOverrides(value)
-	if normalized == nil {
-		return nil, nil
-	}
-	data, err := json.Marshal(normalized)
-	if err != nil {
-		return nil, err
-	}
-	encoded := string(data)
-	return &encoded, nil
-}
-
-func decodeClientOverrides(value sql.NullString) (*hysteriadomain.ClientOverrides, error) {
-	trimmed := strings.TrimSpace(value.String)
-	if !value.Valid || trimmed == "" {
-		return nil, nil
-	}
-	var out hysteriadomain.ClientOverrides
-	if err := json.Unmarshal([]byte(trimmed), &out); err != nil {
-		return nil, err
-	}
-	return hysteriadomain.NormalizeClientOverrides(&out), nil
-}
-
 func translateSQLiteErr(err error) error {
 	if err == nil {
 		return nil
@@ -981,62 +776,6 @@ func (r *SQLiteRepository) scanSession(row scanner) (Session, error) {
 	out.ExpiresAt = fromUnixNano(expiresAt)
 	out.CreatedAt = fromUnixNano(createdAt)
 	out.LastSeenAt = fromUnixNano(lastSeenAt)
-	return out, nil
-}
-
-func (r *SQLiteRepository) scanHysteriaUser(row scanner) (HysteriaUser, error) {
-	var (
-		out              HysteriaUser
-		enabled          int64
-		createdAt        int64
-		updatedAt        int64
-		lastSeenAt       sql.NullInt64
-		note             sql.NullString
-		clientOverrides  sql.NullString
-	)
-	if err := row.Scan(
-		&out.ID,
-		&out.Username,
-		&out.UsernameNormalized,
-		&out.Password,
-		&enabled,
-		&note,
-		&clientOverrides,
-		&createdAt,
-		&updatedAt,
-		&lastSeenAt,
-	); err != nil {
-		return HysteriaUser{}, translateSQLiteErr(err)
-	}
-	out.Enabled = boolFromSQLite(enabled)
-	out.Note = optionalString(note)
-	decoded, err := decodeClientOverrides(clientOverrides)
-	if err != nil {
-		return HysteriaUser{}, err
-	}
-	out.ClientOverrides = decoded
-	out.CreatedAt = fromUnixNano(createdAt)
-	out.UpdatedAt = fromUnixNano(updatedAt)
-	out.LastSeenAt = optionalInt64(lastSeenAt)
-	return out, nil
-}
-
-func (r *SQLiteRepository) scanHysteriaSnapshot(row scanner) (HysteriaSnapshot, error) {
-	var (
-		out        HysteriaSnapshot
-		snapshotAt int64
-	)
-	if err := row.Scan(
-		&out.ID,
-		&out.UserID,
-		&out.TxBytes,
-		&out.RxBytes,
-		&out.Online,
-		&snapshotAt,
-	); err != nil {
-		return HysteriaSnapshot{}, translateSQLiteErr(err)
-	}
-	out.SnapshotAt = fromUnixNano(snapshotAt)
 	return out, nil
 }
 

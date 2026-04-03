@@ -14,7 +14,6 @@ type Jobs struct {
 	logger         *slog.Logger
 	cfg            config.Config
 	repo           repository.Repository
-	hy2Client      *services.HysteriaClient
 	serviceManager *services.ServiceManager
 	userManager    *services.UserManager
 }
@@ -23,7 +22,6 @@ func NewJobs(
 	logger *slog.Logger,
 	cfg config.Config,
 	repo repository.Repository,
-	hy2Client *services.HysteriaClient,
 	serviceManager *services.ServiceManager,
 	userManager *services.UserManager,
 ) *Jobs {
@@ -31,20 +29,14 @@ func NewJobs(
 		logger:         logger,
 		cfg:            cfg,
 		repo:           repo,
-		hy2Client:      hy2Client,
 		serviceManager: serviceManager,
 		userManager:    userManager,
 	}
 }
 
 func (j *Jobs) Start(ctx context.Context) {
-	trafficInterval := j.cfg.Hy2PollInterval
-	if j.userManager != nil {
-		if trafficInterval <= 0 || (j.cfg.XrayPollInterval > 0 && j.cfg.XrayPollInterval < trafficInterval) {
-			trafficInterval = j.cfg.XrayPollInterval
-		}
-	}
-	go j.runTicker(ctx, "hysteria-poll", trafficInterval, false, j.pollHysteria)
+	trafficInterval := j.cfg.RuntimePollInterval
+	go j.runTicker(ctx, "runtime-poll", trafficInterval, false, j.pollRuntime)
 	go j.runTicker(ctx, "services-poll", j.cfg.ServicePollInterval, true, j.pollServices)
 }
 
@@ -71,44 +63,14 @@ func (j *Jobs) runTicker(ctx context.Context, name string, interval time.Duratio
 	}
 }
 
-func (j *Jobs) pollHysteria(ctx context.Context) error {
+func (j *Jobs) pollRuntime(ctx context.Context) error {
 	pollCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
 
 	if j.userManager != nil {
 		return j.userManager.CollectRuntime(pollCtx)
 	}
-	traffic, err := j.hy2Client.FetchTraffic(pollCtx)
-	if err != nil {
-		return err
-	}
-	online, err := j.hy2Client.FetchOnline(pollCtx)
-	if err != nil {
-		return err
-	}
-	users, err := j.repo.ListHysteriaUsers(pollCtx, 10000, 0)
-	if err != nil {
-		return err
-	}
-	now := time.Now().UTC()
-	snapshots := make([]repository.HysteriaSnapshot, 0, len(users))
-	for _, user := range users {
-		stat := traffic[user.Username]
-		onlineCount := online[user.Username]
-		snapshots = append(snapshots, repository.HysteriaSnapshot{
-			UserID:     user.ID,
-			TxBytes:    stat.TxBytes,
-			RxBytes:    stat.RxBytes,
-			Online:     onlineCount,
-			SnapshotAt: now,
-		})
-		if onlineCount > 0 {
-			if err := j.repo.TouchHysteriaUserLastSeen(pollCtx, user.ID, now); err != nil {
-				j.logger.Debug("failed to update hysteria last seen", "user_id", user.ID, "error", err)
-			}
-		}
-	}
-	return j.repo.InsertHysteriaSnapshots(pollCtx, snapshots)
+	return nil
 }
 
 func (j *Jobs) pollServices(ctx context.Context) error {
@@ -121,12 +83,8 @@ func (j *Jobs) pollServices(ctx context.Context) error {
 		}
 		version := ""
 		switch service {
-		case "hysteria-server":
-			version, _ = services.DetectBinaryVersion(ctx, j.cfg.Hy2BinaryPath, "version")
 		case j.cfg.SingBoxServiceName:
 			version, _ = services.DetectBinaryVersion(ctx, j.cfg.SingBoxBinaryPath, "version")
-		case j.cfg.XrayServiceName:
-			version, _ = services.DetectBinaryVersion(ctx, j.cfg.XrayBinaryPath, "-version")
 		case "h2v2-api":
 			version = "managed-by-systemd"
 		case "h2v2-web":

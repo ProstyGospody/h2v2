@@ -1,8 +1,7 @@
-﻿import {
-  HysteriaClient,
-  HysteriaClientCreateRequest,
-  HysteriaClientDefaults,
-  HysteriaClientUpdateRequest,
+import {
+  Client,
+  ClientCreateRequest,
+  ClientUpdateRequest,
   Protocol,
 } from "@/domain/clients/types";
 
@@ -16,21 +15,7 @@ type ClientFormValues = {
   expireAt: string;
 };
 
-export function defaultsSummary(defaults: HysteriaClientDefaults | null): string {
-  if (!defaults) {
-    return "Defaults loading";
-  }
-  const params = defaults.client_params || ({} as HysteriaClientDefaults["client_params"]);
-  const options = defaults.server_options || ({} as HysteriaClientDefaults["server_options"]);
-  const parts = [
-    params.server ? `${params.server}:${params.port || 443}` : "",
-    params.sni ? `SNI ${params.sni}` : "",
-    options.obfs_type ? `OBFS ${options.obfs_type}` : "",
-  ].filter(Boolean);
-  return parts.join(" | ");
-}
-
-export function formFromClient(client: HysteriaClient | null): ClientFormValues {
+export function formFromClient(client: Client | null): ClientFormValues {
   return {
     username: client?.username || "",
     note: client?.note || "",
@@ -66,8 +51,8 @@ function toDateOrNull(value: string): string | null | undefined {
   return parsed.toISOString();
 }
 
-export function toCreateRequest(values: ClientFormValues): HysteriaClientCreateRequest {
-  const payload: HysteriaClientCreateRequest = {
+export function toCreateRequest(values: ClientFormValues): ClientCreateRequest {
+  const payload: ClientCreateRequest = {
     username: values.username,
     protocol: values.protocol,
   };
@@ -91,7 +76,7 @@ export function toCreateRequest(values: ClientFormValues): HysteriaClientCreateR
   return payload;
 }
 
-export function toUpdateRequest(values: ClientFormValues): HysteriaClientUpdateRequest {
+export function toUpdateRequest(values: ClientFormValues): ClientUpdateRequest {
   return toCreateRequest(values);
 }
 

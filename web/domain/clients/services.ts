@@ -1,21 +1,19 @@
-﻿import { apiFetch, APIError } from "@/services/api";
+import { apiFetch } from "@/services/api";
 
 import {
   ClientOverrides,
   Credential,
-  HysteriaClient,
-  HysteriaClientCreateRequest,
-  HysteriaClientDefaults,
-  HysteriaClientDeleteBatchResponse,
-  HysteriaClientStateBatchResponse,
-  HysteriaUserArtifacts,
-  HysteriaUserPayload,
+  Client,
+  ClientCreateRequest,
+  ClientDeleteBatchResponse,
+  ClientStateBatchResponse,
+  UserPayload,
   Protocol,
   UserArtifacts,
 } from "@/domain/clients/types";
 
 const CLIENT_FETCH_LIMIT = 500;
-const HYSTERIA_MUTATION_TIMEOUT_MS = 120_000;
+const CLIENT_MUTATION_TIMEOUT_MS = 120_000;
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -108,7 +106,7 @@ function selectPrimaryCredential(credentials: Credential[], protocol: Protocol):
   return null;
 }
 
-function mapUnifiedUser(raw: unknown, index: number): HysteriaClient {
+function mapUnifiedUser(raw: unknown, index: number): Client {
   const payload = asRecord(raw);
   const userRecord = asRecord(payload?.user) ?? payload;
   const credentialsRaw = Array.isArray(userRecord?.credentials) ? userRecord.credentials : [];
@@ -131,11 +129,15 @@ function mapUnifiedUser(raw: unknown, index: number): HysteriaClient {
     }
   }
 
+  const resolvedPassword = preferred === "vless"
+    ? (primary?.identity || "")
+    : (primary?.secret || "");
+
   return {
     id,
     username,
     username_normalized: normalized,
-    password: primary?.secret || primary?.identity || "",
+    password: resolvedPassword,
     enabled: readBoolean(userRecord?.enabled, false),
     note: typeof userRecord?.note === "string" || userRecord?.note === null ? (userRecord.note as string | null) : null,
     created_at: readString(userRecord?.created_at, now),
@@ -152,34 +154,6 @@ function mapUnifiedUser(raw: unknown, index: number): HysteriaClient {
     protocols,
     preferred_protocol: preferred,
     client_overrides: overrides,
-  };
-}
-
-function normalizeDefaults(raw: unknown): HysteriaClientDefaults {
-  const payload = asRecord(raw);
-  const clientParams = asRecord(payload?.client_params);
-  const serverOptions = asRecord(payload?.server_options);
-
-  return {
-    client_params: {
-      server: readString(clientParams?.server),
-      port: readNumber(clientParams?.port, 443),
-      portUnion: readOptionalString(clientParams?.portUnion),
-      sni: readOptionalString(clientParams?.sni),
-      insecure: readBoolean(clientParams?.insecure, false),
-      pinSHA256: readOptionalString(clientParams?.pinSHA256),
-      obfsType: readOptionalString(clientParams?.obfsType),
-      obfsPassword: readOptionalString(clientParams?.obfsPassword),
-    },
-    server_options: {
-      tls_enabled: readBoolean(serverOptions?.tls_enabled, true),
-      tls_mode: readString(serverOptions?.tls_mode, "acme"),
-      obfs_type: readOptionalString(serverOptions?.obfs_type),
-      masquerade_type: readOptionalString(serverOptions?.masquerade_type),
-      bandwidth_up: readOptionalString(serverOptions?.bandwidth_up),
-      bandwidth_down: readOptionalString(serverOptions?.bandwidth_down),
-      ignore_client_bandwidth: readBoolean(serverOptions?.ignore_client_bandwidth, false),
-    },
   };
 }
 
@@ -206,127 +180,72 @@ function normalizeUnifiedArtifacts(raw: unknown): Record<string, UserArtifacts> 
   return result;
 }
 
-function mapUnifiedPayload(raw: unknown): HysteriaUserPayload {
+function resolvePreferredURL(unified: Record<string, UserArtifacts>, preferred: Protocol): string {
+  const preferredURL = unified[preferred]?.access_uri;
+  if (preferredURL && preferredURL.trim().length > 0) {
+    return preferredURL;
+  }
+  const fallbackOrder: Protocol[] = ["vless", "hy2"];
+  for (const protocol of fallbackOrder) {
+    const value = unified[protocol]?.access_uri;
+    if (value && value.trim().length > 0) {
+      return value;
+    }
+  }
+  for (const item of Object.values(unified)) {
+    const value = item?.access_uri;
+    if (value && value.trim().length > 0) {
+      return value;
+    }
+  }
+  return "";
+}
+
+function mapUnifiedPayload(raw: unknown): UserPayload {
   const record = asRecord(raw);
   const user = mapUnifiedUser(record, 0);
-  const artifacts = normalizeUnifiedArtifacts(record?.artifacts);
-  const subscriptionURL = readString(record?.subscription_url, "");
+  const unified = normalizeUnifiedArtifacts(record?.artifacts);
+  const subscription = readString(
+    record?.subscription_url,
+    readString(unified[user.preferred_protocol]?.subscription),
+  );
 
-  const preferred = user.preferred_protocol;
-  const preferredArtifact = artifacts[preferred] || artifacts.hy2 || artifacts.vless;
-
-  const payload: HysteriaUserPayload = {
+  return {
     user,
     artifacts: {
-      uri: preferredArtifact?.access_uri || "",
-      uri_hy2: artifacts.hy2?.access_uri || "",
-      subscription_url: subscriptionURL || preferredArtifact?.subscription || "",
-      client_config: preferredArtifact?.config || "",
-      client_params: {
-        server: "",
-        port: 0,
-        insecure: false,
-      },
-      server_defaults: {
-        server: "",
-        port: 0,
-        insecure: false,
-      },
-      server_options: {
-        tls_enabled: true,
-        tls_mode: "managed",
-        ignore_client_bandwidth: false,
-      },
-      singbox_outbound: preferredArtifact?.singbox_node || {},
-      unified: artifacts,
+      url: resolvePreferredURL(unified, user.preferred_protocol),
+      subscription,
+      unified,
     },
   };
-
-  return payload;
 }
 
-function hasRenderableArtifacts(payload: HysteriaUserPayload): boolean {
-  const artifacts = payload.artifacts;
-  if (!artifacts) {
-    return false;
-  }
-  const directValues = [artifacts.uri, artifacts.uri_hy2, artifacts.subscription_url, artifacts.client_config];
-  if (directValues.some((value) => typeof value === "string" && value.trim().length > 0)) {
-    return true;
-  }
-  const unified = artifacts.unified || {};
-  for (const item of Object.values(unified)) {
-    if (!item) {
-      continue;
-    }
-    if (
-      (item.access_uri && item.access_uri.trim().length > 0)
-      || (item.config && item.config.trim().length > 0)
-      || (item.subscription && item.subscription.trim().length > 0)
-      || (item.clash_node && item.clash_node.trim().length > 0)
-      || (item.singbox_node && Object.keys(item.singbox_node).length > 0)
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function mapUnifiedCredentials(input: HysteriaClientCreateRequest): Credential[] {
+function mapUnifiedCredentials(input: ClientCreateRequest): Credential[] {
   const protocol = (input.protocol || "hy2") as Protocol;
   if (protocol === "vless") {
     return [{ protocol: "vless", identity: (input.uuid || "").trim() }];
   }
   return [{
     protocol: "hy2",
-    identity: input.username.trim(),
+    identity: "",
     secret: (input.auth_secret || "").trim(),
     data_json: input.client_overrides ? JSON.stringify(input.client_overrides) : undefined,
   }];
 }
 
-async function listUnifiedClients(): Promise<{ items: HysteriaClient[]; limited: boolean }> {
+export async function listClients(): Promise<{ items: Client[]; limited: boolean }> {
   const payload = await apiFetch<{ items: unknown[] }>(`/api/users?limit=${CLIENT_FETCH_LIMIT}`, { method: "GET" });
   const rawItems = Array.isArray(payload?.items) ? payload.items : [];
   const items = rawItems.map((item, index) => mapUnifiedUser(item, index));
   return { items, limited: items.length >= CLIENT_FETCH_LIMIT };
 }
 
-export async function listClients(): Promise<{ items: HysteriaClient[]; limited: boolean }> {
-  try {
-    return await listUnifiedClients();
-  } catch (error) {
-    if (!(error instanceof APIError) || error.status === 404) {
-      const payload = await apiFetch<{ items: unknown[] }>(`/api/hysteria/users?limit=${CLIENT_FETCH_LIMIT}`, { method: "GET" });
-      const rawItems = Array.isArray(payload?.items) ? payload.items : [];
-      const items = rawItems.map((item, index) => mapUnifiedUser({ user: item }, index));
-      return { items, limited: items.length >= CLIENT_FETCH_LIMIT };
-    }
-    throw error;
-  }
+export async function getClientArtifacts(clientID: string): Promise<UserPayload> {
+  const payload = await apiFetch<unknown>(`/api/users/${clientID}`, { method: "GET" });
+  return mapUnifiedPayload(payload);
 }
 
-export async function getClientDefaults(): Promise<HysteriaClientDefaults> {
-  const payload = await apiFetch<unknown>("/api/hysteria/client-defaults", { method: "GET" });
-  return normalizeDefaults(payload);
-}
-
-export async function getClientArtifacts(clientID: string): Promise<HysteriaUserPayload> {
-  try {
-    const payload = await apiFetch<unknown>(`/api/users/${clientID}`, { method: "GET" });
-    const mapped = mapUnifiedPayload(payload);
-    if (hasRenderableArtifacts(mapped)) {
-      return mapped;
-    }
-  } catch (error) {
-    if (error instanceof APIError && error.status !== 404) {
-      throw error;
-    }
-  }
-  return apiFetch<HysteriaUserPayload>(`/api/hysteria/users/${clientID}/artifacts`, { method: "GET" });
-}
-
-export function createClient(input: HysteriaClientCreateRequest): Promise<HysteriaUserPayload> {
+export function createClient(input: ClientCreateRequest): Promise<UserPayload> {
   return apiFetch<unknown>("/api/users", {
     method: "POST",
     body: JSON.stringify({
@@ -337,11 +256,11 @@ export function createClient(input: HysteriaClientCreateRequest): Promise<Hyster
       expire_at: input.expire_at || undefined,
       credentials: mapUnifiedCredentials(input),
     }),
-    timeoutMs: HYSTERIA_MUTATION_TIMEOUT_MS,
+    timeoutMs: CLIENT_MUTATION_TIMEOUT_MS,
   }).then((payload) => mapUnifiedPayload(payload));
 }
 
-export function updateClient(clientID: string, input: HysteriaClientCreateRequest): Promise<HysteriaUserPayload> {
+export function updateClient(clientID: string, input: ClientCreateRequest): Promise<UserPayload> {
   return apiFetch<unknown>(`/api/users/${clientID}`, {
     method: "PATCH",
     body: JSON.stringify({
@@ -351,7 +270,7 @@ export function updateClient(clientID: string, input: HysteriaClientCreateReques
       expire_at: input.expire_at || undefined,
       credentials: mapUnifiedCredentials(input),
     }),
-    timeoutMs: HYSTERIA_MUTATION_TIMEOUT_MS,
+    timeoutMs: CLIENT_MUTATION_TIMEOUT_MS,
   }).then((payload) => mapUnifiedPayload(payload));
 }
 
@@ -359,7 +278,7 @@ export function deleteClient(clientID: string): Promise<{ ok: boolean }> {
   return apiFetch<{ ok: boolean }>(`/api/users/${clientID}`, {
     method: "DELETE",
     body: JSON.stringify({}),
-    timeoutMs: HYSTERIA_MUTATION_TIMEOUT_MS,
+    timeoutMs: CLIENT_MUTATION_TIMEOUT_MS,
   });
 }
 
@@ -367,25 +286,25 @@ export function setClientEnabled(clientID: string, enabled: boolean): Promise<{ 
   return apiFetch<{ ok: boolean; enabled: boolean }>("/api/users/state", {
     method: "POST",
     body: JSON.stringify({ ids: [clientID], enabled }),
-    timeoutMs: HYSTERIA_MUTATION_TIMEOUT_MS,
+    timeoutMs: CLIENT_MUTATION_TIMEOUT_MS,
   });
 }
 
-export function setClientsEnabledBulk(clientIDs: string[], enabled: boolean): Promise<HysteriaClientStateBatchResponse> {
+export function setClientsEnabledBulk(clientIDs: string[], enabled: boolean): Promise<ClientStateBatchResponse> {
   const ids = clientIDs.map((id) => id.trim()).filter((id) => id.length > 0);
-  return apiFetch<HysteriaClientStateBatchResponse>("/api/users/state", {
+  return apiFetch<ClientStateBatchResponse>("/api/users/state", {
     method: "POST",
     body: JSON.stringify({ ids, enabled }),
-    timeoutMs: HYSTERIA_MUTATION_TIMEOUT_MS,
+    timeoutMs: CLIENT_MUTATION_TIMEOUT_MS,
   });
 }
 
-export function deleteClientsBulk(clientIDs: string[]): Promise<HysteriaClientDeleteBatchResponse> {
+export function deleteClientsBulk(clientIDs: string[]): Promise<ClientDeleteBatchResponse> {
   const ids = clientIDs.map((id) => id.trim()).filter((id) => id.length > 0);
-  return apiFetch<HysteriaClientDeleteBatchResponse>("/api/users/delete", {
+  return apiFetch<ClientDeleteBatchResponse>("/api/users/delete", {
     method: "POST",
     body: JSON.stringify({ ids }),
-    timeoutMs: HYSTERIA_MUTATION_TIMEOUT_MS,
+    timeoutMs: CLIENT_MUTATION_TIMEOUT_MS,
   });
 }
 

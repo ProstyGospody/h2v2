@@ -1,13 +1,13 @@
 # H2V2 Panel
 
-Production-oriented control plane for HY2 + VLESS with SQLite state, rollback-first runtime sync, and backward compatibility for legacy HY2 API routes.
+Production-oriented control plane for HY2 + VLESS with SQLite state and sing-box runtime sync.
 
 Control plane stack:
 
 - `panel-api`: Go
 - `panel-web`: React + Vite + Tailwind CSS + Radix UI + React Router + TanStack Query
 - Storage: SQLite (default `/var/lib/h2v2/data/h2v2.db`)
-- Data-plane runtimes: `hysteria-server` and `sing-box` (VLESS)
+- Data-plane runtime: `sing-box` (VLESS + HY2)
 - Reverse proxy: Caddy
 - Host metrics: native procfs readers
 - Service manager: systemd
@@ -53,34 +53,24 @@ Installer modes:
 - Backups: `/var/lib/h2v2/backups/`
 - Audit: `/var/log/h2v2/audit/`
 - Runtime locks/temp: `/run/h2v2/`
-- HY2 config: `/etc/h2v2/hysteria/server.yaml`
-- Xray config: `/etc/h2v2/xray/config.json`
+- Sing-box config: `/etc/h2v2/sing-box/config.json`
 
 ## Service names
 
 - `h2v2-api.service`
 - `h2v2-web.service`
-- `hysteria-server.service`
-- `xray.service` (or `${XRAY_SERVICE_NAME}` from env)
 - `sing-box.service` (or `${SINGBOX_SERVICE_NAME}` from env)
 - `caddy.service`
 
 Check status:
 
 ```bash
-systemctl status h2v2-api h2v2-web hysteria-server xray sing-box caddy
+systemctl status h2v2-api h2v2-web sing-box caddy
 ```
 
-## API compatibility
+## API routes
 
-Legacy HY2 routes are preserved:
-
-- `/api/hysteria/users/*`
-- `/api/hysteria/settings/*`
-- `/api/hysteria/stats/*`
-- `/api/hysteria/subscription/{token}`
-
-New protocol-agnostic routes:
+Protocol-agnostic routes:
 
 - `/api/users`
 - `/api/users/state`
@@ -90,14 +80,9 @@ New protocol-agnostic routes:
 - `/api/subscriptions/{token}`
 - `/subscriptions/{token}`
 
-## Environment additions for VLESS
+## Runtime environment
 
-- `XRAY_BINARY_PATH`
-- `XRAY_CONFIG_PATH`
-- `XRAY_RUNTIME_URL`
-- `XRAY_RUNTIME_TOKEN`
-- `XRAY_SERVICE_NAME`
-- `XRAY_POLL_INTERVAL`
+- `RUNTIME_POLL_INTERVAL`
 - `SINGBOX_BINARY_PATH`
 - `SINGBOX_CONFIG_PATH`
 - `SINGBOX_SERVICE_NAME`

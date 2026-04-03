@@ -11,8 +11,8 @@ fi
 
 PANEL_API_PORT="${PANEL_API_PORT:-18080}"
 HY2_PORT="${HY2_PORT:-443}"
-XRAY_SERVICE_NAME="${XRAY_SERVICE_NAME:-xray}"
-MANAGED_SERVICES="${MANAGED_SERVICES:-h2v2-api,h2v2-web,hysteria-server,xray}"
+SINGBOX_SERVICE_NAME="${SINGBOX_SERVICE_NAME:-sing-box}"
+MANAGED_SERVICES="${MANAGED_SERVICES:-h2v2-api,h2v2-web,sing-box}"
 SMOKE_ADMIN_EMAIL="${SMOKE_ADMIN_EMAIL:-${INITIAL_ADMIN_EMAIL:-}}"
 SMOKE_ADMIN_PASSWORD="${SMOKE_ADMIN_PASSWORD:-${INITIAL_ADMIN_PASSWORD:-}}"
 CURL_CONNECT_TIMEOUT="${CURL_CONNECT_TIMEOUT:-3}"
@@ -23,9 +23,9 @@ SMOKE_LOGIN_ATTEMPTS="${SMOKE_LOGIN_ATTEMPTS:-5}"
 SMOKE_LOGIN_SLEEP_SEC="${SMOKE_LOGIN_SLEEP_SEC:-3}"
 SMOKE_LOGIN_MAX_TIME="${SMOKE_LOGIN_MAX_TIME:-20}"
 
-services=(h2v2-api h2v2-web hysteria-server caddy)
-if [[ ",${MANAGED_SERVICES}," == *",${XRAY_SERVICE_NAME},"* ]]; then
-  services+=("${XRAY_SERVICE_NAME}")
+services=(h2v2-api h2v2-web caddy)
+if [[ ",${MANAGED_SERVICES}," == *",${SINGBOX_SERVICE_NAME},"* ]]; then
+  services+=("${SINGBOX_SERVICE_NAME}")
 fi
 
 echo "[step] checking systemd services"
@@ -34,13 +34,12 @@ for service in "${services[@]}"; do
   if [[ "${state}" != "active" ]]; then
     echo "[error] ${service}.service state=${state}" >&2
     systemctl status "${service}.service" --no-pager -l || true
-    if [[ "${service}" == "${XRAY_SERVICE_NAME}" ]]; then
-      xray_cfg="${XRAY_CONFIG_PATH:-/etc/h2v2/xray/config.json}"
-      if [[ -x "${XRAY_BINARY_PATH:-/usr/local/bin/xray}" ]]; then
-        runuser -u xray -- "${XRAY_BINARY_PATH:-/usr/local/bin/xray}" run -test -config "${xray_cfg}" || \
-        runuser -u xray -- "${XRAY_BINARY_PATH:-/usr/local/bin/xray}" -test -config "${xray_cfg}" || true
+    if [[ "${service}" == "${SINGBOX_SERVICE_NAME}" ]]; then
+      singbox_cfg="${SINGBOX_CONFIG_PATH:-/etc/h2v2/sing-box/config.json}"
+      if [[ -x "${SINGBOX_BINARY_PATH:-/usr/local/bin/sing-box}" ]]; then
+        runuser -u singbox -- "${SINGBOX_BINARY_PATH:-/usr/local/bin/sing-box}" check -c "${singbox_cfg}" || true
       fi
-      journalctl -u "${XRAY_SERVICE_NAME}" -n 80 --no-pager || true
+      journalctl -u "${SINGBOX_SERVICE_NAME}" -n 80 --no-pager || true
     fi
     exit 1
   fi
@@ -63,11 +62,11 @@ wait_http_ok "http://127.0.0.1:${PANEL_API_PORT}/healthz"
 wait_http_ok "http://127.0.0.1:${PANEL_API_PORT}/readyz"
 echo "[ok] panel-api health and readiness checks passed"
 
-echo "[step] checking hysteria listener"
+echo "[step] checking hy2 listener"
 if ! ss -lun "( sport = :${HY2_PORT} )" | grep -q ":${HY2_PORT}"; then
-  echo "[warn] hysteria UDP listener on ${HY2_PORT} was not observed via ss"
+  echo "[warn] hy2 UDP listener on ${HY2_PORT} was not observed via ss"
 else
-  echo "[ok] hysteria listener check passed"
+  echo "[ok] hy2 listener check passed"
 fi
 
 if [[ -n "${SMOKE_ADMIN_EMAIL}" && -n "${SMOKE_ADMIN_PASSWORD}" ]]; then

@@ -129,7 +129,7 @@ func (h *Handler) GetSystemLive(w http.ResponseWriter, r *http.Request) {
 			Source:            source,
 			IsStale:           time.Since(snapshot.CollectedAt) > 15*time.Second,
 		},
-		"hysteria": hy2,
+		"runtime":  hy2,
 		"services": serviceStatuses,
 		"errors":   errors,
 	})
@@ -274,62 +274,49 @@ func (h *Handler) calculateProtocolPacketRates(tcpPackets int64, udpPackets int6
 }
 
 func (h *Handler) collectHy2Live(ctx context.Context) (liveHy2Overview, string) {
-	base, err := h.repo.GetHysteriaStatsOverview(ctx)
+	if h.repo == nil {
+		return liveHy2Overview{Source: "unavailable", IsStale: true, CollectedAt: time.Now().UTC()}, "runtime overview unavailable"
+	}
+	users, err := h.repo.ListUsers(ctx, 0, 0, nil)
 	if err != nil {
-		return liveHy2Overview{Source: "unavailable", IsStale: true, CollectedAt: time.Now().UTC()}, "hysteria overview unavailable"
+		return liveHy2Overview{Source: "unavailable", IsStale: true, CollectedAt: time.Now().UTC()}, "runtime overview unavailable"
 	}
 
 	resp := liveHy2Overview{
-		EnabledUsers:                 base.EnabledUsers,
-		TotalTxBytes:                 base.TotalTxBytes,
-		TotalRxBytes:                 base.TotalRxBytes,
-		OnlineCount:                  base.OnlineCount,
+		EnabledUsers:                 0,
+		TotalTxBytes:                 0,
+		TotalRxBytes:                 0,
+		OnlineCount:                  0,
 		ConnectionsTCP:               0,
 		ConnectionsUDP:               0,
 		ConnectionsBreakdownAvailable: false,
 		CollectedAt:                  time.Now().UTC(),
-		Source:                       "snapshot",
-		IsStale:                      true,
+		Source:                       "runtime",
+		IsStale:                      false,
 	}
 
-	if h.hy2Client == nil {
-		return resp, "hysteria live stats client is not configured"
+	for _, user := range users {
+		if user.Enabled {
+			resp.EnabledUsers++
+		}
+		resp.TotalTxBytes += user.TrafficUsedTxBytes
+		resp.TotalRxBytes += user.TrafficUsedRxBytes
+		if user.OnlineCount > 0 {
+			resp.OnlineCount += int64(user.OnlineCount)
+		}
 	}
-
-	traffic, trafficErr := h.hy2Client.FetchTraffic(ctx)
-	online, onlineSummary, onlineErr := h.hy2Client.FetchOnlineStats(ctx)
-	if trafficErr != nil || onlineErr != nil {
-		return resp, "hysteria live stats fallback to snapshots"
-	}
-
-	var totalTx int64
-	var totalRx int64
-	var totalOnline int64
-
-	for _, item := range traffic {
-		totalTx += item.TxBytes
-		totalRx += item.RxBytes
-	}
-	for _, count := range online {
-		totalOnline += int64(count)
-	}
-
-	resp.TotalTxBytes = totalTx
-	resp.TotalRxBytes = totalRx
-	resp.OnlineCount = totalOnline
-	resp.ConnectionsTCP = onlineSummary.TCPConnections
-	resp.ConnectionsUDP = onlineSummary.UDPConnections
-	resp.ConnectionsBreakdownAvailable = onlineSummary.BreakdownAvailable
-	resp.Source = "live"
-	resp.IsStale = false
-	resp.CollectedAt = time.Now().UTC()
-
 	return resp, ""
 }
 
 func (h *Handler) collectProxyServiceStatuses(ctx context.Context) []liveServiceStatus {
+	if h.serviceManager == nil || h.repo == nil {
+		return []liveServiceStatus{}
+	}
 	targets := make([]string, 0, 1)
-	for _, candidate := range []string{"hysteria-server"} {
+	for _, candidate := range []string{strings.TrimSpace(h.cfg.SingBoxServiceName)} {
+		if candidate == "" {
+			continue
+		}
 		if _, ok := h.serviceManager.ManagedServices[candidate]; ok {
 			targets = append(targets, candidate)
 		}

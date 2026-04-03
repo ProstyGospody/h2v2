@@ -1,15 +1,6 @@
 # API
 
-## Compatibility
-
-Legacy HY2 endpoints stay available and keep response/error behavior:
-
-- `/api/hysteria/users/*`
-- `/api/hysteria/settings/*`
-- `/api/hysteria/stats/*`
-- `/api/hysteria/subscription/{token}`
-
-New endpoints are protocol-agnostic and operate on HY2 and VLESS in one model.
+Protocol-agnostic endpoints operate on HY2 and VLESS in one model.
 
 ## Unified users
 
@@ -33,7 +24,7 @@ User create/update payload:
   "expire_at": "2026-12-31T23:59:59Z",
   "note": "team-a",
   "credentials": [
-    { "protocol": "hy2", "identity": "alice", "secret": "secret-value" },
+    { "protocol": "hy2", "identity": "f57486cd-c4f3-44f0-accc-9664449d95ba", "secret": "secret-value" },
     { "protocol": "vless", "identity": "2b7ee3cd-20f0-4bd3-b9cc-10aeeb6a46ad" }
   ]
 }

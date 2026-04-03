@@ -1,40 +1,34 @@
 import { Copy } from "lucide-react";
 
-import { HysteriaClient, HysteriaUserPayload, Protocol } from "@/domain/clients/types";
+import { Client, UserPayload, Protocol } from "@/domain/clients/types";
 import { Button, Dialog } from "@/src/components/ui";
 
-function resolveAccessURI(payload: HysteriaUserPayload | null, preferredProtocol: Protocol): string {
-  if (!payload?.artifacts) {
+function resolveAccessURL(payload: UserPayload | null, preferredProtocol: Protocol): string {
+  const unified = payload?.artifacts?.unified;
+  if (!unified) {
     return "";
   }
-  const unified = payload.artifacts.unified;
-  if (preferredProtocol === "vless") {
-    if (unified?.vless?.access_uri) {
-      return unified.vless.access_uri;
+
+  const preferred = unified[preferredProtocol]?.access_uri;
+  if (preferred && preferred.trim().length > 0) {
+    return preferred;
+  }
+
+  const fallbackOrder: Protocol[] = ["vless", "hy2"];
+  for (const protocol of fallbackOrder) {
+    const value = unified[protocol]?.access_uri;
+    if (value && value.trim().length > 0) {
+      return value;
     }
-    if (payload.artifacts.uri) {
-      return payload.artifacts.uri;
+  }
+
+  for (const item of Object.values(unified)) {
+    const value = item?.access_uri;
+    if (value && value.trim().length > 0) {
+      return value;
     }
-    if (payload.artifacts.uri_hy2) {
-      return payload.artifacts.uri_hy2;
-    }
-    if (unified?.hy2?.access_uri) {
-      return unified.hy2.access_uri;
-    }
-    return "";
   }
-  if (payload.artifacts.uri_hy2) {
-    return payload.artifacts.uri_hy2;
-  }
-  if (payload.artifacts.uri) {
-    return payload.artifacts.uri;
-  }
-  if (unified?.hy2?.access_uri) {
-    return unified.hy2.access_uri;
-  }
-  if (unified?.vless?.access_uri) {
-    return unified.vless.access_uri;
-  }
+
   return "";
 }
 
@@ -42,17 +36,17 @@ export function ClientArtifactsDialog({
   open, client, payload, loading, onClose, onCopy,
 }: {
   open: boolean;
-  client: HysteriaClient | null;
-  payload: HysteriaUserPayload | null;
+  client: Client | null;
+  payload: UserPayload | null;
   loading: boolean;
   onClose: () => void;
   onCopy: (value: string) => void;
 }) {
   const currentClient = payload?.user || client;
   const preferredProtocol: Protocol = (currentClient?.preferred_protocol || "hy2") as Protocol;
-  const accessURI = resolveAccessURI(payload, preferredProtocol);
-  const subscriptionURL = payload?.artifacts?.subscription_url || "";
-  const accessQRValue = accessURI ? encodeURIComponent(accessURI) : "";
+  const accessURL = resolveAccessURL(payload, preferredProtocol);
+  const subscriptionURL = payload?.artifacts?.subscription || "";
+  const accessQRValue = accessURL ? encodeURIComponent(accessURL) : "";
   const subscriptionQRValue = subscriptionURL ? encodeURIComponent(subscriptionURL) : "";
   const accessQRSource = currentClient?.id
     ? (accessQRValue ? `/api/users/${currentClient.id}/qr?size=320&value=${accessQRValue}` : "")
@@ -88,7 +82,7 @@ export function ClientArtifactsDialog({
                 <div className="h-[220px] w-[220px] rounded-md bg-surface-3 sm:h-[320px] sm:w-[320px]" />
               )}
             </div>
-            <Button className="w-full sm:w-auto" onClick={() => onCopy(accessURI)} disabled={!accessURI}>
+            <Button className="w-full sm:w-auto" onClick={() => onCopy(accessURL)} disabled={!accessURL}>
               <Copy size={16} strokeWidth={1.6} />Copy
             </Button>
           </div>

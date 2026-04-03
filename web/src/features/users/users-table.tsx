@@ -1,7 +1,7 @@
 import { ArrowDownToLine, ArrowUpDown, ArrowUpFromLine, ChevronDown, ChevronUp, Pencil, QrCode, Trash2 } from "lucide-react";
 
 import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
-import { type HysteriaClient } from "@/domain/clients/types";
+import { type Client } from "@/domain/clients/types";
 import {
   Badge,
   Button,
@@ -23,9 +23,9 @@ import { initials, resolveStatus, sortAria, type SortField, type SortState } fro
 
 type UsersTableProps = {
   loading: boolean;
-  clients: HysteriaClient[];
-  filteredClients: HysteriaClient[];
-  pagedClients: HysteriaClient[];
+  clients: Client[];
+  filteredClients: Client[];
+  pagedClients: Client[];
   page: number;
   rowsPerPage: number;
   pageCount: number;
@@ -39,17 +39,17 @@ type UsersTableProps = {
   onToggleSort: (field: SortField) => void;
   onToggleSelectFiltered: (checked: boolean) => void;
   onToggleClientSelection: (clientID: string, checked: boolean) => void;
-  onOpenArtifacts: (client: HysteriaClient) => void;
-  onOpenEdit: (client: HysteriaClient) => void;
+  onOpenArtifacts: (client: Client) => void;
+  onOpenEdit: (client: Client) => void;
   onRemoveClient: (clientID: string) => void;
-  onToggleEnabled: (client: HysteriaClient) => void;
+  onToggleEnabled: (client: Client) => void;
   onPageChange: (next: number) => void;
 };
 
 type UserActionsProps = {
-  client: HysteriaClient;
-  onOpenArtifacts: (client: HysteriaClient) => void;
-  onOpenEdit: (client: HysteriaClient) => void;
+  client: Client;
+  onOpenArtifacts: (client: Client) => void;
+  onOpenEdit: (client: Client) => void;
   onRemoveClient: (clientID: string) => void;
   compact?: boolean;
 };
@@ -73,7 +73,7 @@ function protocolBadgeVariant(protocol: string): "protocol-hy2" | "protocol-vles
   return protocol === "vless" ? "protocol-vless" : "protocol-hy2";
 }
 
-function UserProtocols({ client }: { client: HysteriaClient }) {
+function UserProtocols({ client }: { client: Client }) {
   const raw = Array.isArray(client.protocols) && client.protocols.length ? client.protocols : [client.preferred_protocol || "hy2"];
   const protocols = Array.from(new Set(raw));
   return (
@@ -269,14 +269,14 @@ function UserCard({
   onRemoveClient,
   onToggleEnabled,
 }: {
-  client: HysteriaClient;
+  client: Client;
   selected: boolean;
   maxTraffic: number;
   onToggleClientSelection: (clientID: string, checked: boolean) => void;
-  onOpenArtifacts: (client: HysteriaClient) => void;
-  onOpenEdit: (client: HysteriaClient) => void;
+  onOpenArtifacts: (client: Client) => void;
+  onOpenEdit: (client: Client) => void;
   onRemoveClient: (clientID: string) => void;
-  onToggleEnabled: (client: HysteriaClient) => void;
+  onToggleEnabled: (client: Client) => void;
 }) {
   const status = resolveStatus(client);
   const traffic = client.last_tx_bytes + client.last_rx_bytes;

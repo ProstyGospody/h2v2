@@ -10,13 +10,12 @@ import {
   deleteClientsBulk,
   deleteClient,
   getClientArtifacts,
-  getClientDefaults,
   listClients,
   setClientEnabled,
   setClientsEnabledBulk,
   updateClient,
 } from "@/domain/clients/services";
-import { type HysteriaClient, type HysteriaClientDefaults, type HysteriaUserPayload } from "@/domain/clients/types";
+import { type Client, type UserPayload } from "@/domain/clients/types";
 import { APIError, getAPIErrorMessage } from "@/services/api";
 import { useToast } from "@/src/components/ui/Toast";
 import { queryRefetchInterval } from "@/src/queries/polling";
@@ -34,7 +33,7 @@ import {
 } from "@/src/features/users/users-utils";
 
 const SEARCH_DEBOUNCE_MS = 250;
-const EMPTY_CLIENTS: HysteriaClient[] = [];
+const EMPTY_CLIENTS: Client[] = [];
 
 function defaultSortDir(field: SortField): "asc" | "desc" {
   return field === "username" ? "asc" : "desc";
@@ -91,12 +90,12 @@ export default function UsersPage() {
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [formBusy, setFormBusy] = useState(false);
   const [formError, setFormError] = useState("");
-  const [editingClient, setEditingClient] = useState<HysteriaClient | null>(null);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
 
   const [artifactOpen, setArtifactOpen] = useState(false);
   const [artifactLoading, setArtifactLoading] = useState(false);
-  const [artifactClient, setArtifactClient] = useState<HysteriaClient | null>(null);
-  const [artifactPayload, setArtifactPayload] = useState<HysteriaUserPayload | null>(null);
+  const [artifactClient, setArtifactClient] = useState<Client | null>(null);
+  const [artifactPayload, setArtifactPayload] = useState<UserPayload | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const hasSelectedRef = useRef(selectedClientIDs.length > 0);
   hasSelectedRef.current = selectedClientIDs.length > 0;
@@ -107,10 +106,9 @@ export default function UsersPage() {
   const usersQuery = useQuery({
     queryKey: ["users", "page-data"],
     queryFn: async () => {
-      const [clientsPayload, defaultsPayload] = await Promise.all([listClients(), getClientDefaults()]);
+      const clientsPayload = await listClients();
       return {
         clients: clientsPayload.items,
-        defaults: defaultsPayload,
         limited: clientsPayload.limited,
       };
     },
@@ -120,7 +118,6 @@ export default function UsersPage() {
   });
 
   const clients = usersQuery.data?.clients ?? EMPTY_CLIENTS;
-  const defaults: HysteriaClientDefaults | null = usersQuery.data?.defaults || null;
   const limitWarning = usersQuery.data?.limited ?? false;
   const loading = usersQuery.isPending;
   const queryError = usersQuery.error ? getAPIErrorMessage(usersQuery.error, "Failed to load users") : "";
@@ -247,7 +244,7 @@ export default function UsersPage() {
     setFormOpen(true);
   }, []);
 
-  function openEdit(client: HysteriaClient) {
+  function openEdit(client: Client) {
     setFormMode("edit");
     setEditingClient(client);
     setFormError("");
@@ -307,7 +304,7 @@ export default function UsersPage() {
     }
   }
 
-  async function toggleEnabled(client: HysteriaClient) {
+  async function toggleEnabled(client: Client) {
     try {
       await setClientEnabled(client.id, !client.enabled);
       await refreshUsers();
@@ -338,7 +335,7 @@ export default function UsersPage() {
     }
   }
 
-  async function openArtifacts(client: HysteriaClient) {
+  async function openArtifacts(client: Client) {
     setArtifactClient(client);
     setArtifactOpen(true);
     setArtifactLoading(true);
@@ -519,7 +516,6 @@ export default function UsersPage() {
         mode={formMode}
         busy={formBusy}
         client={editingClient}
-        defaults={defaults}
         error={formError}
         onClose={() => setFormOpen(false)}
         onSubmit={submitForm}

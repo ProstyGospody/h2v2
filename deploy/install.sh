@@ -15,12 +15,10 @@ ENV_FILE="${APP_ROOT}/.env.generated"
 CREDENTIALS_FILE="/root/h2v2-initial-admin.txt"
 ETC_ROOT="/etc/h2v2"
 HY2_DIR="${ETC_ROOT}/hysteria"
-XRAY_DIR="${ETC_ROOT}/xray"
 SINGBOX_DIR="${ETC_ROOT}/sing-box"
 
 PANEL_API_PORT=18080
 PANEL_WEB_PORT=13000
-XRAY_SERVICE_NAME="${XRAY_SERVICE_NAME:-xray}"
 SINGBOX_SERVICE_NAME="${SINGBOX_SERVICE_NAME:-sing-box}"
 
 BACKUP_DIR=""
@@ -30,8 +28,7 @@ CHANGED=()
 
 ENV_OVERRIDE_KEYS=(
   PANEL_PUBLIC_HOST PANEL_PUBLIC_PORT PANEL_ACME_EMAIL SUBSCRIPTION_PUBLIC_HOST
-  HY2_DOMAIN HY2_PORT HY2_OBFS_PASSWORD HY2_STATS_PORT
-  XRAY_RUNTIME_URL XRAY_RUNTIME_TOKEN XRAY_SERVICE_NAME XRAY_CONFIG_PATH
+  HY2_DOMAIN HY2_PORT
   SINGBOX_SERVICE_NAME SINGBOX_BINARY_PATH SINGBOX_CONFIG_PATH
   INITIAL_ADMIN_EMAIL INITIAL_ADMIN_PASSWORD
   PANEL_SQLITE_PATH PANEL_STORAGE_ROOT PANEL_AUDIT_DIR PANEL_RUNTIME_DIR
@@ -92,8 +89,7 @@ check_os() {
 detect_existing_installation() {
   local env_hit=0 unit_hit=0 dir_hit=0
   [[ -f "${ENV_FILE}" ]] && env_hit=1
-  systemctl list-unit-files h2v2-api.service h2v2-web.service hysteria-server.service >/dev/null 2>&1 && unit_hit=1 || true
-  systemctl list-unit-files "${XRAY_SERVICE_NAME}.service" >/dev/null 2>&1 && unit_hit=1 || true
+  systemctl list-unit-files h2v2-api.service h2v2-web.service >/dev/null 2>&1 && unit_hit=1 || true
   systemctl list-unit-files "${SINGBOX_SERVICE_NAME}.service" >/dev/null 2>&1 && unit_hit=1 || true
   [[ -d /var/lib/h2v2 || -d /etc/h2v2 ]] && dir_hit=1
   info "detected: env=${env_hit}, units=${unit_hit}, dirs=${dir_hit}"
@@ -180,40 +176,6 @@ install_node() {
   changed "node installed/updated"
 }
 
-install_hysteria() {
-  [[ -x /usr/local/bin/hysteria ]] && return 0
-  phase "build/install: hysteria"
-  local ver="${HYSTERIA_VERSION:-2.6.5}"
-  run curl -fsSL "https://github.com/apernet/hysteria/releases/download/app%2Fv${ver}/hysteria-linux-amd64" -o /tmp/hysteria-linux-amd64
-  run install -m 0755 /tmp/hysteria-linux-amd64 /usr/local/bin/hysteria
-  changed "hysteria installed"
-}
-
-install_xray() {
-  if [[ -x /usr/local/bin/xray ]]; then
-    if run /usr/local/bin/xray version >/dev/null 2>&1 || run /usr/local/bin/xray -version >/dev/null 2>&1; then
-      return 0
-    fi
-    warn "existing xray binary is not runnable, reinstalling"
-  fi
-  phase "build/install: xray"
-  local ver="${XRAY_VERSION:-1.8.24}"
-  local archive="/tmp/xray-linux-64.zip"
-  local unpack_dir="/tmp/xray-install"
-  run rm -rf "${unpack_dir}" "${archive}"
-  run curl -fsSL "https://github.com/XTLS/Xray-core/releases/download/v${ver}/Xray-linux-64.zip" -o "${archive}"
-  run mkdir -p "${unpack_dir}"
-  run unzip -q -o "${archive}" -d "${unpack_dir}"
-  run install -m 0755 "${unpack_dir}/xray" /usr/local/bin/xray
-  if ! run /usr/local/bin/xray version >/dev/null 2>&1; then
-    if ! run /usr/local/bin/xray -version >/dev/null 2>&1; then
-      fatal "installed xray binary is not runnable"
-    fi
-  fi
-  run rm -rf "${unpack_dir}" "${archive}"
-  changed "xray installed"
-}
-
 install_singbox() {
   if [[ -x /usr/local/bin/sing-box ]]; then
     if run /usr/local/bin/sing-box version >/dev/null 2>&1; then
@@ -238,25 +200,17 @@ install_singbox() {
 create_users_and_dirs() {
   phase "build/install: users and dirs"
   id -u h2v2 >/dev/null 2>&1 || run useradd --system --home /opt/h2v2 --shell /usr/sbin/nologin h2v2
-  id -u hysteria >/dev/null 2>&1 || run useradd --system --home /var/lib/hysteria --shell /usr/sbin/nologin hysteria
-  id -u xray >/dev/null 2>&1 || run useradd --system --home /var/lib/xray --shell /usr/sbin/nologin xray
   id -u singbox >/dev/null 2>&1 || run useradd --system --home /var/lib/sing-box --shell /usr/sbin/nologin singbox
-  run usermod -a -G h2v2 hysteria || true
-  run usermod -a -G h2v2 xray || true
   run usermod -a -G h2v2 singbox || true
 
-  run mkdir -p "${APP_ROOT}" "${BIN_DIR}" "${ETC_ROOT}" "${HY2_DIR}" "${XRAY_DIR}" "${SINGBOX_DIR}"
-  run mkdir -p /var/lib/h2v2 /var/lib/h2v2/backups /var/lib/h2v2/data /var/log/h2v2/audit /var/lib/hysteria /var/lib/xray /var/lib/sing-box /run/h2v2 /run/h2v2/locks /run/h2v2/tmp
+  run mkdir -p "${APP_ROOT}" "${BIN_DIR}" "${ETC_ROOT}" "${HY2_DIR}" "${SINGBOX_DIR}"
+  run mkdir -p /var/lib/h2v2 /var/lib/h2v2/backups /var/lib/h2v2/data /var/log/h2v2/audit /var/lib/sing-box /run/h2v2 /run/h2v2/locks /run/h2v2/tmp
   run chown -R h2v2:h2v2 /var/lib/h2v2 /var/log/h2v2 /run/h2v2
-  run chown -R hysteria:hysteria /var/lib/hysteria
-  run chown -R xray:xray /var/lib/xray
   run chown -R singbox:singbox /var/lib/sing-box
   run chmod 0750 /run/h2v2 /run/h2v2/locks /run/h2v2/tmp
   run chown root:h2v2 "${HY2_DIR}"
-  run chown root:h2v2 "${XRAY_DIR}"
   run chown root:h2v2 "${SINGBOX_DIR}"
   run chmod 2770 "${HY2_DIR}"
-  run chmod 2770 "${XRAY_DIR}"
   run chmod 2770 "${SINGBOX_DIR}"
 }
 
@@ -264,7 +218,7 @@ sync_source() {
   phase "build/install: source sync"
   run mkdir -p "${SRC_DIR}"
   run rsync -a --delete --exclude '.git' "${REPO_ROOT}/" "${SRC_DIR}/"
-  run chmod +x "${SRC_DIR}/scripts/smoke-check.sh" "${SRC_DIR}/scripts/sync-hysteria-cert.sh" "${SRC_DIR}/scripts/sqlite-backup-rotate.sh" "${SRC_DIR}/deploy/install.sh" "${SRC_DIR}/deploy/ubuntu24-host-install.sh"
+  run chmod +x "${SRC_DIR}/scripts/smoke-check.sh" "${SRC_DIR}/scripts/sqlite-backup-rotate.sh" "${SRC_DIR}/deploy/install.sh" "${SRC_DIR}/deploy/ubuntu24-host-install.sh"
 }
 
 build_backend() {
@@ -306,9 +260,6 @@ capture_env_overrides() {
 load_existing_env() {
   load_kv_file "${ENV_FILE}"
   load_kv_file "${CREDENTIALS_FILE}"
-  if [[ -z "${HY2_STATS_PORT:-}" && -n "${HY2_STATS_URL:-}" && "${HY2_STATS_URL}" =~ :([0-9]{1,5})$ ]]; then
-    HY2_STATS_PORT="${BASH_REMATCH[1]}"
-  fi
 }
 
 apply_env_overrides() {
@@ -405,23 +356,18 @@ collect_config() {
   prompt_value PANEL_PUBLIC_PORT "Panel HTTPS port" "${PANEL_PUBLIC_PORT:-8443}"
   prompt_value PANEL_ACME_EMAIL "ACME email" "${PANEL_ACME_EMAIL:-admin@${PANEL_PUBLIC_HOST}}"
   prompt_value SUBSCRIPTION_PUBLIC_HOST "Subscription public host" "${SUBSCRIPTION_PUBLIC_HOST:-${PANEL_PUBLIC_HOST}}"
-  prompt_value HY2_DOMAIN "Hysteria public domain" "${HY2_DOMAIN:-${PANEL_PUBLIC_HOST}}"
-  prompt_value HY2_PORT "Hysteria UDP port" "${HY2_PORT:-443}"
-  prompt_value HY2_STATS_PORT "Hysteria local stats port" "${HY2_STATS_PORT:-8999}"
+  prompt_value HY2_DOMAIN "HY2 public domain" "${HY2_DOMAIN:-${PANEL_PUBLIC_HOST}}"
+  prompt_value HY2_PORT "HY2 UDP port" "${HY2_PORT:-443}"
   prompt_value INITIAL_ADMIN_EMAIL "Initial admin email" "${INITIAL_ADMIN_EMAIL:-admin@${PANEL_PUBLIC_HOST}}"
   prompt_password INITIAL_ADMIN_PASSWORD "Initial admin password"
 
   generate_if_empty INTERNAL_AUTH_TOKEN 32
-  generate_if_empty HY2_STATS_SECRET 32
-  generate_if_empty HY2_OBFS_PASSWORD 16
-  generate_if_empty XRAY_RUNTIME_TOKEN 32
 
   APP_ENV="${APP_ENV:-production}"
   PANEL_API_LISTEN_ADDR="127.0.0.1:${PANEL_API_PORT}"
   PANEL_API_INTERNAL_URL="http://127.0.0.1:${PANEL_API_PORT}"
   PANEL_PUBLIC_URL="https://${PANEL_PUBLIC_HOST}:${PANEL_PUBLIC_PORT}"
   SUBSCRIPTION_PUBLIC_URL="https://${SUBSCRIPTION_PUBLIC_HOST}:${PANEL_PUBLIC_PORT}"
-  HY2_STATS_URL="http://127.0.0.1:${HY2_STATS_PORT}"
   PANEL_STORAGE_ROOT="${PANEL_STORAGE_ROOT:-/var/lib/h2v2}"
   PANEL_AUDIT_DIR="${PANEL_AUDIT_DIR:-/var/log/h2v2/audit}"
   PANEL_RUNTIME_DIR="${PANEL_RUNTIME_DIR:-/run/h2v2}"
@@ -431,12 +377,10 @@ collect_config() {
   CSRF_HEADER_NAME="${CSRF_HEADER_NAME:-X-CSRF-Token}"
   SESSION_TTL="${SESSION_TTL:-24h}"
   SECURE_COOKIES="${SECURE_COOKIES:-true}"
-  HY2_POLL_INTERVAL="${HY2_POLL_INTERVAL:-20s}"
-  XRAY_POLL_INTERVAL="${XRAY_POLL_INTERVAL:-20s}"
+  RUNTIME_POLL_INTERVAL="${RUNTIME_POLL_INTERVAL:-20s}"
   SERVICE_POLL_INTERVAL="${SERVICE_POLL_INTERVAL:-60s}"
-  XRAY_SERVICE_NAME="${XRAY_SERVICE_NAME:-xray}"
   SINGBOX_SERVICE_NAME="${SINGBOX_SERVICE_NAME:-sing-box}"
-  MANAGED_SERVICES="h2v2-api,h2v2-web,hysteria-server,${XRAY_SERVICE_NAME},${SINGBOX_SERVICE_NAME}"
+  MANAGED_SERVICES="h2v2-api,h2v2-web,${SINGBOX_SERVICE_NAME}"
   SYSTEMCTL_PATH="/usr/bin/systemctl"
   SUDO_PATH="/usr/bin/sudo"
   JOURNALCTL_PATH="/usr/bin/journalctl"
@@ -444,15 +388,10 @@ collect_config() {
   SERVICE_LOG_LINES_MAX=120
   AUTH_RATE_LIMIT_WINDOW=15m
   AUTH_RATE_LIMIT_BURST=10
-  HY2_BINARY_PATH=/usr/local/bin/hysteria
-  XRAY_BINARY_PATH=/usr/local/bin/xray
   SINGBOX_BINARY_PATH="${SINGBOX_BINARY_PATH:-/usr/local/bin/sing-box}"
-  HY2_CONFIG_PATH="${HY2_DIR}/server.yaml"
-  XRAY_CONFIG_PATH="${XRAY_CONFIG_PATH:-${XRAY_DIR}/config.json}"
   SINGBOX_CONFIG_PATH="${SINGBOX_CONFIG_PATH:-${SINGBOX_DIR}/config.json}"
-  XRAY_RUNTIME_URL="${XRAY_RUNTIME_URL:-http://127.0.0.1:10085}"
-  HY2_CERT_PATH="${HY2_DIR}/tls.crt"
-  HY2_KEY_PATH="${HY2_DIR}/tls.key"
+  HY2_CERT_PATH="${HY2_DIR}/server.crt"
+  HY2_KEY_PATH="${HY2_DIR}/server.key"
 }
 
 validate_config() {
@@ -491,20 +430,9 @@ INTERNAL_AUTH_TOKEN=${INTERNAL_AUTH_TOKEN}
 
 HY2_DOMAIN=${HY2_DOMAIN}
 HY2_PORT=${HY2_PORT}
-HY2_STATS_PORT=${HY2_STATS_PORT}
-HY2_CONFIG_PATH=${HY2_CONFIG_PATH}
 HY2_CERT_PATH=${HY2_CERT_PATH}
 HY2_KEY_PATH=${HY2_KEY_PATH}
-HY2_STATS_URL=${HY2_STATS_URL}
-HY2_STATS_SECRET=${HY2_STATS_SECRET}
-HY2_OBFS_PASSWORD=${HY2_OBFS_PASSWORD}
-HY2_POLL_INTERVAL=${HY2_POLL_INTERVAL}
-XRAY_POLL_INTERVAL=${XRAY_POLL_INTERVAL}
-XRAY_BINARY_PATH=${XRAY_BINARY_PATH}
-XRAY_CONFIG_PATH=${XRAY_CONFIG_PATH}
-XRAY_RUNTIME_URL=${XRAY_RUNTIME_URL}
-XRAY_RUNTIME_TOKEN=${XRAY_RUNTIME_TOKEN}
-XRAY_SERVICE_NAME=${XRAY_SERVICE_NAME}
+RUNTIME_POLL_INTERVAL=${RUNTIME_POLL_INTERVAL}
 SINGBOX_BINARY_PATH=${SINGBOX_BINARY_PATH}
 SINGBOX_CONFIG_PATH=${SINGBOX_CONFIG_PATH}
 SINGBOX_SERVICE_NAME=${SINGBOX_SERVICE_NAME}
@@ -519,8 +447,6 @@ SERVICE_LOG_LINES_MAX=${SERVICE_LOG_LINES_MAX}
 
 AUTH_RATE_LIMIT_WINDOW=${AUTH_RATE_LIMIT_WINDOW}
 AUTH_RATE_LIMIT_BURST=${AUTH_RATE_LIMIT_BURST}
-
-HY2_BINARY_PATH=${HY2_BINARY_PATH}
 EOF
   run chown root:h2v2 "${ENV_FILE}"
   run chmod 0640 "${ENV_FILE}"
@@ -566,7 +492,7 @@ ${SUBSCRIPTION_PUBLIC_HOST}:${PANEL_PUBLIC_PORT} {
     Referrer-Policy "same-origin"
   }
 
-  @panel_api path /api/* /subscriptions/* /hysteria/subscription/* /healthz /readyz
+  @panel_api path /api/* /subscriptions/* /healthz /readyz
   handle @panel_api {
     reverse_proxy 127.0.0.1:${PANEL_API_PORT}
   }
@@ -582,66 +508,6 @@ ${HY2_DOMAIN}:${PANEL_PUBLIC_PORT} {
   respond 204
 }
 EOF
-  fi
-  cat > "${HY2_DIR}/server.yaml" <<EOF
-listen: :${HY2_PORT}
-tls:
-  cert: ${HY2_CERT_PATH}
-  key: ${HY2_KEY_PATH}
-auth:
-  type: userpass
-  userpass:
-    __bootstrap__: ${INTERNAL_AUTH_TOKEN}
-trafficStats:
-  listen: 127.0.0.1:${HY2_STATS_PORT}
-  secret: ${HY2_STATS_SECRET}
-obfs:
-  type: salamander
-  salamander:
-    password: ${HY2_OBFS_PASSWORD}
-EOF
-  run chown root:h2v2 "${HY2_DIR}/server.yaml"
-  run chmod 0660 "${HY2_DIR}/server.yaml"
-  run mkdir -p "$(dirname "${XRAY_CONFIG_PATH}")"
-  cat > "${XRAY_CONFIG_PATH}" <<EOF
-{
-  "log": {
-    "loglevel": "warning"
-  },
-  "inbounds": [
-    {
-      "tag": "vless-default",
-      "listen": "127.0.0.1",
-      "port": 24443,
-      "protocol": "vless",
-      "settings": {
-        "clients": [],
-        "decryption": "none"
-      },
-      "streamSettings": {
-        "network": "tcp",
-        "security": "none"
-      }
-    }
-  ],
-  "outbounds": [
-    {
-      "tag": "direct",
-      "protocol": "freedom"
-    },
-    {
-      "tag": "blocked",
-      "protocol": "blackhole"
-    }
-  ]
-}
-EOF
-  run chown root:h2v2 "${XRAY_CONFIG_PATH}"
-  run chmod 0660 "${XRAY_CONFIG_PATH}"
-  if ! run runuser -u xray -- "${XRAY_BINARY_PATH}" run -test -config "${XRAY_CONFIG_PATH}" >/dev/null 2>&1; then
-    if ! run runuser -u xray -- "${XRAY_BINARY_PATH}" -test -config "${XRAY_CONFIG_PATH}" >/dev/null 2>&1; then
-      fatal "xray config validation failed: ${XRAY_CONFIG_PATH}"
-    fi
   fi
   run mkdir -p "$(dirname "${SINGBOX_CONFIG_PATH}")"
   cat > "${SINGBOX_CONFIG_PATH}" <<EOF
@@ -677,24 +543,21 @@ install_sudoers_and_units() {
   phase "build/install: sudoers + systemd"
   (( DRY_RUN == 1 )) && return 0
   cat > /etc/sudoers.d/h2v2-api <<EOF
-Cmnd_Alias H2V2_SHOW = /usr/bin/systemctl show h2v2-api --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show h2v2-web --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show hysteria-server --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show ${XRAY_SERVICE_NAME} --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show ${SINGBOX_SERVICE_NAME} --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp
-Cmnd_Alias H2V2_RESTART = /usr/bin/systemctl restart h2v2-api, /usr/bin/systemctl restart h2v2-web, /usr/bin/systemctl restart hysteria-server, /usr/bin/systemctl restart ${XRAY_SERVICE_NAME}, /usr/bin/systemctl restart ${SINGBOX_SERVICE_NAME}
-Cmnd_Alias H2V2_RELOAD = /usr/bin/systemctl reload h2v2-api, /usr/bin/systemctl reload h2v2-web, /usr/bin/systemctl reload hysteria-server, /usr/bin/systemctl reload ${XRAY_SERVICE_NAME}, /usr/bin/systemctl reload ${SINGBOX_SERVICE_NAME}
-Cmnd_Alias H2V2_LOGS = /usr/bin/journalctl -u h2v2-api -n * --no-pager --output=short-iso, /usr/bin/journalctl -u h2v2-web -n * --no-pager --output=short-iso, /usr/bin/journalctl -u hysteria-server -n * --no-pager --output=short-iso, /usr/bin/journalctl -u ${XRAY_SERVICE_NAME} -n * --no-pager --output=short-iso, /usr/bin/journalctl -u ${SINGBOX_SERVICE_NAME} -n * --no-pager --output=short-iso
+Cmnd_Alias H2V2_SHOW = /usr/bin/systemctl show h2v2-api --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show h2v2-web --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show ${SINGBOX_SERVICE_NAME} --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp
+Cmnd_Alias H2V2_RESTART = /usr/bin/systemctl restart h2v2-api, /usr/bin/systemctl restart h2v2-web, /usr/bin/systemctl restart ${SINGBOX_SERVICE_NAME}
+Cmnd_Alias H2V2_RELOAD = /usr/bin/systemctl reload h2v2-api, /usr/bin/systemctl reload h2v2-web, /usr/bin/systemctl reload ${SINGBOX_SERVICE_NAME}
+Cmnd_Alias H2V2_LOGS = /usr/bin/journalctl -u h2v2-api -n * --no-pager --output=short-iso, /usr/bin/journalctl -u h2v2-web -n * --no-pager --output=short-iso, /usr/bin/journalctl -u ${SINGBOX_SERVICE_NAME} -n * --no-pager --output=short-iso
 h2v2 ALL=(root) NOPASSWD: H2V2_SHOW, H2V2_RESTART, H2V2_RELOAD, H2V2_LOGS
 EOF
   run chmod 0440 /etc/sudoers.d/h2v2-api
   run visudo -cf /etc/sudoers.d/h2v2-api >/dev/null
   run install -m 0644 "${SRC_DIR}/systemd/h2v2-api.service" /etc/systemd/system/h2v2-api.service
   run install -m 0644 "${SRC_DIR}/systemd/h2v2-web.service" /etc/systemd/system/h2v2-web.service
-  run install -m 0644 "${SRC_DIR}/systemd/hysteria-server.service" /etc/systemd/system/hysteria-server.service
-  run install -m 0644 "${SRC_DIR}/systemd/xray.service" "/etc/systemd/system/${XRAY_SERVICE_NAME}.service"
   run install -m 0644 "${SRC_DIR}/systemd/sing-box.service" "/etc/systemd/system/${SINGBOX_SERVICE_NAME}.service"
-  run sed -i "s|__XRAY_BINARY_PATH__|${XRAY_BINARY_PATH}|g; s|__XRAY_CONFIG_PATH__|${XRAY_CONFIG_PATH}|g" "/etc/systemd/system/${XRAY_SERVICE_NAME}.service"
   run sed -i "s|__SINGBOX_BINARY_PATH__|${SINGBOX_BINARY_PATH}|g; s|__SINGBOX_CONFIG_PATH__|${SINGBOX_CONFIG_PATH}|g" "/etc/systemd/system/${SINGBOX_SERVICE_NAME}.service"
-  if grep -q "__XRAY_" "/etc/systemd/system/${XRAY_SERVICE_NAME}.service"; then
-    fatal "xray unit placeholders were not rendered"
-  fi
+  run systemctl disable --now hysteria-server.service || true
+  run systemctl disable --now xray.service || true
+  run rm -f /etc/systemd/system/hysteria-server.service /etc/systemd/system/xray.service
   if grep -q "__SINGBOX_" "/etc/systemd/system/${SINGBOX_SERVICE_NAME}.service"; then
     fatal "sing-box unit placeholders were not rendered"
   fi
@@ -717,7 +580,7 @@ create_backup() {
   [[ -f "${CREDENTIALS_FILE}" ]] && run cp -a "${CREDENTIALS_FILE}" "${BACKUP_DIR}/env/credentials.txt"
   [[ -d "${ETC_ROOT}" ]] && run rsync -a "${ETC_ROOT}/" "${BACKUP_DIR}/etc/h2v2/"
   [[ -f /etc/caddy/h2v2.env ]] && run cp -a /etc/caddy/h2v2.env "${BACKUP_DIR}/etc/caddy.env"
-  for u in h2v2-api.service h2v2-web.service hysteria-server.service "${XRAY_SERVICE_NAME}.service" "${SINGBOX_SERVICE_NAME}.service"; do
+  for u in h2v2-api.service h2v2-web.service "${SINGBOX_SERVICE_NAME}.service"; do
     [[ -f "/etc/systemd/system/${u}" ]] && run cp -a "/etc/systemd/system/${u}" "${BACKUP_DIR}/systemd/${u}"
   done
   [[ -d /var/lib/h2v2/data ]] && run rsync -a /var/lib/h2v2/data/ "${BACKUP_DIR}/storage/data/"
@@ -735,13 +598,13 @@ rollback_from_backup() {
   [[ -f "${BACKUP_DIR}/env/credentials.txt" ]] && run cp -a "${BACKUP_DIR}/env/credentials.txt" "${CREDENTIALS_FILE}"
   [[ -d "${BACKUP_DIR}/etc/h2v2" ]] && run rsync -a --delete "${BACKUP_DIR}/etc/h2v2/" "${ETC_ROOT}/"
   [[ -f "${BACKUP_DIR}/etc/caddy.env" ]] && run cp -a "${BACKUP_DIR}/etc/caddy.env" /etc/caddy/h2v2.env
-  for u in h2v2-api.service h2v2-web.service hysteria-server.service "${XRAY_SERVICE_NAME}.service" "${SINGBOX_SERVICE_NAME}.service"; do
+  for u in h2v2-api.service h2v2-web.service "${SINGBOX_SERVICE_NAME}.service"; do
     [[ -f "${BACKUP_DIR}/systemd/${u}" ]] && run cp -a "${BACKUP_DIR}/systemd/${u}" "/etc/systemd/system/${u}"
   done
   [[ -d "${BACKUP_DIR}/storage/data" ]] && run rsync -a --delete "${BACKUP_DIR}/storage/data/" /var/lib/h2v2/data/
   [[ -d "${BACKUP_DIR}/audit" ]] && run rsync -a --delete "${BACKUP_DIR}/audit/" /var/log/h2v2/audit/
   run systemctl daemon-reload
-  run systemctl restart h2v2-api.service h2v2-web.service caddy.service hysteria-server.service "${XRAY_SERVICE_NAME}.service" "${SINGBOX_SERVICE_NAME}.service" || true
+  run systemctl restart h2v2-api.service h2v2-web.service caddy.service "${SINGBOX_SERVICE_NAME}.service" || true
 }
 
 on_error() {
@@ -764,15 +627,12 @@ bootstrap_admin() {
 restart_services() {
   phase "finalize: restart services"
   local s
-  for s in h2v2-api h2v2-web caddy hysteria-server "${XRAY_SERVICE_NAME}" "${SINGBOX_SERVICE_NAME}"; do
+  for s in h2v2-api h2v2-web caddy "${SINGBOX_SERVICE_NAME}"; do
     run systemctl enable "${s}.service"
   done
   run systemctl restart h2v2-api.service
   run systemctl restart h2v2-web.service
   run systemctl restart caddy.service
-  (( DRY_RUN == 0 )) && run bash "${SRC_DIR}/scripts/sync-hysteria-cert.sh" "${ENV_FILE}" --wait
-  run systemctl restart hysteria-server.service
-  run systemctl restart "${XRAY_SERVICE_NAME}.service"
   run systemctl restart "${SINGBOX_SERVICE_NAME}.service"
 }
 
@@ -799,14 +659,7 @@ require_service_active() {
     return 0
   fi
   systemctl status "${service}.service" --no-pager -l || true
-  if [[ "${service}" == "${XRAY_SERVICE_NAME}" ]]; then
-    local cfg_path="${XRAY_CONFIG_PATH:-/etc/h2v2/xray/config.json}"
-    if [[ -x "${XRAY_BINARY_PATH}" ]]; then
-      runuser -u xray -- "${XRAY_BINARY_PATH}" run -test -config "${cfg_path}" || \
-      runuser -u xray -- "${XRAY_BINARY_PATH}" -test -config "${cfg_path}" || true
-    fi
-    journalctl -u "${XRAY_SERVICE_NAME}" -n 120 --no-pager || true
-  elif [[ "${service}" == "${SINGBOX_SERVICE_NAME}" ]]; then
+  if [[ "${service}" == "${SINGBOX_SERVICE_NAME}" ]]; then
     local cfg_path="${SINGBOX_CONFIG_PATH:-/etc/h2v2/sing-box/config.json}"
     if [[ -x "${SINGBOX_BINARY_PATH}" ]]; then
       runuser -u singbox -- "${SINGBOX_BINARY_PATH}" check -c "${cfg_path}" || true
@@ -822,8 +675,6 @@ health_checks() {
   require_service_active h2v2-api
   require_service_active h2v2-web
   require_service_active caddy
-  require_service_active hysteria-server
-  require_service_active "${XRAY_SERVICE_NAME}"
   require_service_active "${SINGBOX_SERVICE_NAME}"
   if ! wait_for_panel_api; then
     systemctl status h2v2-api.service --no-pager -l || true
@@ -835,7 +686,6 @@ health_checks() {
 
 run_build_phase() {
   if [[ "${MODE}" == "reconfigure" ]]; then
-    install_xray
     install_singbox
     create_users_and_dirs
     sync_source
@@ -844,8 +694,6 @@ run_build_phase() {
   install_base_packages
   install_go
   install_node
-  install_hysteria
-  install_xray
   install_singbox
   create_users_and_dirs
   sync_source
@@ -865,7 +713,7 @@ summary() {
   printf "backup: %s\n" "${BACKUP_DIR:-not-created}"
   printf "active storage driver: sqlite\n"
   printf "\nverify:\n"
-  printf "  systemctl status h2v2-api h2v2-web hysteria-server %s %s caddy\n" "${XRAY_SERVICE_NAME}" "${SINGBOX_SERVICE_NAME}"
+  printf "  systemctl status h2v2-api h2v2-web %s caddy\n" "${SINGBOX_SERVICE_NAME}"
   printf "  bash %s/scripts/smoke-check.sh %s\n" "${SRC_DIR}" "${ENV_FILE}"
   printf "\nrollback:\n"
   printf "  rsync -a --delete %s/storage/data/ /var/lib/h2v2/data/\n" "${BACKUP_DIR:-/path/to/backup}"

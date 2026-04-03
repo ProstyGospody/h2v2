@@ -1,4 +1,4 @@
-﻿export type Protocol = "hy2" | "vless";
+export type Protocol = "hy2" | "vless";
 
 export type Credential = {
   protocol: Protocol;
@@ -49,7 +49,7 @@ export type UnifiedUserPayload = {
   subscription_url?: string;
 };
 
-export type HysteriaClient = {
+export type Client = {
   id: string;
   username: string;
   username_normalized: string;
@@ -72,55 +72,22 @@ export type HysteriaClient = {
   client_overrides?: ClientOverrides | null;
 };
 
-export type HysteriaClientParams = {
-  server: string;
-  port: number;
-  portUnion?: string;
-  sni?: string;
-  insecure: boolean;
-  pinSHA256?: string;
-  obfsType?: string;
-  obfsPassword?: string;
-};
-
-export type HysteriaServerClientOptions = {
-  tls_enabled: boolean;
-  tls_mode: string;
-  obfs_type?: string;
-  masquerade_type?: string;
-  bandwidth_up?: string;
-  bandwidth_down?: string;
-  ignore_client_bandwidth: boolean;
-};
-
-export type HysteriaUserArtifacts = {
-  uri: string;
-  uri_hy2: string;
-  subscription_url: string;
-  client_config: string;
-  client_params: HysteriaClientParams;
-  server_defaults: HysteriaClientParams;
-  client_overrides?: ClientOverrides | null;
-  server_options: HysteriaServerClientOptions;
-  singbox_outbound: Record<string, unknown>;
+export type ClientArtifactsView = {
+  url: string;
+  subscription: string;
   unified?: Record<string, UserArtifacts>;
 };
 
-export type HysteriaUserPayload = {
-  user: HysteriaClient;
-  artifacts: HysteriaUserArtifacts | null;
+export type UserPayload = {
+  user: Client;
+  artifacts: ClientArtifactsView | null;
   access_state?: string;
   access_message?: string;
 };
 
-export type HysteriaClientDefaults = {
-  client_params: HysteriaClientParams;
-  server_options: HysteriaServerClientOptions;
-};
+export type ClientListResponse = { items: Client[] };
 
-export type HysteriaClientListResponse = { items: HysteriaClient[] };
-
-export type HysteriaClientCreateRequest = {
+export type ClientCreateRequest = {
   username: string;
   note?: string;
   auth_secret?: string;
@@ -131,7 +98,7 @@ export type HysteriaClientCreateRequest = {
   client_overrides?: ClientOverrides;
 };
 
-export type HysteriaClientUpdateRequest = {
+export type ClientUpdateRequest = {
   username: string;
   note?: string;
   auth_secret?: string;
@@ -142,13 +109,13 @@ export type HysteriaClientUpdateRequest = {
   client_overrides?: ClientOverrides;
 };
 
-export type HysteriaClientStateBatchResponse = {
+export type ClientStateBatchResponse = {
   ok: boolean;
   enabled: boolean;
   updated: number;
 };
 
-export type HysteriaClientDeleteBatchResponse = {
+export type ClientDeleteBatchResponse = {
   ok: boolean;
   deleted: number;
 };

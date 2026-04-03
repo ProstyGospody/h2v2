@@ -2,24 +2,22 @@ import { Loader2 } from "lucide-react";
 import { FormEvent, useEffect, useId, useState } from "react";
 
 import { formFromClient, type ClientFormValues } from "@/domain/clients/adapters";
-import { HysteriaClient, HysteriaClientDefaults } from "@/domain/clients/types";
+import { Client } from "@/domain/clients/types";
 import { Button, Dialog, Input, SelectField } from "@/src/components/ui";
 
 export function ClientFormDialog({
-  open, mode, busy, client, defaults, error, onClose, onSubmit,
+  open, mode, busy, client, error, onClose, onSubmit,
 }: {
   open: boolean;
   mode: "create" | "edit";
   busy: boolean;
-  client: HysteriaClient | null;
-  defaults: HysteriaClientDefaults | null;
+  client: Client | null;
   error?: string;
   onClose: () => void;
   onSubmit: (values: ClientFormValues) => Promise<void>;
 }) {
   const [values, setValues] = useState<ClientFormValues>(formFromClient(client));
   const formID = useId();
-  void defaults;
 
   useEffect(() => {
     if (!open) return;

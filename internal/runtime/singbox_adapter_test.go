@@ -657,7 +657,7 @@ func TestIsSingBoxV2RayAPIUnsupportedError(t *testing.T) {
 	}
 }
 
-func TestMapVLESSStatsIdentityMapsUUIDAndLegacyName(t *testing.T) {
+func TestMapVLESSStatsIdentityMapsUUIDOnly(t *testing.T) {
 	users := []repository.UserWithCredentials{
 		{
 			User: repository.User{ID: "u1", Name: "alpha", Enabled: true},
@@ -674,7 +674,7 @@ func TestMapVLESSStatsIdentityMapsUUIDAndLegacyName(t *testing.T) {
 	if mapped["2B7EE3CD-20F0-4BD3-B9CC-10AEEB6A46AD"] != "u1" {
 		t.Fatalf("uuid case-insensitive mapping is missing: %+v", mapped)
 	}
-	if mapped["alpha"] != "u1" {
-		t.Fatalf("legacy name mapping is missing: %+v", mapped)
+	if mapped["alpha"] != "" {
+		t.Fatalf("unexpected legacy name mapping: %+v", mapped)
 	}
 }

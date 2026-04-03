@@ -194,11 +194,11 @@ export default function DashboardPage() {
   const showInitialLoading = loading && !live;
   const cpuPercent = clampPercent(live?.system.cpu_usage_percent ?? 0);
   const ramPercent = clampPercent(live?.system.memory_used_percent ?? 0);
-  const onlineUsers = Math.max(0, live?.hysteria.online_count ?? 0);
+  const onlineUsers = Math.max(0, live?.runtime.online_count ?? 0);
   const networkRx = Math.max(0, live?.system.network_rx_bps ?? 0);
   const networkTx = Math.max(0, live?.system.network_tx_bps ?? 0);
   const uptime = formatUptime(live?.system.uptime_seconds ?? 0);
-  const totalTraffic = Math.max(0, (live?.hysteria.total_rx_bytes ?? 0) + (live?.hysteria.total_tx_bytes ?? 0));
+  const totalTraffic = Math.max(0, (live?.runtime.total_rx_bytes ?? 0) + (live?.runtime.total_tx_bytes ?? 0));
   const tcpConnections = Math.max(0, Math.round(live?.system.tcp_sockets ?? 0));
   const udpConnections = Math.max(0, Math.round(live?.system.udp_sockets ?? 0));
 

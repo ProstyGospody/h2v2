@@ -6,7 +6,6 @@ import {
   LogOut,
   Moon,
   PanelLeft,
-  SlidersHorizontal,
   Sun,
   Users2,
   Zap,
@@ -34,7 +33,6 @@ const SIDEBAR_COLLAPSED_KEY = "panel-sidebar-collapsed";
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: <Activity size={24} strokeWidth={1.8} />, section: "MAIN" },
   { href: "/users", label: "Users", icon: <Users2 size={24} strokeWidth={1.8} />, section: "MAIN" },
-  { href: "/config", label: "Settings", icon: <SlidersHorizontal size={24} strokeWidth={1.8} />, section: "SYSTEM" },
   { href: "/audit", label: "Audit Log", icon: <HardDrive size={24} strokeWidth={1.8} />, section: "SYSTEM" },
 ];
 

@@ -34,10 +34,6 @@ export default defineConfig(({ mode }) => {
               target: apiProxyTarget,
               changeOrigin: true,
             },
-            "/hysteria": {
-              target: apiProxyTarget,
-              changeOrigin: true,
-            },
           }
         : undefined,
     },

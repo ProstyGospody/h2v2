@@ -32,6 +32,8 @@ const (
 	defaultVLESSFingerprint     = "chrome"
 	defaultVLESSWSPath          = "/"
 	defaultVLESSGRPCServiceName = "grpc"
+	defaultHY2CertificatePath   = "/etc/h2v2/hysteria/server.crt"
+	defaultHY2KeyPath           = "/etc/h2v2/hysteria/server.key"
 	defaultSingBoxV2RayAPIListen = "127.0.0.1:10086"
 	singBoxStatsQueryMethod      = "/v2ray.core.app.stats.command.StatsService/QueryStats"
 	singBoxUserStatPrefix        = "user>>>"
@@ -47,7 +49,6 @@ type SingBoxAdapter struct {
 	artifactHost       string
 	v2rayAPIListen     string
 	v2rayAPIEnabled    bool
-	v2rayAPIUnsupported bool
 	v2rayAPIMu         sync.RWMutex
 }
 
@@ -82,6 +83,22 @@ type singBoxRealitySettings struct {
 	Fingerprint     string
 }
 
+type singBoxHY2RuntimeConfig struct {
+	Tag                   string
+	ListenHost            string
+	Port                  int
+	ServerName            string
+	CertificatePath       string
+	KeyPath               string
+	UpMbps                int
+	DownMbps              int
+	IgnoreClientBandwidth bool
+	ObfsType              string
+	ObfsPassword          string
+	Masquerade            any
+	BBRProfile            string
+}
+
 func NewSingBoxAdapter(binaryPath string, configPath string, svc ServiceRestarter, serviceName string, artifactHost string) *SingBoxAdapter {
 	name := strings.TrimSpace(serviceName)
 	if name == "" {
@@ -107,30 +124,14 @@ func (a *SingBoxAdapter) Protocol() repository.Protocol {
 }
 
 func (a *SingBoxAdapter) SyncConfig(ctx context.Context, inbounds []repository.Inbound, users []repository.UserWithCredentials) error {
-	enableStats := a.shouldUseV2RayStats()
-	config, err := buildSingBoxVLESSConfigWithStats(inbounds, users, a.artifactHost, enableStats, a.v2rayAPIListen)
+	config, err := buildSingBoxVLESSConfigWithStats(inbounds, users, a.artifactHost, true, a.v2rayAPIListen)
 	if err != nil {
 		return err
 	}
 	if err := a.applyConfig(config); err != nil {
-		if enableStats && isSingBoxV2RayAPIUnsupportedError(err) {
-			fallback, buildErr := buildSingBoxVLESSConfigWithStats(inbounds, users, a.artifactHost, false, "")
-			if buildErr != nil {
-				return buildErr
-			}
-			if fallbackErr := a.applyConfig(fallback); fallbackErr != nil {
-				return fallbackErr
-			}
-			a.setV2RayStatsState(false, true)
-			return a.restart(ctx)
-		}
 		return err
 	}
-	if enableStats {
-		a.setV2RayStatsState(true, false)
-	} else {
-		a.setV2RayStatsEnabled(false)
-	}
+	a.setV2RayStatsEnabled(true)
 	return a.restart(ctx)
 }
 
@@ -347,25 +348,6 @@ func (a *SingBoxAdapter) v2rayStatsAvailable() bool {
 	return a.v2rayAPIEnabled
 }
 
-func (a *SingBoxAdapter) shouldUseV2RayStats() bool {
-	if a == nil {
-		return false
-	}
-	a.v2rayAPIMu.RLock()
-	defer a.v2rayAPIMu.RUnlock()
-	return !a.v2rayAPIUnsupported
-}
-
-func (a *SingBoxAdapter) setV2RayStatsState(enabled bool, unsupported bool) {
-	if a == nil {
-		return
-	}
-	a.v2rayAPIMu.Lock()
-	a.v2rayAPIEnabled = enabled
-	a.v2rayAPIUnsupported = unsupported
-	a.v2rayAPIMu.Unlock()
-}
-
 func (a *SingBoxAdapter) setV2RayStatsEnabled(enabled bool) {
 	if a == nil {
 		return
@@ -532,58 +514,99 @@ func buildSingBoxVLESSConfigWithStats(
 	statsInbounds := make(map[string]struct{}, len(inbounds))
 
 	for _, inbound := range inbounds {
-		if inbound.Protocol != repository.ProtocolVLESS || !inbound.Enabled {
+		if !inbound.Enabled {
 			continue
 		}
+		switch inbound.Protocol {
+		case repository.ProtocolVLESS:
+			runtimeConfig, err := parseSingBoxVLESSInbound(inbound, artifactHost)
+			if err != nil {
+				return nil, fmt.Errorf("vless inbound %s is invalid: %w", runtimeConfigTagFallback(inbound), err)
+			}
 
-		runtimeConfig, err := parseSingBoxVLESSInbound(inbound, artifactHost)
-		if err != nil {
-			return nil, fmt.Errorf("vless inbound %s is invalid: %w", runtimeConfigTagFallback(inbound), err)
-		}
-
-		userEntries := make([]map[string]any, 0, len(users))
-		for _, user := range users {
-			if !isActiveRuntimeUser(user, now) {
-				continue
-			}
-			credential, ok := userCredential(user, repository.ProtocolVLESS)
-			if !ok {
-				continue
-			}
-			uuidValue := strings.TrimSpace(credential.Identity)
-			if uuidValue == "" {
-				continue
-			}
-			statsName := resolveVLESSStatsName(user, credential)
-			if statsName == "" {
-				statsName = uuidValue
-			}
-			entry := map[string]any{
-				"name": statsName,
-				"uuid": uuidValue,
-			}
-			if runtimeConfig.Flow != "" {
-				entry["flow"] = runtimeConfig.Flow
-			}
-			userEntries = append(userEntries, entry)
-			if enableV2RayStats {
-				statsCandidate := strings.TrimSpace(statsName)
-				if statsCandidate != "" {
-					statsUsers[statsCandidate] = struct{}{}
+			userEntries := make([]map[string]any, 0, len(users))
+			for _, user := range users {
+				if !isActiveRuntimeUser(user, now) {
+					continue
+				}
+				credential, ok := userCredential(user, repository.ProtocolVLESS)
+				if !ok {
+					continue
+				}
+				uuidValue := strings.TrimSpace(credential.Identity)
+				if uuidValue == "" {
+					continue
+				}
+				statsName := resolveVLESSStatsName(user, credential)
+				if statsName == "" {
+					continue
+				}
+				entry := map[string]any{
+					"name": statsName,
+					"uuid": uuidValue,
+				}
+				if runtimeConfig.Flow != "" {
+					entry["flow"] = runtimeConfig.Flow
+				}
+				userEntries = append(userEntries, entry)
+				if enableV2RayStats {
+					statsUsers[statsName] = struct{}{}
 				}
 			}
-		}
-		if len(userEntries) == 0 {
-			continue
-		}
+			if len(userEntries) == 0 {
+				continue
+			}
 
-		inboundPayload, err := renderSingBoxVLESSInbound(runtimeConfig, userEntries)
-		if err != nil {
-			return nil, fmt.Errorf("vless inbound %s is invalid: %w", runtimeConfig.Tag, err)
-		}
-		renderedInbounds = append(renderedInbounds, inboundPayload)
-		if enableV2RayStats {
-			statsInbounds[runtimeConfig.Tag] = struct{}{}
+			inboundPayload, err := renderSingBoxVLESSInbound(runtimeConfig, userEntries)
+			if err != nil {
+				return nil, fmt.Errorf("vless inbound %s is invalid: %w", runtimeConfig.Tag, err)
+			}
+			renderedInbounds = append(renderedInbounds, inboundPayload)
+			if enableV2RayStats {
+				statsInbounds[runtimeConfig.Tag] = struct{}{}
+			}
+		case repository.ProtocolHY2:
+			runtimeConfig, err := parseSingBoxHY2Inbound(inbound)
+			if err != nil {
+				return nil, fmt.Errorf("hy2 inbound %s is invalid: %w", runtimeConfigTagFallback(inbound), err)
+			}
+
+			userEntries := make([]map[string]any, 0, len(users))
+			for _, user := range users {
+				if !isActiveRuntimeUser(user, now) {
+					continue
+				}
+				credential, ok := userCredential(user, repository.ProtocolHY2)
+				if !ok {
+					continue
+				}
+				statsName := strings.TrimSpace(credential.Identity)
+				password := strings.TrimSpace(credential.Secret)
+				if statsName == "" || password == "" {
+					continue
+				}
+				userEntries = append(userEntries, map[string]any{
+					"name":     statsName,
+					"password": password,
+				})
+				if enableV2RayStats {
+					statsUsers[statsName] = struct{}{}
+				}
+			}
+			if len(userEntries) == 0 {
+				continue
+			}
+
+			inboundPayload, err := renderSingBoxHY2Inbound(runtimeConfig, userEntries)
+			if err != nil {
+				return nil, fmt.Errorf("hy2 inbound %s is invalid: %w", runtimeConfig.Tag, err)
+			}
+			renderedInbounds = append(renderedInbounds, inboundPayload)
+			if enableV2RayStats {
+				statsInbounds[runtimeConfig.Tag] = struct{}{}
+			}
+		default:
+			continue
 		}
 	}
 
@@ -822,6 +845,100 @@ func renderSingBoxInboundTLS(runtimeConfig singBoxVLESSRuntimeConfig) (map[strin
 	}
 	tls["reality"] = reality
 	return tls, nil
+}
+
+func parseSingBoxHY2Inbound(inbound repository.Inbound) (singBoxHY2RuntimeConfig, error) {
+	params := parseJSONMap(inbound.ParamsJSON)
+	obfsType := firstNonEmpty(
+		readString(params, "obfs_type"),
+		readString(params, "obfsType"),
+	)
+	obfsPassword := firstNonEmpty(
+		readString(params, "obfs_password"),
+		readString(params, "obfsPassword"),
+	)
+	if nested, ok := params["obfs"].(map[string]any); ok {
+		if obfsType == "" {
+			obfsType = readString(nested, "type")
+		}
+		if obfsPassword == "" {
+			obfsPassword = readString(nested, "password")
+		}
+	}
+
+	config := singBoxHY2RuntimeConfig{
+		Tag:                   runtimeConfigTagFallback(inbound),
+		ListenHost:            resolveSingBoxListenHost(inbound.Host),
+		Port:                  normalizeInboundPort(inbound.Port),
+		ServerName:            firstNonEmpty(readStringOrFirst(params, "sni"), readStringOrFirst(params, "server_name"), readStringOrFirst(params, "serverName"), readStringOrFirst(params, "tls_server_name")),
+		CertificatePath:       firstNonEmpty(readString(params, "certificate_path"), readString(params, "certificatePath"), readString(params, "certPath"), readString(params, "tls_certificate_path"), defaultHY2CertificatePath),
+		KeyPath:               firstNonEmpty(readString(params, "key_path"), readString(params, "keyPath"), readString(params, "tls_key_path"), defaultHY2KeyPath),
+		UpMbps:                readInt(params, "up_mbps", readInt(params, "upmbps", 0)),
+		DownMbps:              readInt(params, "down_mbps", readInt(params, "downmbps", 0)),
+		IgnoreClientBandwidth: readBool(params, "ignore_client_bandwidth", false),
+		ObfsType:              strings.TrimSpace(obfsType),
+		ObfsPassword:          strings.TrimSpace(obfsPassword),
+		BBRProfile:            firstNonEmpty(readString(params, "bbr_profile"), readString(params, "bbrProfile")),
+	}
+	if masquerade, ok := params["masquerade"]; ok {
+		config.Masquerade = masquerade
+	}
+	if config.ServerName == "" {
+		config.ServerName = inferDomainFromHost(inbound.Host)
+	}
+	if config.CertificatePath == "" || config.KeyPath == "" {
+		return singBoxHY2RuntimeConfig{}, fmt.Errorf("hy2 inbound requires certificate_path and key_path")
+	}
+
+	return config, nil
+}
+
+func renderSingBoxHY2Inbound(runtimeConfig singBoxHY2RuntimeConfig, users []map[string]any) (map[string]any, error) {
+	inbound := map[string]any{
+		"type":        "hysteria2",
+		"tag":         runtimeConfig.Tag,
+		"listen":      runtimeConfig.ListenHost,
+		"listen_port": runtimeConfig.Port,
+		"users":       users,
+		"tls": map[string]any{
+			"enabled": true,
+		},
+	}
+	tls := inbound["tls"].(map[string]any)
+	if runtimeConfig.ServerName != "" {
+		tls["server_name"] = runtimeConfig.ServerName
+	}
+	if runtimeConfig.CertificatePath != "" {
+		tls["certificate_path"] = runtimeConfig.CertificatePath
+	}
+	if runtimeConfig.KeyPath != "" {
+		tls["key_path"] = runtimeConfig.KeyPath
+	}
+	if runtimeConfig.UpMbps > 0 {
+		inbound["up_mbps"] = runtimeConfig.UpMbps
+	}
+	if runtimeConfig.DownMbps > 0 {
+		inbound["down_mbps"] = runtimeConfig.DownMbps
+	}
+	if runtimeConfig.IgnoreClientBandwidth {
+		inbound["ignore_client_bandwidth"] = true
+	}
+	if runtimeConfig.ObfsType != "" {
+		obfs := map[string]any{
+			"type": runtimeConfig.ObfsType,
+		}
+		if runtimeConfig.ObfsPassword != "" {
+			obfs["password"] = runtimeConfig.ObfsPassword
+		}
+		inbound["obfs"] = obfs
+	}
+	if runtimeConfig.Masquerade != nil {
+		inbound["masquerade"] = runtimeConfig.Masquerade
+	}
+	if runtimeConfig.BBRProfile != "" {
+		inbound["bbr_profile"] = runtimeConfig.BBRProfile
+	}
+	return inbound, nil
 }
 
 func buildSingBoxVLESSURI(
@@ -1241,25 +1358,6 @@ func readStringOrFirst(source map[string]any, key string) string {
 	return strings.TrimSpace(parts[0])
 }
 
-func detectSingBoxFeature(binaryPath string, feature string) bool {
-	bin := strings.TrimSpace(binaryPath)
-	required := strings.ToLower(strings.TrimSpace(feature))
-	if bin == "" || required == "" {
-		return false
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	output, err := exec.CommandContext(ctx, bin, "version").CombinedOutput()
-	if err != nil {
-		return false
-	}
-	normalized := strings.ToLower(string(output))
-	if strings.Contains(normalized, required) {
-		return true
-	}
-	return false
-}
-
 func isSingBoxV2RayAPIUnsupportedError(err error) bool {
 	if err == nil {
 		return false
@@ -1285,7 +1383,7 @@ func isSingBoxV2RayAPIUnsupportedError(err error) bool {
 }
 
 func mapVLESSStatsIdentity(users []repository.UserWithCredentials) map[string]string {
-	identityByName := make(map[string]string, len(users)*4)
+	identityByName := make(map[string]string, len(users)*3)
 	mapIdentity := func(raw string, userID string) {
 		key := strings.TrimSpace(raw)
 		if key == "" {
@@ -1308,18 +1406,13 @@ func mapVLESSStatsIdentity(users []repository.UserWithCredentials) map[string]st
 		}
 		statsName := resolveVLESSStatsName(user, credential)
 		mapIdentity(statsName, user.ID)
-		mapIdentity(credential.Identity, user.ID)
-		mapIdentity(user.Name, user.ID)
 	}
 	return identityByName
 }
 
 func resolveVLESSStatsName(user repository.UserWithCredentials, credential repository.Credential) string {
-	uuidCandidate := strings.TrimSpace(credential.Identity)
-	if uuidCandidate != "" {
-		return uuidCandidate
-	}
-	return strings.TrimSpace(user.Name)
+	_ = user
+	return strings.TrimSpace(credential.Identity)
 }
 
 func parseSingBoxUserTrafficName(raw string) (string, string, bool) {

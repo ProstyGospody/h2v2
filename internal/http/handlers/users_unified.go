@@ -203,7 +203,7 @@ func (h *Handler) DeleteUsers(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusBadRequest, "validation", "invalid request body", nil)
 		return
 	}
-	ids := normalizeHysteriaUserIDs(req.IDs)
+	ids := normalizeUserIDs(req.IDs)
 	if len(ids) == 0 {
 		h.renderError(w, http.StatusBadRequest, "validation", "ids must contain at least one user id", nil)
 		return
@@ -236,7 +236,7 @@ func (h *Handler) SetUsersState(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusBadRequest, "validation", "enabled is required", nil)
 		return
 	}
-	ids := normalizeHysteriaUserIDs(req.IDs)
+	ids := normalizeUserIDs(req.IDs)
 	if len(ids) == 0 {
 		h.renderError(w, http.StatusBadRequest, "validation", "ids must contain at least one user id", nil)
 		return
@@ -294,7 +294,7 @@ func (h *Handler) KickUsers(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusBadRequest, "validation", "invalid request body", nil)
 		return
 	}
-	ids := normalizeHysteriaUserIDs(req.IDs)
+	ids := normalizeUserIDs(req.IDs)
 	if len(ids) == 0 {
 		h.renderError(w, http.StatusBadRequest, "validation", "ids must contain at least one user id", nil)
 		return
@@ -670,6 +670,9 @@ func mergeCredentialsWithCurrent(next []repository.Credential, current []reposit
 			if credential.Protocol == repository.ProtocolHY2 && strings.TrimSpace(credential.Secret) == "" {
 				credential.Secret = previous.Secret
 			}
+			if credential.Protocol == repository.ProtocolHY2 && strings.TrimSpace(credential.Identity) == "" {
+				credential.Identity = previous.Identity
+			}
 			if credential.Protocol == repository.ProtocolVLESS && strings.TrimSpace(credential.Identity) == "" {
 				credential.Identity = previous.Identity
 			}
@@ -767,7 +770,7 @@ func parseProtocolOptional(raw string) (*repository.Protocol, error) {
 
 func parseProtocol(raw string) (repository.Protocol, error) {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "hy2", "hysteria", "hysteria2":
+	case "hy2":
 		return repository.ProtocolHY2, nil
 	case "vless":
 		return repository.ProtocolVLESS, nil
@@ -781,6 +784,26 @@ func valueOrEmpty(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+func normalizeUserIDs(raw []string) []string {
+	if len(raw) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(raw))
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		id := strings.TrimSpace(item)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
 }
 
 func resolveUnifiedAccessQRValue(

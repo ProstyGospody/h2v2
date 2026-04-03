@@ -32,13 +32,6 @@ export type AuditLogItem = {
   created_at: string;
 };
 
-export type HysteriaOverview = {
-  enabled_users: number;
-  total_tx_bytes: number;
-  total_rx_bytes: number;
-  online_count: number;
-};
-
 export type SystemLiveResponse = {
   collected_at: string;
   system: {
@@ -62,7 +55,7 @@ export type SystemLiveResponse = {
     source: string;
     is_stale: boolean;
   };
-  hysteria: {
+  runtime: {
     enabled_users: number;
     total_tx_bytes: number;
     total_rx_bytes: number;

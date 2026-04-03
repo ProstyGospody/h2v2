@@ -27,14 +27,12 @@ func NewRouter(
 
 	r.Get("/healthz", h.Healthz)
 	r.Get("/readyz", h.Readyz)
-	r.Get("/hysteria/subscription/{token}", h.HysteriaUserSubscription)
 	r.Get("/subscriptions/{token}", h.UserSubscription)
 	r.Get("/sub/{token}/profile.singbox.json", h.CoreSubscriptionProfile)
 	r.Get("/sub/{token}/uris.txt", h.CoreSubscriptionURIs)
 	r.Get("/sub/{token}/qr.png", h.CoreSubscriptionQR)
 
 	r.Route("/api", func(api chi.Router) {
-		api.Get("/hysteria/subscription/{token}", h.HysteriaUserSubscription)
 		api.Get("/subscriptions/{token}", h.UserSubscription)
 
 		api.Route("/auth", func(auth chi.Router) {
@@ -53,26 +51,6 @@ func NewRouter(
 			secured.Use(middleware.RequireAuth(cfg, repo, logger))
 			secured.Use(middleware.RequireCSRF(cfg))
 
-			secured.Get("/hysteria/client-defaults", h.HysteriaClientDefaults)
-			secured.Get("/hysteria/users", h.ListHysteriaUsers)
-			secured.Post("/hysteria/users", h.CreateHysteriaUser)
-			secured.Post("/hysteria/users/state", h.SetHysteriaUsersState)
-			secured.Post("/hysteria/users/delete", h.DeleteHysteriaUsers)
-			secured.Get("/hysteria/users/{id}", h.GetHysteriaUser)
-			secured.Patch("/hysteria/users/{id}", h.UpdateHysteriaUser)
-			secured.Delete("/hysteria/users/{id}", h.DeleteHysteriaUser)
-			secured.Post("/hysteria/users/{id}/revoke", h.RevokeHysteriaUser)
-			secured.Post("/hysteria/users/{id}/enable", h.EnableHysteriaUser)
-			secured.Post("/hysteria/users/{id}/disable", h.DisableHysteriaUser)
-			secured.Get("/hysteria/users/{id}/artifacts", h.HysteriaUserArtifacts)
-			secured.Get("/hysteria/users/{id}/qr", h.HysteriaUserQR)
-			secured.Post("/hysteria/users/{id}/kick", h.KickHysteriaUser)
-			secured.Get("/hysteria/stats/overview", h.HysteriaStatsOverview)
-			secured.Get("/hysteria/stats/history", h.HysteriaStatsHistory)
-			secured.Get("/hysteria/settings", h.GetHysteriaSettings)
-			secured.Post("/hysteria/settings/validate", h.ValidateHysteriaSettings)
-			secured.Put("/hysteria/settings", h.SaveHysteriaSettings)
-			secured.Post("/hysteria/settings/apply", h.ApplyHysteriaSettings)
 			secured.Get("/storage/sqlite/backup", h.DownloadSQLiteBackup)
 			secured.Post("/storage/sqlite/restore", h.RestoreSQLiteBackup)
 
