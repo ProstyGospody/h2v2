@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Loader2,
   Pencil,
   Plus,
   Power,
@@ -8,6 +7,7 @@ import {
   QrCode,
   Search,
   Trash2,
+  Users2,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -19,7 +19,6 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
 import {
   expireToISO,
-  formDefaults,
   trafficLimitToBytes,
 } from "@/domain/clients/adapters";
 import {
@@ -53,6 +52,7 @@ import { formatBytes, formatDateTime } from "@/utils/format";
 
 const SEARCH_DEBOUNCE_MS = 250;
 const ROWS_PER_PAGE = 25;
+const EXPIRE_SOON_DAYS = 7;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -79,6 +79,88 @@ function matchStatus(c: Client, f: string) {
   return true;
 }
 
+type ExpireState = "expired" | "soon" | "ok" | "none";
+
+function expireState(expireAt: string | null): ExpireState {
+  if (!expireAt) return "none";
+  const diff = new Date(expireAt).getTime() - Date.now();
+  if (diff <= 0) return "expired";
+  if (diff < EXPIRE_SOON_DAYS * 86_400_000) return "soon";
+  return "ok";
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function StatCard({ label, value, accent }: { label: string; value: string | number; accent?: boolean }) {
+  return (
+    <div className={cn(
+      "flex min-w-0 flex-col gap-0.5 rounded-xl border px-4 py-2.5",
+      accent
+        ? "border-accent/20 bg-accent/6"
+        : "border-border/40 bg-surface-2/40",
+    )}>
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">{label}</span>
+      <span className={cn("text-[20px] font-bold leading-tight tabular-nums", accent ? "text-accent-light" : "text-txt-primary")}>{value}</span>
+    </div>
+  );
+}
+
+function ExpireCell({ expireAt }: { expireAt: string | null }) {
+  const state = expireState(expireAt);
+  if (state === "none") return <span className="text-txt-muted">—</span>;
+
+  const label = formatDateTime(expireAt, { includeSeconds: false });
+  return (
+    <span className={cn(
+      "text-[13px]",
+      state === "expired" && "font-medium text-status-danger",
+      state === "soon" && "font-medium text-status-warning",
+      state === "ok" && "text-txt-secondary",
+    )}>
+      {state === "expired" && <span className="mr-1.5 inline-block h-1.5 w-1.5 translate-y-[-1px] rounded-full bg-status-danger align-middle" />}
+      {state === "soon" && <span className="mr-1.5 inline-block h-1.5 w-1.5 translate-y-[-1px] rounded-full bg-status-warning align-middle" />}
+      {label}
+    </span>
+  );
+}
+
+function TrafficCell({ client }: { client: Client }) {
+  const used = totalTraffic(client);
+  const pct = trafficPercent(client);
+  const limited = client.traffic_limit_bytes > 0;
+  const danger = pct >= 90;
+  const warn = pct >= 70;
+
+  return (
+    <div className="min-w-[140px] space-y-1.5">
+      <div className="flex items-baseline gap-1 text-[13px]">
+        <span className={cn("font-medium", danger ? "text-status-danger" : warn ? "text-status-warning" : "text-txt-primary")}>
+          {formatBytes(used)}
+        </span>
+        {limited && (
+          <span className="text-txt-muted">/ {formatBytes(client.traffic_limit_bytes)}</span>
+        )}
+      </div>
+      {limited && (
+        <div className="flex items-center gap-2">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-3">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                danger ? "bg-status-danger" : warn ? "bg-status-warning" : "bg-accent",
+              )}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <span className="w-8 text-right text-[11px] tabular-nums text-txt-muted">{Math.round(pct)}%</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -95,6 +177,14 @@ export default function UsersPage() {
   });
 
   const clients = usersQuery.data ?? [];
+
+  // Stats
+  const stats = useMemo(() => ({
+    total: clients.length,
+    active: clients.filter((c) => c.enabled).length,
+    disabled: clients.filter((c) => !c.enabled).length,
+    traffic: clients.reduce((acc, c) => acc + totalTraffic(c), 0),
+  }), [clients]);
 
   // Search + filter
   const [searchInput, setSearchInput] = useState("");
@@ -293,27 +383,38 @@ export default function UsersPage() {
   const isError = usersQuery.isError;
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] space-y-6 p-6">
+    <div className="space-y-5">
+      {/* Header */}
       <PageHeader
         title="Users"
         subtitle={`${clients.length} total`}
         actions={
           <Button variant="primary" onClick={openCreate}>
             <Plus size={16} strokeWidth={2} />
-            Create User
+            New User
           </Button>
         }
       />
 
+      {/* Stats bar */}
+      {!isLoading && clients.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard label="Total" value={stats.total} />
+          <StatCard label="Active" value={stats.active} accent />
+          <StatCard label="Disabled" value={stats.disabled} />
+          <StatCard label="Traffic used" value={formatBytes(stats.traffic)} />
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative max-w-[320px] flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-txt-muted" />
+        <div className="relative flex-1 sm:max-w-[380px]">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-txt-muted" />
           <Input
             ref={searchRef}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search users..."
+            placeholder="Search users… (/ to focus)"
             className="pl-9 pr-8"
           />
           {searchInput && (
@@ -327,17 +428,17 @@ export default function UsersPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 rounded-xl border border-border/40 bg-surface-2/40 p-1">
           {(["all", "enabled", "disabled"] as const).map((f) => (
             <button
               key={f}
               type="button"
               onClick={() => setStatusFilter(f)}
               className={cn(
-                "rounded-lg px-3 py-1.5 text-[12px] font-semibold capitalize transition-colors",
+                "rounded-lg px-3.5 py-1.5 text-[12px] font-semibold capitalize transition-all",
                 statusFilter === f
-                  ? "bg-accent/12 text-accent-light"
-                  : "text-txt-secondary hover:bg-surface-3/60 hover:text-txt",
+                  ? "bg-surface-3/80 text-txt shadow-sm"
+                  : "text-txt-secondary hover:text-txt",
               )}
             >
               {f}
@@ -348,14 +449,14 @@ export default function UsersPage() {
 
       {/* Bulk actions */}
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/40 bg-surface-2/50 px-4 py-2.5 text-[13px]">
-          <span className="font-medium text-txt-secondary">{selected.size} selected</span>
-          <div className="mx-1 h-4 w-px bg-border/40" />
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-accent/20 bg-accent/6 px-4 py-2.5 text-[13px]">
+          <span className="font-semibold text-accent-light">{selected.size} selected</span>
+          <div className="mx-1 h-4 w-px bg-border/60" />
           <Button size="sm" onClick={() => bulkEnable(true)}>
-            <Power size={14} /> Enable
+            <Power size={13} /> Enable
           </Button>
           <Button size="sm" onClick={() => bulkEnable(false)}>
-            <PowerOff size={14} /> Disable
+            <PowerOff size={13} /> Disable
           </Button>
           <ConfirmPopover
             title="Delete users"
@@ -364,12 +465,16 @@ export default function UsersPage() {
             onConfirm={bulkDelete}
           >
             <Button size="sm" variant="danger">
-              <Trash2 size={14} /> Delete
+              <Trash2 size={13} /> Delete
             </Button>
           </ConfirmPopover>
-          <Button size="sm" onClick={() => setSelected(new Set())}>
-            <X size={14} /> Clear
-          </Button>
+          <button
+            type="button"
+            className="ml-auto flex items-center gap-1.5 rounded-lg px-2 py-1 text-[12px] text-txt-muted hover:text-txt"
+            onClick={() => setSelected(new Set())}
+          >
+            <X size={13} /> Clear
+          </button>
         </div>
       )}
 
@@ -385,35 +490,46 @@ export default function UsersPage() {
       {/* Table */}
       <div className="overflow-hidden rounded-2xl border border-border/40 bg-surface-2/30">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] text-[13px]">
+          <table className="w-full min-w-[760px] border-collapse text-[13px]">
             <thead>
-              <tr className="border-b border-border/40 bg-surface-2/60">
-                <th className="w-[40px] px-3 py-3">
+              <tr className="border-b border-border/40 bg-surface-2/70">
+                <th className="w-10 px-3 py-3.5">
                   <Checkbox checked={allOnPageSelected && paged.length > 0} onCheckedChange={toggleSelectAll} />
                 </th>
-                <th className="px-3 py-3 text-left font-semibold text-txt-secondary">User</th>
-                <th className="px-3 py-3 text-left font-semibold text-txt-secondary">Status</th>
-                <th className="px-3 py-3 text-left font-semibold text-txt-secondary">Protocols</th>
-                <th className="px-3 py-3 text-left font-semibold text-txt-secondary">Traffic</th>
-                <th className="px-3 py-3 text-left font-semibold text-txt-secondary">Expires</th>
-                <th className="w-[160px] px-3 py-3 text-right font-semibold text-txt-secondary">Actions</th>
+                <th className="px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-txt-muted">User</th>
+                <th className="px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-txt-muted">Status</th>
+                <th className="px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-txt-muted">Traffic</th>
+                <th className="px-4 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-txt-muted">Expires</th>
+                <th className="w-28 px-3 py-3.5 text-right text-[11px] font-semibold uppercase tracking-wider text-txt-muted">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border/20">
               {isLoading ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                  <tr key={i} className="border-b border-border/20">
-                    {Array.from({ length: 7 }).map((_, j) => (
-                      <td key={j} className="px-3 py-3.5">
-                        <div className="h-4 w-full animate-pulse rounded bg-surface-3/50" />
+                Array.from({ length: 7 }).map((_, i) => (
+                  <tr key={i}>
+                    {Array.from({ length: 6 }).map((_, j) => (
+                      <td key={j} className="px-4 py-4">
+                        <div className={cn("h-3.5 animate-pulse rounded-md bg-surface-3/60", j === 1 ? "w-32" : j === 3 ? "w-28" : "w-16")} />
                       </td>
                     ))}
                   </tr>
                 ))
               ) : paged.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-16 text-center text-[14px] text-txt-secondary">
-                    {searchQuery || statusFilter !== "all" ? "No users match the current filters." : "No users yet. Click \"Create User\" to get started."}
+                  <td colSpan={6} className="px-4 py-20 text-center">
+                    <div className="flex flex-col items-center gap-3 text-txt-muted">
+                      <Users2 size={36} strokeWidth={1.2} className="opacity-40" />
+                      <p className="text-[14px]">
+                        {searchQuery || statusFilter !== "all"
+                          ? "No users match the current filters."
+                          : "No users yet."}
+                      </p>
+                      {!searchQuery && statusFilter === "all" && (
+                        <Button variant="primary" size="sm" onClick={openCreate}>
+                          <Plus size={14} /> Create first user
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -421,80 +537,64 @@ export default function UsersPage() {
                   <tr
                     key={client.id}
                     className={cn(
-                      "border-b border-border/20 transition-colors hover:bg-surface-2/40",
-                      selected.has(client.id) && "bg-accent/4",
+                      "group/row transition-colors hover:bg-surface-2/50",
+                      selected.has(client.id) && "bg-accent/4 hover:bg-accent/6",
                     )}
                   >
                     {/* Select */}
-                    <td className="px-3 py-3">
+                    <td className="px-3 py-3.5">
                       <Checkbox checked={selected.has(client.id)} onCheckedChange={() => toggleSelect(client.id)} />
                     </td>
 
-                    {/* Username */}
-                    <td className="px-3 py-3">
-                      <button
-                        type="button"
-                        className="font-medium text-txt-primary hover:text-accent-light hover:underline"
-                        onClick={() => openArtifacts(client)}
-                      >
-                        {client.username}
-                      </button>
-                    </td>
-
-                    {/* Status */}
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2">
-                        <Badge variant={client.enabled ? "success" : "danger"}>
-                          {client.enabled ? "Active" : "Disabled"}
-                        </Badge>
-                        <Toggle
-                          checked={client.enabled}
-                          onCheckedChange={() => handleToggle(client)}
-                          className="scale-75"
-                        />
+                    {/* User */}
+                    <td className="px-4 py-3.5">
+                      <div className="flex flex-col gap-1.5">
+                        <button
+                          type="button"
+                          className="w-fit font-semibold text-txt-primary hover:text-accent-light hover:underline"
+                          onClick={() => openArtifacts(client)}
+                        >
+                          {client.username}
+                        </button>
+                        <div className="flex gap-1.5">
+                          {client.protocols.includes("vless") && <Badge variant="protocol-vless">VLESS</Badge>}
+                          {client.protocols.includes("hy2") && <Badge variant="protocol-hy2">HY2</Badge>}
+                          {client.protocols.length === 0 && (
+                            <span className="text-[11px] text-txt-muted">No access</span>
+                          )}
+                        </div>
                       </div>
                     </td>
 
-                    {/* Protocols */}
-                    <td className="px-3 py-3">
-                      <div className="flex gap-1.5">
-                        {client.protocols.includes("vless") && <Badge variant="protocol-vless">VLESS</Badge>}
-                        {client.protocols.includes("hy2") && <Badge variant="protocol-hy2">HY2</Badge>}
-                        {client.protocols.length === 0 && <span className="text-txt-muted">-</span>}
+                    {/* Status */}
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-2.5">
+                        <Toggle
+                          checked={client.enabled}
+                          onCheckedChange={() => handleToggle(client)}
+                        />
+                        <span className={cn(
+                          "text-[12px] font-medium",
+                          client.enabled ? "text-status-success" : "text-txt-muted",
+                        )}>
+                          {client.enabled ? "Active" : "Disabled"}
+                        </span>
                       </div>
                     </td>
 
                     {/* Traffic */}
-                    <td className="px-3 py-3">
-                      <div className="space-y-1">
-                        <span className="text-txt-primary">
-                          {formatBytes(totalTraffic(client))}
-                          {client.traffic_limit_bytes > 0 && (
-                            <span className="text-txt-muted"> / {formatBytes(client.traffic_limit_bytes)}</span>
-                          )}
-                        </span>
-                        {client.traffic_limit_bytes > 0 && (
-                          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-3">
-                            <div
-                              className={cn(
-                                "h-full rounded-full transition-all",
-                                trafficPercent(client) >= 90 ? "bg-status-danger" : "bg-accent",
-                              )}
-                              style={{ width: `${trafficPercent(client)}%` }}
-                            />
-                          </div>
-                        )}
-                      </div>
+                    <td className="px-4 py-3.5">
+                      <TrafficCell client={client} />
                     </td>
 
                     {/* Expires */}
-                    <td className="px-3 py-3 text-txt-secondary">
-                      {client.expire_at ? formatDateTime(client.expire_at, { includeSeconds: false }) : "-"}
+                    <td className="px-4 py-3.5">
+                      <ExpireCell expireAt={client.expire_at} />
                     </td>
 
                     {/* Actions */}
-                    <td className="px-3 py-3">
-                      <div className="flex items-center justify-end gap-1">
+                    <td className="px-3 py-3.5">
+                      <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover/row:opacity-100">
                         <Tooltip content="QR & Links">
                           <Button size="sm" onClick={() => openArtifacts(client)}>
                             <QrCode size={14} />
@@ -526,13 +626,14 @@ export default function UsersPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-border/40 px-4 py-2.5 text-[12px] text-txt-secondary">
+          <div className="flex items-center justify-between border-t border-border/40 px-5 py-3 text-[12px] text-txt-secondary">
             <span>
-              {page * ROWS_PER_PAGE + 1}–{Math.min((page + 1) * ROWS_PER_PAGE, filtered.length)} of {filtered.length}
+              Showing {page * ROWS_PER_PAGE + 1}–{Math.min((page + 1) * ROWS_PER_PAGE, filtered.length)} of {filtered.length}
             </span>
-            <div className="flex gap-1">
-              <Button size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>Prev</Button>
-              <Button size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>Next</Button>
+            <div className="flex items-center gap-1">
+              <Button size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>← Prev</Button>
+              <span className="px-2 tabular-nums">{page + 1} / {totalPages}</span>
+              <Button size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>Next →</Button>
             </div>
           </div>
         )}
