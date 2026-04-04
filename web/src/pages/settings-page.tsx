@@ -1,9 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Globe,
-  KeyRound,
+  AlertTriangle,
+  CheckCircle2,
+  Code2,
   Loader2,
   Network,
+  RefreshCw,
   Save,
   Server,
   ShieldCheck,
@@ -12,7 +14,7 @@ import { type FormEvent, useEffect, useState } from "react";
 
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
-import { listInbounds, listServers, updateInbound, updateServer } from "@/domain/inbounds/services";
+import { listInbounds, listServers, previewServerConfig, updateInbound, updateServer } from "@/domain/inbounds/services";
 import type { Inbound, Server as ServerType } from "@/domain/inbounds/types";
 import { getAPIErrorMessage } from "@/services/api";
 import {
@@ -554,6 +556,77 @@ function HY2Section({
 }
 
 // ---------------------------------------------------------------------------
+// Server config preview
+// ---------------------------------------------------------------------------
+
+function ConfigPreviewSection({ server }: { server: ServerType }) {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<{ config_json: string; check_warning?: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadPreview() {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const data = await previewServerConfig(server.id);
+      setResult(data);
+    } catch (err) {
+      setError(getAPIErrorMessage(err, "Failed to load preview"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  let prettyJson = "";
+  if (result?.config_json) {
+    try {
+      prettyJson = JSON.stringify(JSON.parse(result.config_json), null, 2);
+    } catch {
+      prettyJson = result.config_json;
+    }
+  }
+
+  return (
+    <SectionCard title="Config Preview" icon={<Code2 size={18} strokeWidth={1.8} />}>
+      <div className="space-y-4">
+        <p className="text-[13px] text-txt-secondary">
+          Preview the sing-box JSON config that would be applied to the server. The config is built from current inbound settings and active users.
+        </p>
+        <Button type="button" variant="secondary" disabled={loading} onClick={() => void loadPreview()}>
+          {loading ? (
+            <><Loader2 size={15} className="animate-spin" /> Generating…</>
+          ) : (
+            <><RefreshCw size={15} /> {result ? "Refresh" : "Generate Preview"}</>
+          )}
+        </Button>
+
+        {error && <ErrorBanner message={error} />}
+
+        {result && (
+          <div className="space-y-3">
+            {result.check_warning ? (
+              <div className="flex items-start gap-2 rounded-xl border border-status-warning/30 bg-status-warning/8 px-3 py-2.5 text-[13px] text-status-warning">
+                <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+                <span className="break-all">{result.check_warning}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 rounded-xl border border-status-success/30 bg-status-success/8 px-3 py-2.5 text-[13px] text-status-success">
+                <CheckCircle2 size={15} className="shrink-0" />
+                <span>sing-box validation passed</span>
+              </div>
+            )}
+            <pre className="max-h-[520px] overflow-auto rounded-xl border border-border/40 bg-surface-0 p-4 text-[12px] leading-relaxed text-txt-secondary">
+              {prettyJson}
+            </pre>
+          </div>
+        )}
+      </div>
+    </SectionCard>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main settings page
 // ---------------------------------------------------------------------------
 
@@ -621,6 +694,8 @@ export default function SettingsPage() {
               No inbounds found. They will appear here after provisioning a user.
             </div>
           )}
+
+          {server && <ConfigPreviewSection server={server} />}
         </div>
       )}
     </div>

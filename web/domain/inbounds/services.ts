@@ -137,6 +137,11 @@ export async function updateServer(id: string, patch: Partial<{
 // Inbound API
 // ---------------------------------------------------------------------------
 
+export async function previewServerConfig(serverID: string): Promise<{ config_json: string; check_warning?: string }> {
+  const res = await apiFetch<{ config_json: string; check_warning?: string }>(`/api/v1/servers/${serverID}/config/preview`, { method: "GET" });
+  return { config_json: res?.config_json ?? "{}", check_warning: res?.check_warning };
+}
+
 export async function listInbounds(serverID?: string): Promise<Inbound[]> {
   const qs = serverID ? `?server_id=${serverID}` : "";
   const res = await apiFetch<{ items: unknown[] }>(`/api/v1/inbounds${qs}`, { method: "GET" });

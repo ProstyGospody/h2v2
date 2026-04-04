@@ -1068,6 +1068,29 @@ func (h *Handler) RollbackCoreServerConfig(w http.ResponseWriter, r *http.Reques
 	render.JSON(w, http.StatusOK, map[string]any{"ok": true, "revision": revision})
 }
 
+func (h *Handler) GetCoreServerConfigPreview(w http.ResponseWriter, r *http.Request) {
+	service := h.ensureCoreService(w)
+	if service == nil {
+		return
+	}
+	configBytes, checkWarning, err := service.PreviewServerConfig(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		if core.IsNotFound(err) {
+			h.renderError(w, http.StatusNotFound, "not_found", "server not found", nil)
+			return
+		}
+		h.renderError(w, http.StatusInternalServerError, "runtime", err.Error(), nil)
+		return
+	}
+	resp := map[string]any{
+		"config_json": string(configBytes),
+	}
+	if checkWarning != "" {
+		resp["check_warning"] = checkWarning
+	}
+	render.JSON(w, http.StatusOK, resp)
+}
+
 func (h *Handler) CoreSubscriptionProfile(w http.ResponseWriter, r *http.Request) {
 	h.renderCoreSubscription(w, r, "profile")
 }

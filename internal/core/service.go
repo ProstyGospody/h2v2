@@ -1300,6 +1300,11 @@ func (s *Service) checkConfig(ctx context.Context, server Server, content []byte
 	if binary == "" {
 		binary = defaultSingBoxBinary
 	}
+	// Skip validation gracefully if the binary doesn't exist yet.
+	if _, statErr := os.Stat(binary); os.IsNotExist(statErr) {
+		s.logger.Warn("sing-box binary not found, skipping config validation", "path", binary)
+		return nil
+	}
 	tmpDir := strings.TrimSpace(s.cfg.RuntimeDir)
 	if tmpDir == "" {
 		tmpDir = os.TempDir()
@@ -1328,6 +1333,28 @@ func (s *Service) checkConfig(ctx context.Context, server Server, content []byte
 		return fmt.Errorf("sing-box check failed: %w: %s", err, strings.TrimSpace(string(output)))
 	}
 	return nil
+}
+
+// PreviewServerConfig generates the sing-box config JSON for a server without
+// saving a revision or requiring the binary to be present. It optionally tries
+// a sing-box check and returns the warning message (empty string if check
+// passed or was skipped). The first error value is a hard failure (e.g. DB
+// read, JSON marshal); the second is a soft check warning.
+func (s *Service) PreviewServerConfig(ctx context.Context, serverID string) ([]byte, string, error) {
+	server, err := s.store.GetServer(ctx, serverID)
+	if err != nil {
+		return nil, "", err
+	}
+	server = s.defaultServer(server)
+	configBytes, err := s.buildServerConfigJSON(ctx, server)
+	if err != nil {
+		return nil, "", err
+	}
+	var checkWarning string
+	if checkErr := s.checkConfig(ctx, server, configBytes); checkErr != nil {
+		checkWarning = checkErr.Error()
+	}
+	return configBytes, checkWarning, nil
 }
 
 func (s *Service) buildServerConfigJSON(ctx context.Context, server Server) ([]byte, error) {

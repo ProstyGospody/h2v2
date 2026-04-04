@@ -72,6 +72,7 @@ func NewRouter(
 				v1.Get("/servers/{id}", h.GetCoreServer)
 				v1.Patch("/servers/{id}", h.UpdateCoreServer)
 				v1.Delete("/servers/{id}", h.DeleteCoreServer)
+				v1.Get("/servers/{id}/config/preview", h.GetCoreServerConfigPreview)
 				v1.Post("/servers/{id}/config/render", h.RenderCoreServerConfig)
 				v1.Post("/servers/{id}/config/validate", h.ValidateCoreServerConfig)
 				v1.Post("/servers/{id}/config/apply", h.ApplyCoreServerConfig)
