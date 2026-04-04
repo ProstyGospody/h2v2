@@ -532,6 +532,38 @@ func (s *Service) EnsureDefaultInbounds(ctx context.Context) (string, *Inbound, 
 	return serverID, vlessInbound, hy2Inbound, nil
 }
 
+// RefreshInbounds re-normalizes every stored inbound through applyInboundDefaults
+// and normalizeRealitySettings, then renders and applies the sing-box config for
+// each server (reloading the service if a ServiceManager is wired in). This is
+// the remediation path after upgrading defaults or fixing a broken install —
+// Reality keys are auto-regenerated only when missing, so existing clients keep
+// working.
+func (s *Service) RefreshInbounds(ctx context.Context) error {
+	servers, err := s.store.ListServers(ctx)
+	if err != nil {
+		return fmt.Errorf("list servers: %w", err)
+	}
+	for _, server := range servers {
+		inbounds, err := s.store.ListInbounds(ctx, server.ID)
+		if err != nil {
+			return fmt.Errorf("list inbounds for %s: %w", server.ID, err)
+		}
+		for _, inbound := range inbounds {
+			if _, err := s.UpsertInbound(ctx, inbound); err != nil {
+				return fmt.Errorf("refresh inbound %s: %w", inbound.ID, err)
+			}
+		}
+		rendered, err := s.RenderServerConfig(ctx, server.ID, nil)
+		if err != nil {
+			return fmt.Errorf("render config for %s: %w", server.ID, err)
+		}
+		if _, err := s.ApplyServerConfig(ctx, server.ID, rendered.Revision.ID); err != nil {
+			return fmt.Errorf("apply config for %s: %w", server.ID, err)
+		}
+	}
+	return nil
+}
+
 // ProvisionUser ensures a server and both VLESS+HY2 inbounds exist, then creates
 // the user and access entries for every available protocol inbound on the server.
 // Returns the created user, access entries, and the server ID so the caller can

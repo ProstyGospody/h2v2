@@ -499,13 +499,18 @@ ${SUBSCRIPTION_PUBLIC_HOST}:${PANEL_PUBLIC_PORT} {
 }
 EOF
   fi
-  # Always add HY2_DOMAIN block so Caddy provisions an ACME cert for it.
-  # If HY2_DOMAIN equals PANEL_PUBLIC_HOST, Caddy already handles it above,
-  # so we only add a separate block when the domains differ.
+  # Provision ACME cert for HY2_DOMAIN on an alternate TLS port so that sing-box
+  # can bind :443 (TCP+UDP). Caddy issues the cert via HTTP-01 challenge on :80,
+  # cert-sync copies it to the sing-box cert dir.
   if [[ "${HY2_DOMAIN}" != "${PANEL_PUBLIC_HOST}" && "${HY2_DOMAIN}" != "${SUBSCRIPTION_PUBLIC_HOST}" ]]; then
     cat >> /etc/caddy/Caddyfile <<EOF
 
-${HY2_DOMAIN} {
+${HY2_DOMAIN}:${PANEL_PUBLIC_PORT} {
+  tls {
+    issuer acme {
+      disable_tlsalpn_challenge
+    }
+  }
   respond 204
 }
 EOF

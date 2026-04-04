@@ -84,6 +84,20 @@ func run() int {
 		logger.Info("default inbounds prepared")
 		return 0
 
+	case "refresh-inbounds":
+		cfg, err := config.Load()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "config error: %v\n", err)
+			return 1
+		}
+		logger := newLogger(cfg.Env)
+		if err := app.RefreshInbounds(ctx, cfg); err != nil {
+			logger.Error("refresh-inbounds failed", "error", err)
+			return 1
+		}
+		logger.Info("inbounds refreshed and sing-box reloaded")
+		return 0
+
 	case "sqlite-backup":
 		return runSQLiteBackup(ctx, os.Args[2:])
 	case "export":
@@ -93,7 +107,7 @@ func run() int {
 
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command: %s\n", command)
-		fmt.Fprintln(os.Stderr, "available commands: serve, bootstrap-admin, bootstrap-inbounds, sqlite-backup, export, sqlite-restore")
+		fmt.Fprintln(os.Stderr, "available commands: serve, bootstrap-admin, bootstrap-inbounds, refresh-inbounds, sqlite-backup, export, sqlite-restore")
 		return 1
 	}
 }
