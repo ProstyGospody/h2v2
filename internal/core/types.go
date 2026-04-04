@@ -50,6 +50,7 @@ type Hysteria2InboundSettings struct {
 	TLSServerName         string `json:"tls_server_name,omitempty"`
 	TLSCertificatePath    string `json:"tls_certificate_path,omitempty"`
 	TLSKeyPath            string `json:"tls_key_path,omitempty"`
+	AllowInsecure         bool   `json:"allow_insecure"`
 	UpMbps                *int   `json:"up_mbps,omitempty"`
 	DownMbps              *int   `json:"down_mbps,omitempty"`
 	IgnoreClientBandwidth bool   `json:"ignore_client_bandwidth"`
@@ -141,16 +142,18 @@ type ConfigRevision struct {
 }
 
 type UserArtifacts struct {
-	UserID                 string   `json:"user_id"`
-	SubscriptionID         string   `json:"subscription_id"`
-	SubscriptionImportURL  string   `json:"subscription_import_url"`
-	SubscriptionProfileURL string   `json:"subscription_profile_url"`
-	SubscriptionURIsURL    string   `json:"subscription_uris_url"`
-	SubscriptionQRURL      string   `json:"subscription_qr_url"`
-	VLESSURIs              []string `json:"vless_uris"`
-	Hysteria2URIs          []string `json:"hysteria2_uris"`
-	AllURIs                []string `json:"all_uris"`
-	SingBoxProfileJSON     string   `json:"singbox_profile_json"`
+	UserID                    string   `json:"user_id"`
+	SubscriptionID            string   `json:"subscription_id"`
+	SubscriptionImportURL     string   `json:"subscription_import_url"`
+	SubscriptionProfileURL    string   `json:"subscription_profile_url"`
+	SubscriptionURIsURL       string   `json:"subscription_uris_url"`
+	SubscriptionQRURL         string   `json:"subscription_qr_url"`
+	SubscriptionClashURL      string   `json:"subscription_clash_url"`
+	SubscriptionBase64URL     string   `json:"subscription_base64_url"`
+	VLESSURIs                 []string `json:"vless_uris"`
+	Hysteria2URIs             []string `json:"hysteria2_uris"`
+	AllURIs                   []string `json:"all_uris"`
+	SingBoxProfileJSON        string   `json:"singbox_profile_json"`
 }
 
 type RenderResult struct {

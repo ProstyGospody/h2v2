@@ -11,6 +11,7 @@ import { TooltipProvider } from "@/src/components/ui/Tooltip";
 const DashboardPage = lazy(() => import("./pages/dashboard-page"));
 const LoginPage = lazy(() => import("./pages/login-page"));
 const UsersPage = lazy(() => import("./pages/users-page"));
+const SettingsPage = lazy(() => import("./pages/settings-page"));
 
 function PanelLayout() {
   return (
@@ -48,6 +49,10 @@ export const router = createBrowserRouter([
       {
         path: "users",
         element: <UsersPage />,
+      },
+      {
+        path: "settings",
+        element: <SettingsPage />,
       },
     ],
   },

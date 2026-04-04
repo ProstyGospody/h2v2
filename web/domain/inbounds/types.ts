@@ -26,6 +26,7 @@ export type Hysteria2InboundSettings = {
   tls_server_name: string;
   tls_certificate_path: string;
   tls_key_path: string;
+  allow_insecure: boolean;
   up_mbps: number | null;
   down_mbps: number | null;
   ignore_client_bandwidth: boolean;
@@ -57,6 +58,10 @@ export type Server = {
   name: string;
   public_host: string;
   panel_public_url: string;
+  subscription_base_url?: string;
+  singbox_binary_path?: string;
+  singbox_config_path?: string;
+  singbox_service_name?: string;
 };
 
 export type VLESSFormValues = {

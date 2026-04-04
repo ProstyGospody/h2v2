@@ -29,9 +29,12 @@ func NewRouter(
 
 	r.Get("/healthz", h.Healthz)
 	r.Get("/readyz", h.Readyz)
+	r.Get("/sub/{token}", h.CoreSubscriptionAuto)
 	r.Get("/sub/{token}/profile.singbox.json", h.CoreSubscriptionProfile)
 	r.Get("/sub/{token}/uris.txt", h.CoreSubscriptionURIs)
 	r.Get("/sub/{token}/qr.png", h.CoreSubscriptionQR)
+	r.Get("/sub/{token}/profile.clash.yaml", h.CoreSubscriptionClash)
+	r.Get("/sub/{token}/profile.base64.txt", h.CoreSubscriptionBase64)
 
 	r.Route("/api", func(api chi.Router) {
 		api.Use(middleware.RateLimit(apiLimiter))

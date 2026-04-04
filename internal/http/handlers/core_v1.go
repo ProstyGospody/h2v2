@@ -1080,6 +1080,19 @@ func (h *Handler) CoreSubscriptionQR(w http.ResponseWriter, r *http.Request) {
 	h.renderCoreSubscription(w, r, "qr")
 }
 
+func (h *Handler) CoreSubscriptionClash(w http.ResponseWriter, r *http.Request) {
+	h.renderCoreSubscription(w, r, "clash")
+}
+
+func (h *Handler) CoreSubscriptionBase64(w http.ResponseWriter, r *http.Request) {
+	h.renderCoreSubscription(w, r, "base64")
+}
+
+func (h *Handler) CoreSubscriptionAuto(w http.ResponseWriter, r *http.Request) {
+	kind := core.DetectSubscriptionKind(r.Header.Get("User-Agent"))
+	h.renderCoreSubscription(w, r, kind)
+}
+
 func (h *Handler) renderCoreSubscription(w http.ResponseWriter, r *http.Request, kind string) {
 	service := h.ensureCoreService(w)
 	if service == nil {

@@ -29,6 +29,8 @@ export type ClientArtifacts = {
   subscription_profile_url: string;
   subscription_uris_url: string;
   subscription_qr_url: string;
+  subscription_clash_url: string;
+  subscription_base64_url: string;
   vless_uris: string[];
   hy2_uris: string[];
   all_uris: string[];

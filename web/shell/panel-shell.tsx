@@ -5,6 +5,7 @@ import {
   LogOut,
   Moon,
   PanelLeft,
+  Settings,
   Sun,
   Users2,
   Zap,
@@ -30,6 +31,7 @@ const SIDEBAR_COLLAPSED_KEY = "panel-sidebar-collapsed";
 const navItems: NavItem[] = [
   { href: "/", label: "Dashboard", icon: <Activity size={24} strokeWidth={1.8} /> },
   { href: "/users", label: "Users", icon: <Users2 size={24} strokeWidth={1.8} /> },
+  { href: "/settings", label: "Settings", icon: <Settings size={24} strokeWidth={1.8} /> },
 ];
 
 function isActive(pathname: string, href: string): boolean {

@@ -333,13 +333,14 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 			resolveCtx(ctx),
 			`INSERT INTO core_inbound_hysteria2_settings(
 				inbound_id, tls_enabled, tls_server_name, tls_certificate_path, tls_key_path,
-				up_mbps, down_mbps, ignore_client_bandwidth, obfs_type, obfs_password_enc, masquerade_json, bbr_profile, brutal_debug
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				allow_insecure, up_mbps, down_mbps, ignore_client_bandwidth, obfs_type, obfs_password_enc, masquerade_json, bbr_profile, brutal_debug
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(inbound_id) DO UPDATE SET
 				tls_enabled = excluded.tls_enabled,
 				tls_server_name = excluded.tls_server_name,
 				tls_certificate_path = excluded.tls_certificate_path,
 				tls_key_path = excluded.tls_key_path,
+				allow_insecure = excluded.allow_insecure,
 				up_mbps = excluded.up_mbps,
 				down_mbps = excluded.down_mbps,
 				ignore_client_bandwidth = excluded.ignore_client_bandwidth,
@@ -353,6 +354,7 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 			nullIfEmpty(inbound.Hysteria2.TLSServerName),
 			nullIfEmpty(inbound.Hysteria2.TLSCertificatePath),
 			nullIfEmpty(inbound.Hysteria2.TLSKeyPath),
+			boolToInt(inbound.Hysteria2.AllowInsecure),
 			nullableInt(inbound.Hysteria2.UpMbps),
 			nullableInt(inbound.Hysteria2.DownMbps),
 			boolToInt(inbound.Hysteria2.IgnoreClientBandwidth),
@@ -1101,13 +1103,14 @@ func (s *Store) populateInboundSettings(ctx context.Context, inbound *Inbound) e
 		inbound.VLESS = &item
 		inbound.Hysteria2 = nil
 	case InboundProtocolHysteria2:
-		row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT tls_enabled, tls_server_name, tls_certificate_path, tls_key_path, up_mbps, down_mbps, ignore_client_bandwidth, obfs_type, obfs_password_enc, masquerade_json, bbr_profile, brutal_debug FROM core_inbound_hysteria2_settings WHERE inbound_id = ? LIMIT 1`, inbound.ID)
+		row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT tls_enabled, tls_server_name, tls_certificate_path, tls_key_path, COALESCE(allow_insecure, 0), up_mbps, down_mbps, ignore_client_bandwidth, obfs_type, obfs_password_enc, masquerade_json, bbr_profile, brutal_debug FROM core_inbound_hysteria2_settings WHERE inbound_id = ? LIMIT 1`, inbound.ID)
 		var (
 			item Hysteria2InboundSettings
 			tlsEnabled int64
 			tlsSNI sql.NullString
 			tlsCert sql.NullString
 			tlsKey sql.NullString
+			allowInsecure int64
 			up sql.NullInt64
 			down sql.NullInt64
 			ignoreBW int64
@@ -1122,6 +1125,7 @@ func (s *Store) populateInboundSettings(ctx context.Context, inbound *Inbound) e
 			&tlsSNI,
 			&tlsCert,
 			&tlsKey,
+			&allowInsecure,
 			&up,
 			&down,
 			&ignoreBW,
@@ -1141,6 +1145,7 @@ func (s *Store) populateInboundSettings(ctx context.Context, inbound *Inbound) e
 		item.TLSServerName = valueOrEmpty(optionalString(tlsSNI))
 		item.TLSCertificatePath = valueOrEmpty(optionalString(tlsCert))
 		item.TLSKeyPath = valueOrEmpty(optionalString(tlsKey))
+		item.AllowInsecure = intToBool(allowInsecure)
 		item.UpMbps = nullableIntToPointer(up)
 		item.DownMbps = nullableIntToPointer(down)
 		item.IgnoreClientBandwidth = intToBool(ignoreBW)

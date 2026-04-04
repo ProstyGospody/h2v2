@@ -268,6 +268,9 @@ func (s *Store) runMigrations(ctx context.Context) error {
 	}
 	migrations := []migration{
 		{version: 1, stmts: nil}, // baseline — schema already applied above
+		{version: 2, stmts: []string{
+			`ALTER TABLE core_inbound_hysteria2_settings ADD COLUMN allow_insecure INTEGER NOT NULL DEFAULT 0`,
+		}},
 	}
 	for _, m := range migrations {
 		var count int

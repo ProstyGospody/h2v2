@@ -383,7 +383,13 @@ func (s *Service) UpsertUserAccess(ctx context.Context, access UserAccess) (User
 		}
 	} else {
 		if strings.TrimSpace(access.Hysteria2Password) == "" {
-			access.Hysteria2Password = defaultHY2Password(user.Username)
+			// Preserve existing password to avoid breaking server-client sync.
+			existing, getErr := s.store.GetUserAccessByPair(ctx, access.UserID, access.InboundID)
+			if getErr == nil && strings.TrimSpace(existing.Hysteria2Password) != "" {
+				access.Hysteria2Password = existing.Hysteria2Password
+			} else {
+				access.Hysteria2Password = defaultHY2Password(user.Username)
+			}
 		}
 		access.VLESSUUID = ""
 		access.VLESSFlowOverride = ""
@@ -613,6 +619,8 @@ func (s *Service) BuildUserArtifacts(ctx context.Context, userID string) (UserAr
 	profileURL := base + "/sub/" + plainToken + "/profile.singbox.json"
 	urisURL := base + "/sub/" + plainToken + "/uris.txt"
 	qrURL := base + "/sub/" + plainToken + "/qr.png"
+	clashURL := base + "/sub/" + plainToken + "/profile.clash.yaml"
+	base64URL := base + "/sub/" + plainToken + "/profile.base64.txt"
 	importURL := "sing-box://import-remote-profile?url=" + url.QueryEscape(profileURL) + "&name=" + url.QueryEscape(user.Username)
 
 	vlessURIs := make([]string, 0)
@@ -626,16 +634,18 @@ func (s *Service) BuildUserArtifacts(ctx context.Context, userID string) (UserAr
 	}
 
 	return UserArtifacts{
-		UserID:                 user.ID,
-		SubscriptionID:         subscription.ID,
-		SubscriptionImportURL:  importURL,
-		SubscriptionProfileURL: profileURL,
-		SubscriptionURIsURL:    urisURL,
-		SubscriptionQRURL:      qrURL,
-		VLESSURIs:              vlessURIs,
-		Hysteria2URIs:          hy2URIs,
-		AllURIs:                uris,
-		SingBoxProfileJSON:     string(profileJSON),
+		UserID:                    user.ID,
+		SubscriptionID:            subscription.ID,
+		SubscriptionImportURL:     importURL,
+		SubscriptionProfileURL:    profileURL,
+		SubscriptionURIsURL:       urisURL,
+		SubscriptionQRURL:         qrURL,
+		SubscriptionClashURL:      clashURL,
+		SubscriptionBase64URL:     base64URL,
+		VLESSURIs:                 vlessURIs,
+		Hysteria2URIs:             hy2URIs,
+		AllURIs:                   uris,
+		SingBoxProfileJSON:        string(profileJSON),
 	}, nil
 }
 
@@ -684,6 +694,17 @@ func (s *Service) RenderSubscriptionContentByToken(ctx context.Context, plainTok
 		if err != nil {
 			return SubscriptionContent{}, err
 		}
+	case "clash":
+		contentType = "text/yaml; charset=utf-8"
+		fileName = tokenCtx.User.Username + "-profile.yaml"
+		body, err = buildClashYAML(tokenCtx.User, uris, outbounds)
+		if err != nil {
+			return SubscriptionContent{}, err
+		}
+	case "base64":
+		contentType = "text/plain; charset=utf-8"
+		fileName = tokenCtx.User.Username + "-shadowrocket.txt"
+		body = buildShadowrocketBase64(uris)
 	default:
 		contentType = "application/json; charset=utf-8"
 		fileName = tokenCtx.User.Username + "-profile.singbox.json"
@@ -803,6 +824,187 @@ func buildSingBoxProfileJSON(proxyOutbounds []map[string]any) ([]byte, error) {
 	return json.MarshalIndent(payload, "", "  ")
 }
 
+// DetectSubscriptionKind returns the appropriate subscription format based on the User-Agent.
+func DetectSubscriptionKind(userAgent string) string {
+	ua := strings.ToLower(userAgent)
+	switch {
+	case strings.Contains(ua, "shadowrocket"):
+		return "base64"
+	case strings.Contains(ua, "clash") || strings.Contains(ua, "stash") || strings.Contains(ua, "surge") || strings.Contains(ua, "loon"):
+		return "clash"
+	case strings.Contains(ua, "sing-box") || strings.Contains(ua, "singbox") ||
+		strings.Contains(ua, "hiddify") || strings.Contains(ua, "nekobox") ||
+		strings.Contains(ua, "nekoray") || strings.Contains(ua, "sfi") ||
+		strings.Contains(ua, "sfa") || strings.Contains(ua, "sfm") ||
+		strings.Contains(ua, "karing"):
+		return "profile"
+	default:
+		return "profile"
+	}
+}
+
+func buildClashYAML(user User, uris []string, outbounds []map[string]any) ([]byte, error) {
+	proxies := make([]map[string]any, 0, len(outbounds))
+	proxyNames := make([]string, 0, len(outbounds))
+
+	for _, ob := range outbounds {
+		obType, _ := ob["type"].(string)
+		tag, _ := ob["tag"].(string)
+		server, _ := ob["server"].(string)
+		port, _ := ob["server_port"].(int)
+		if server == "" || port == 0 || tag == "" {
+			continue
+		}
+		proxy := map[string]any{
+			"name":   tag,
+			"server": server,
+			"port":   port,
+		}
+		switch obType {
+		case "vless":
+			uuid, _ := ob["uuid"].(string)
+			proxy["type"] = "vless"
+			proxy["uuid"] = uuid
+			proxy["udp"] = true
+			if tlsRaw, ok := ob["tls"]; ok {
+				if tls, ok := tlsRaw.(map[string]any); ok {
+					if sn, _ := tls["server_name"].(string); sn != "" {
+						proxy["servername"] = sn
+					}
+					if realityRaw, ok := tls["reality"]; ok {
+						if reality, ok := realityRaw.(map[string]any); ok {
+							proxy["tls"] = true
+							proxy["client-fingerprint"] = "chrome"
+							proxy["reality-opts"] = map[string]any{
+								"public-key": reality["public_key"],
+								"short-id":   reality["short_id"],
+							}
+							if flow, _ := ob["flow"].(string); flow != "" {
+								proxy["flow"] = flow
+							}
+						}
+					} else if enabled, _ := tls["enabled"].(bool); enabled {
+						proxy["tls"] = true
+						if utlsRaw, ok := tls["utls"]; ok {
+							if utls, ok := utlsRaw.(map[string]any); ok {
+								if fp, _ := utls["fingerprint"].(string); fp != "" {
+									proxy["client-fingerprint"] = fp
+								}
+							}
+						}
+						if flow, _ := ob["flow"].(string); flow != "" {
+							proxy["flow"] = flow
+						}
+					}
+				}
+			}
+			if transportRaw, ok := ob["transport"]; ok {
+				if transport, ok := transportRaw.(map[string]any); ok {
+					ttype, _ := transport["type"].(string)
+					proxy["network"] = ttype
+					switch ttype {
+					case "ws":
+						wsOpts := map[string]any{}
+						if path, _ := transport["path"].(string); path != "" {
+							wsOpts["path"] = path
+						}
+						if host, _ := transport["host"].(string); host != "" {
+							wsOpts["headers"] = map[string]any{"Host": host}
+						}
+						proxy["ws-opts"] = wsOpts
+					case "grpc":
+						grpcOpts := map[string]any{}
+						if svcName, _ := transport["service_name"].(string); svcName != "" {
+							grpcOpts["grpc-service-name"] = svcName
+						}
+						proxy["grpc-opts"] = grpcOpts
+					}
+				}
+			}
+		case "hysteria2":
+			password, _ := ob["password"].(string)
+			proxy["type"] = "hysteria2"
+			proxy["password"] = password
+			proxy["udp"] = true
+			if tlsRaw, ok := ob["tls"]; ok {
+				if tls, ok := tlsRaw.(map[string]any); ok {
+					if sn, _ := tls["server_name"].(string); sn != "" {
+						proxy["sni"] = sn
+					}
+					if insecure, _ := tls["insecure"].(bool); insecure {
+						proxy["skip-cert-verify"] = true
+					}
+				}
+			}
+			if obfsRaw, ok := ob["obfs"]; ok {
+				if obfs, ok := obfsRaw.(map[string]any); ok {
+					proxy["obfs"] = obfs["type"]
+					proxy["obfs-password"] = obfs["password"]
+				}
+			}
+		default:
+			continue
+		}
+		proxies = append(proxies, proxy)
+		proxyNames = append(proxyNames, tag)
+	}
+
+	if len(proxies) == 0 {
+		return nil, fmt.Errorf("no proxies to include in clash profile")
+	}
+
+	var b strings.Builder
+	b.WriteString("# Clash Meta profile — generated by h2v2\n")
+	b.WriteString("# Profile-Title: " + user.Username + "\n\n")
+	b.WriteString("mixed-port: 7890\nallow-lan: false\nmode: rule\nlog-level: warning\n\n")
+	b.WriteString("proxies:\n")
+	for _, p := range proxies {
+		b.WriteString("  - ")
+		writeClashProxy(&b, p, "    ")
+	}
+	b.WriteString("\nproxy-groups:\n")
+	b.WriteString("  - name: Proxy\n    type: select\n    proxies:\n")
+	for _, name := range proxyNames {
+		b.WriteString("      - " + name + "\n")
+	}
+	b.WriteString("      - DIRECT\n")
+	b.WriteString("\nrules:\n  - MATCH,Proxy\n")
+	return []byte(b.String()), nil
+}
+
+func writeClashProxy(b *strings.Builder, proxy map[string]any, indent string) {
+	first := true
+	for k, v := range proxy {
+		if first {
+			first = false
+		} else {
+			b.WriteString(indent)
+		}
+		switch val := v.(type) {
+		case map[string]any:
+			b.WriteString(k + ":\n")
+			for mk, mv := range val {
+				b.WriteString(indent + "  " + mk + ": " + fmt.Sprintf("%v", mv) + "\n")
+			}
+		case []string:
+			b.WriteString(k + ":\n")
+			for _, item := range val {
+				b.WriteString(indent + "  - " + item + "\n")
+			}
+		case bool:
+			b.WriteString(fmt.Sprintf("%s: %t\n", k, val))
+		default:
+			b.WriteString(fmt.Sprintf("%s: %v\n", k, val))
+		}
+	}
+}
+
+func buildShadowrocketBase64(uris []string) []byte {
+	joined := strings.Join(uris, "\n")
+	encoded := base64.StdEncoding.EncodeToString([]byte(joined))
+	return []byte(encoded)
+}
+
 func buildVLESSClientArtifacts(user User, access UserAccess, inbound Inbound, host string) (string, map[string]any, error) {
 	if inbound.VLESS == nil {
 		return "", nil, fmt.Errorf("vless settings are missing")
@@ -920,11 +1122,14 @@ func buildHysteria2ClientArtifacts(user User, access UserAccess, inbound Inbound
 	}
 	password := strings.TrimSpace(access.Hysteria2Password)
 	if password == "" {
-		password = defaultHY2Password(user.Username)
+		return "", nil, fmt.Errorf("hysteria2 password is not set for user %s", user.ID)
 	}
 	query := url.Values{}
 	if strings.TrimSpace(inbound.Hysteria2.TLSServerName) != "" {
 		query.Set("sni", strings.TrimSpace(inbound.Hysteria2.TLSServerName))
+	}
+	if inbound.Hysteria2.AllowInsecure {
+		query.Set("insecure", "1")
 	}
 	if strings.TrimSpace(inbound.Hysteria2.ObfsType) != "" {
 		query.Set("obfs", strings.TrimSpace(inbound.Hysteria2.ObfsType))
@@ -957,6 +1162,9 @@ func buildHysteria2ClientArtifacts(user User, access UserAccess, inbound Inbound
 	tls := map[string]any{"enabled": true}
 	if strings.TrimSpace(inbound.Hysteria2.TLSServerName) != "" {
 		tls["server_name"] = strings.TrimSpace(inbound.Hysteria2.TLSServerName)
+	}
+	if inbound.Hysteria2.AllowInsecure {
+		tls["insecure"] = true
 	}
 	outbound["tls"] = tls
 	if strings.TrimSpace(inbound.Hysteria2.ObfsType) != "" {
@@ -1160,7 +1368,8 @@ func (s *Service) buildServerConfigJSON(ctx context.Context, server Server) ([]b
 			case InboundProtocolHysteria2:
 				password := strings.TrimSpace(access.Hysteria2Password)
 				if password == "" {
-					password = defaultHY2Password(user.Username)
+					s.logger.Warn("buildServerConfigJSON: user has no hysteria2 password, skipping", "user_id", user.ID)
+					continue
 				}
 				entry := map[string]any{"name": user.Username, "password": password}
 				userEntries = append(userEntries, entry)

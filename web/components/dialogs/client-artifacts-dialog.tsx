@@ -51,9 +51,23 @@ export function ClientArtifactsDialog({
     }
     if (artifacts.subscription_import_url) {
       panels.push({
-        label: "Subscription",
+        label: "Sing-box",
         qrSrc: subscriptionQRURL(client.id, 280),
         copyValue: artifacts.subscription_import_url,
+      });
+    }
+    if (artifacts.subscription_clash_url) {
+      panels.push({
+        label: "Clash",
+        qrSrc: qrURL(client.id, artifacts.subscription_clash_url, 280),
+        copyValue: artifacts.subscription_clash_url,
+      });
+    }
+    if (artifacts.subscription_base64_url) {
+      panels.push({
+        label: "Shadowrocket",
+        qrSrc: qrURL(client.id, artifacts.subscription_base64_url, 280),
+        copyValue: artifacts.subscription_base64_url,
       });
     }
   }

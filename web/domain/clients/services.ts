@@ -99,6 +99,8 @@ export async function getClientArtifacts(clientID: string): Promise<ClientArtifa
     subscription_profile_url: str(raw?.subscription_profile_url),
     subscription_uris_url: str(raw?.subscription_uris_url),
     subscription_qr_url: str(raw?.subscription_qr_url),
+    subscription_clash_url: str(raw?.subscription_clash_url),
+    subscription_base64_url: str(raw?.subscription_base64_url),
     vless_uris: strs(raw?.vless_uris),
     hy2_uris: strs(raw?.hysteria2_uris),
     all_uris: strs(raw?.all_uris),
