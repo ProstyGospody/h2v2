@@ -856,7 +856,7 @@ func buildVLESSClientArtifacts(user User, access UserAccess, inbound Inbound, ho
 		User:     url.User(uuidValue),
 		Host:     fmt.Sprintf("%s:%d", host, inbound.ListenPort),
 		RawQuery: query.Encode(),
-		Fragment: url.QueryEscape(user.Username + "-" + inbound.Tag),
+		Fragment: user.Username + "-" + inbound.Tag,
 	}
 
 	outbound := map[string]any{
@@ -944,7 +944,7 @@ func buildHysteria2ClientArtifacts(user User, access UserAccess, inbound Inbound
 		User:     url.User(password),
 		Host:     fmt.Sprintf("%s:%d", host, inbound.ListenPort),
 		RawQuery: query.Encode(),
-		Fragment: url.QueryEscape(user.Username + "-" + inbound.Tag),
+		Fragment: user.Username + "-" + inbound.Tag,
 	}
 
 	outbound := map[string]any{
@@ -971,9 +971,6 @@ func buildHysteria2ClientArtifacts(user User, access UserAccess, inbound Inbound
 	}
 	if inbound.Hysteria2.DownMbps != nil {
 		outbound["down_mbps"] = *inbound.Hysteria2.DownMbps
-	}
-	if inbound.Hysteria2.IgnoreClientBandwidth {
-		outbound["ignore_client_bandwidth"] = true
 	}
 	return uri.String(), outbound, nil
 }
