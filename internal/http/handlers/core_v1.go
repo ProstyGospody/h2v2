@@ -603,6 +603,52 @@ func (h *Handler) ListCoreUsers(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, http.StatusOK, map[string]any{"items": payload})
 }
 
+func (h *Handler) ProvisionCoreUser(w http.ResponseWriter, r *http.Request) {
+	service := h.ensureCoreService(w)
+	if service == nil {
+		return
+	}
+	var req coreUserRequest
+	if err := render.DecodeJSON(r, &req); err != nil {
+		h.renderError(w, http.StatusBadRequest, "validation", "invalid request body", nil)
+		return
+	}
+	username := strings.TrimSpace(pointerOrString(req.Username, ""))
+	if username == "" {
+		h.renderError(w, http.StatusBadRequest, "validation", "username is required", nil)
+		return
+	}
+	user, accessItems, serverID, err := service.ProvisionUser(
+		r.Context(),
+		username,
+		pointerOrInt64(req.TrafficLimitBytes, 0),
+		req.ExpireAt,
+	)
+	if err != nil {
+		status := http.StatusInternalServerError
+		errorType := "runtime"
+		if core.IsConflict(err) {
+			status = http.StatusConflict
+			errorType = "validation"
+		}
+		h.renderError(w, status, errorType, err.Error(), nil)
+		return
+	}
+	if err := h.applyCoreServerConfigs(r.Context(), service, serverID); err != nil {
+		h.renderError(w, http.StatusBadGateway, "service", err.Error(), nil)
+		return
+	}
+	protocolByInboundID, _, err := h.buildInboundProtocolMap(r.Context(), service)
+	if err != nil {
+		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to load inbounds", nil)
+		return
+	}
+	render.JSON(w, http.StatusCreated, map[string]any{
+		"user":   user,
+		"access": buildCoreAccessPayload(accessItems, protocolByInboundID),
+	})
+}
+
 func (h *Handler) CreateCoreUser(w http.ResponseWriter, r *http.Request) {
 	service := h.ensureCoreService(w)
 	if service == nil {

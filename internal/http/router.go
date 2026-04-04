@@ -82,6 +82,7 @@ func NewRouter(
 				v1.Delete("/inbounds/{id}", h.DeleteCoreInbound)
 
 				v1.Get("/users", h.ListCoreUsers)
+				v1.Post("/users/provision", h.ProvisionCoreUser)
 				v1.Post("/users", h.CreateCoreUser)
 				v1.Get("/users/{id}", h.GetCoreUser)
 				v1.Patch("/users/{id}", h.UpdateCoreUser)

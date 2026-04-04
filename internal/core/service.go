@@ -395,6 +395,132 @@ func (s *Service) DeleteUserAccess(ctx context.Context, id string) error {
 	return s.store.DeleteUserAccess(ctx, id)
 }
 
+// ProvisionUser ensures a server and both VLESS+HY2 inbounds exist, then creates
+// the user and access entries for every available protocol inbound on the server.
+// Returns the created user, access entries, and the server ID so the caller can
+// apply the updated config once.
+func (s *Service) ProvisionUser(ctx context.Context, username string, trafficLimitBytes int64, expireAt *time.Time) (User, []UserAccess, string, error) {
+	// Ensure server exists.
+	servers, err := s.store.ListServers(ctx)
+	if err != nil {
+		return User{}, nil, "", fmt.Errorf("list servers: %w", err)
+	}
+	var serverID string
+	if len(servers) > 0 {
+		serverID = servers[0].ID
+	} else {
+		server, err := s.UpsertServer(ctx, Server{ID: "default", Name: "default"})
+		if err != nil {
+			return User{}, nil, "", fmt.Errorf("create default server: %w", err)
+		}
+		serverID = server.ID
+	}
+
+	// Ensure VLESS and HY2 inbounds exist on this server.
+	inbounds, err := s.store.ListInbounds(ctx, serverID)
+	if err != nil {
+		return User{}, nil, "", fmt.Errorf("list inbounds: %w", err)
+	}
+	var vlessInbound, hy2Inbound *Inbound
+	for i := range inbounds {
+		if inbounds[i].Protocol == InboundProtocolVLESS && vlessInbound == nil {
+			cp := inbounds[i]
+			vlessInbound = &cp
+		}
+		if inbounds[i].Protocol == InboundProtocolHysteria2 && hy2Inbound == nil {
+			cp := inbounds[i]
+			hy2Inbound = &cp
+		}
+	}
+	if vlessInbound == nil {
+		created, err := s.UpsertInbound(ctx, Inbound{
+			ServerID:    serverID,
+			Name:        "VLESS Reality",
+			Tag:         "vless-in",
+			Protocol:    InboundProtocolVLESS,
+			Listen:      "::",
+			ListenPort:  443,
+			Enabled:     true,
+			TemplateKey: "vless-reality",
+			VLESS: &VLESSInboundSettings{
+				TLSEnabled:       true,
+				RealityEnabled:   true,
+				Flow:             "xtls-rprx-vision",
+				TransportType:    "tcp",
+				MultiplexEnabled: false,
+			},
+		})
+		if err != nil {
+			return User{}, nil, "", fmt.Errorf("create VLESS inbound: %w", err)
+		}
+		vlessInbound = &created
+	}
+	if hy2Inbound == nil {
+		port := s.cfg.HY2Port
+		if port <= 0 {
+			port = 443
+		}
+		certPath := s.cfg.HY2CertPath
+		if certPath == "" {
+			certPath = "/etc/h2v2/hysteria/server.crt"
+		}
+		keyPath := s.cfg.HY2KeyPath
+		if keyPath == "" {
+			keyPath = "/etc/h2v2/hysteria/server.key"
+		}
+		created, err := s.UpsertInbound(ctx, Inbound{
+			ServerID:    serverID,
+			Name:        "Hysteria2",
+			Tag:         "hy2-in",
+			Protocol:    InboundProtocolHysteria2,
+			Listen:      "::",
+			ListenPort:  port,
+			Enabled:     true,
+			TemplateKey: "hysteria2-default",
+			Hysteria2: &Hysteria2InboundSettings{
+				TLSEnabled:            true,
+				TLSServerName:         s.cfg.HY2Domain,
+				TLSCertificatePath:    certPath,
+				TLSKeyPath:            keyPath,
+				IgnoreClientBandwidth: true,
+				BrutalDebug:           false,
+			},
+		})
+		if err != nil {
+			return User{}, nil, "", fmt.Errorf("create HY2 inbound: %w", err)
+		}
+		hy2Inbound = &created
+	}
+
+	// Create user.
+	user, err := s.UpsertUser(ctx, User{
+		Username:          username,
+		Enabled:           true,
+		TrafficLimitBytes: trafficLimitBytes,
+		ExpireAt:          expireAt,
+	})
+	if err != nil {
+		return User{}, nil, "", err
+	}
+
+	// Create access entries; roll back user on failure.
+	var accessItems []UserAccess
+	for _, ib := range []Inbound{*vlessInbound, *hy2Inbound} {
+		a, err := s.UpsertUserAccess(ctx, UserAccess{
+			UserID:    user.ID,
+			InboundID: ib.ID,
+			Enabled:   true,
+		})
+		if err != nil {
+			_ = s.store.DeleteUser(ctx, user.ID)
+			return User{}, nil, "", fmt.Errorf("create access for inbound %s: %w", ib.ID, err)
+		}
+		accessItems = append(accessItems, a)
+	}
+
+	return user, accessItems, serverID, nil
+}
+
 func (s *Service) EnsureSubscriptionForUser(ctx context.Context, userID string) (Subscription, error) {
 	if _, err := s.store.GetUser(ctx, userID); err != nil {
 		return Subscription{}, err
