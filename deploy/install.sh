@@ -722,6 +722,9 @@ bootstrap_admin() {
   set +a
   run runuser -u h2v2 -- "${BIN_DIR}/panel-api" bootstrap-admin --email "${INITIAL_ADMIN_EMAIL}" --password "${INITIAL_ADMIN_PASSWORD}"
   run runuser -u h2v2 -- "${BIN_DIR}/panel-api" bootstrap-inbounds
+  # Re-normalize existing inbounds so upgrades pick up new defaults (Reality
+  # keys, AllowInsecure for the panel-managed HY2 cert path, etc.).
+  run runuser -u h2v2 -- "${BIN_DIR}/panel-api" refresh-inbounds || true
 }
 
 restart_services() {

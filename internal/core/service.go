@@ -385,6 +385,13 @@ func (s *Service) applyInboundDefaults(inbound *Inbound) {
 		if strings.TrimSpace(h.TLSKeyPath) == "" && strings.TrimSpace(s.cfg.HY2KeyPath) != "" {
 			h.TLSKeyPath = s.cfg.HY2KeyPath
 		}
+		// The panel-managed cert path is owned by cert-sync, which may leave a
+		// self-signed placeholder there while Caddy is provisioning or renewing
+		// the ACME cert. Force AllowInsecure so clients keep working across that
+		// window — it is a no-op once a real cert is in place.
+		if strings.TrimSpace(s.cfg.HY2CertPath) != "" && h.TLSCertificatePath == s.cfg.HY2CertPath {
+			h.AllowInsecure = true
+		}
 		// If the operator hasn't pinned bandwidth, trust the client's
 		// advertised speeds — this is the stable "just works" default.
 		if h.UpMbps == nil && h.DownMbps == nil && !h.IgnoreClientBandwidth {
