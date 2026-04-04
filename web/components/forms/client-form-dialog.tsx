@@ -107,10 +107,6 @@ export function ClientFormDialog({
             onChange={(e) => set("expire_at", e.target.value)}
           />
         </div>
-
-        <p className="text-[12px] text-txt-secondary">
-          Access credentials for both VLESS and HY2 are generated automatically.
-        </p>
       </form>
     </Dialog>
   );

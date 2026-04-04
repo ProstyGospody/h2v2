@@ -3,15 +3,11 @@ import {
   AlertTriangle,
   Check,
   CheckCircle2,
-  Code2,
   Copy,
   Loader2,
-  Network,
   RefreshCw,
   RotateCcw,
   Save,
-  Server,
-  ShieldCheck,
 } from "lucide-react";
 import {
   type FormEvent,
@@ -34,127 +30,12 @@ import {
 } from "@/domain/inbounds/services";
 import type { Inbound, Server as ServerType } from "@/domain/inbounds/types";
 import { getAPIErrorMessage } from "@/services/api";
-import { Button, Input, ToggleField, Tooltip, cn } from "@/src/components/ui";
+import { Button, Input, Toggle, cn } from "@/src/components/ui";
 import { useToast } from "@/src/components/ui/Toast";
 
 // ---------------------------------------------------------------------------
-// Shared section shell + scrollspy nav
+// Shared primitives
 // ---------------------------------------------------------------------------
-
-type SectionKey = "server" | "vless" | "hy2" | "preview";
-
-type SectionMeta = {
-  key: SectionKey;
-  label: string;
-  icon: ReactNode;
-};
-
-const SECTIONS: SectionMeta[] = [
-  { key: "server", label: "Server", icon: <Server size={15} strokeWidth={1.9} /> },
-  { key: "vless", label: "VLESS Reality", icon: <ShieldCheck size={15} strokeWidth={1.9} /> },
-  { key: "hy2", label: "Hysteria2", icon: <Network size={15} strokeWidth={1.9} /> },
-  { key: "preview", label: "Config preview", icon: <Code2 size={15} strokeWidth={1.9} /> },
-];
-
-function useScrollSpy(keys: SectionKey[]) {
-  const [active, setActive] = useState<SectionKey>(keys[0]);
-  useEffect(() => {
-    const els = keys
-      .map((k) => document.getElementById(`settings-${k}`))
-      .filter((el): el is HTMLElement => el != null);
-    if (els.length === 0) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => (a.target as HTMLElement).offsetTop - (b.target as HTMLElement).offsetTop);
-        if (visible[0]) {
-          const id = (visible[0].target as HTMLElement).id.replace("settings-", "") as SectionKey;
-          setActive(id);
-        }
-      },
-      { rootMargin: "-35% 0px -55% 0px", threshold: [0, 0.1, 0.5, 1] },
-    );
-    els.forEach((el) => obs.observe(el));
-    return () => obs.disconnect();
-  }, [keys]);
-  return active;
-}
-
-function SectionShell({
-  id,
-  title,
-  description,
-  icon,
-  dirty,
-  onReset,
-  children,
-  footer,
-}: {
-  id: SectionKey;
-  title: string;
-  description?: string;
-  icon: ReactNode;
-  dirty?: boolean;
-  onReset?: () => void;
-  children: ReactNode;
-  footer?: ReactNode;
-}) {
-  return (
-    <section
-      id={`settings-${id}`}
-      className="scroll-mt-24 rounded-2xl border border-border/40 bg-surface-2/30 p-6"
-    >
-      <div className="mb-5 flex items-start justify-between gap-4 border-b border-border/30 pb-5">
-        <div className="flex items-start gap-3">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-3/55 text-txt-secondary">
-            {icon}
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h2 className="text-[16px] font-semibold text-txt-primary">{title}</h2>
-              {dirty ? (
-                <Tooltip content="Unsaved changes">
-                  <span className="inline-flex h-2 w-2 rounded-full bg-status-warning" />
-                </Tooltip>
-              ) : null}
-            </div>
-            {description ? (
-              <p className="mt-1 text-[13px] text-txt-secondary">{description}</p>
-            ) : null}
-          </div>
-        </div>
-        {dirty && onReset ? (
-          <button
-            type="button"
-            onClick={onReset}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-txt-muted transition-colors hover:bg-surface-3/60 hover:text-txt-primary"
-          >
-            <RotateCcw size={13} /> Reset
-          </button>
-        ) : null}
-      </div>
-      {children}
-      {footer ? <div className="mt-5 flex justify-end border-t border-border/30 pt-4">{footer}</div> : null}
-    </section>
-  );
-}
-
-function SaveButton({ busy, disabled }: { busy: boolean; disabled?: boolean }) {
-  return (
-    <Button type="submit" variant="primary" disabled={busy || disabled}>
-      {busy ? (
-        <>
-          <Loader2 size={15} className="animate-spin" /> Saving…
-        </>
-      ) : (
-        <>
-          <Save size={15} /> Save changes
-        </>
-      )}
-    </Button>
-  );
-}
 
 function useDirtyForm<T>(initial: T) {
   const [form, setForm] = useState<T>(initial);
@@ -171,18 +52,79 @@ function useDirtyForm<T>(initial: T) {
   return { form, setForm, dirty, reset };
 }
 
-function CopyField({
+function FieldGroup({
+  title,
+  children,
+}: {
+  title?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-4">
+      {title ? (
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">
+          {title}
+        </h3>
+      ) : null}
+      {children}
+    </div>
+  );
+}
+
+function InlineToggle({
+  label,
+  checked,
+  onCheckedChange,
+}: {
+  label: string;
+  checked: boolean;
+  onCheckedChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-lg px-1 py-2">
+      <span className="text-[14px] font-medium text-txt-primary">{label}</span>
+      <Toggle checked={checked} onCheckedChange={onCheckedChange} />
+    </label>
+  );
+}
+
+function SelectField({
   label,
   value,
-  placeholder,
   onChange,
-  mono,
+  options,
 }: {
   label: string;
   value: string;
-  placeholder?: string;
   onChange: (v: string) => void;
-  mono?: boolean;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-[13px] font-medium text-txt-secondary">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full rounded-lg border-0 bg-[var(--control-bg)] px-4 py-2.5 text-[14px] font-medium text-txt-primary shadow-[inset_0_0_0_1px_var(--control-border)] outline-none transition-colors focus:shadow-[inset_0_0_0_1px_var(--accent),0_0_0_3px_var(--accent-soft)]"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function CopyField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
   async function copy() {
@@ -191,9 +133,7 @@ function CopyField({
       await navigator.clipboard.writeText(value);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   }
   return (
     <div>
@@ -202,18 +142,14 @@ function CopyField({
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className={cn(
-            "w-full rounded-lg border-0 bg-[var(--control-bg)] px-4 py-2.5 text-[14px] font-medium text-txt-primary shadow-[inset_0_0_0_1px_var(--control-border)] outline-none transition-colors placeholder:text-txt-tertiary focus:bg-[var(--control-bg-hover)] focus:shadow-[inset_0_0_0_1px_var(--accent),0_0_0_3px_var(--accent-soft)]",
-            mono && "font-mono text-[12px]",
-          )}
+          className="w-full rounded-lg border-0 bg-[var(--control-bg)] px-4 py-2.5 font-mono text-[12px] text-txt-primary shadow-[inset_0_0_0_1px_var(--control-border)] outline-none transition-colors placeholder:text-txt-tertiary focus:bg-[var(--control-bg-hover)] focus:shadow-[inset_0_0_0_1px_var(--accent),0_0_0_3px_var(--accent-soft)]"
         />
         <button
           type="button"
           onClick={copy}
           disabled={!value}
-          className="inline-grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-border/50 bg-surface-2/60 text-txt-muted transition-colors hover:bg-surface-3/60 hover:text-txt-primary disabled:opacity-40"
-          aria-label={`Copy ${label}`}
+          className="inline-grid h-10 w-10 shrink-0 place-items-center rounded-lg text-txt-muted transition-colors hover:bg-surface-3/60 hover:text-txt-primary disabled:opacity-40"
+          aria-label="Copy"
         >
           {copied ? <Check size={14} /> : <Copy size={14} />}
         </button>
@@ -222,8 +158,73 @@ function CopyField({
   );
 }
 
+function SaveBar({
+  dirty,
+  busy,
+  onSave,
+  onReset,
+}: {
+  dirty: boolean;
+  busy: boolean;
+  onSave: () => void;
+  onReset: () => void;
+}) {
+  if (!dirty) return null;
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
+      <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-surface-2/95 px-3 py-2 shadow-[0_18px_42px_-16px_var(--dialog-shadow)] backdrop-blur-xl">
+        <span className="px-2 text-[13px] font-medium text-txt-secondary">Unsaved changes</span>
+        <div className="mx-1 h-4 w-px bg-border/40" />
+        <Button size="sm" onClick={onReset} disabled={busy}>
+          <RotateCcw size={13} /> Reset
+        </Button>
+        <Button size="sm" variant="primary" onClick={onSave} disabled={busy}>
+          {busy ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+          Save
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
-// Server section
+// Tabs
+// ---------------------------------------------------------------------------
+
+type Tab = "server" | "vless" | "hy2" | "preview";
+
+function TabsBar({
+  active,
+  onChange,
+  tabs,
+}: {
+  active: Tab;
+  onChange: (t: Tab) => void;
+  tabs: { key: Tab; label: string }[];
+}) {
+  return (
+    <div className="flex items-center gap-1 overflow-x-auto">
+      {tabs.map((t) => (
+        <button
+          key={t.key}
+          type="button"
+          onClick={() => onChange(t.key)}
+          className={cn(
+            "shrink-0 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors",
+            active === t.key
+              ? "bg-surface-3/70 text-txt-primary"
+              : "text-txt-secondary hover:text-txt-primary",
+          )}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Server form
 // ---------------------------------------------------------------------------
 
 type ServerFormState = {
@@ -244,7 +245,7 @@ function serverToForm(s: ServerType): ServerFormState {
   };
 }
 
-function ServerSection({ server, onSaved }: { server: ServerType; onSaved: () => void }) {
+function ServerForm({ server, onSaved }: { server: ServerType; onSaved: () => void }) {
   const initial = useMemo(() => serverToForm(server), [server]);
   const { form, setForm, dirty, reset } = useDirtyForm(initial);
   const [busy, setBusy] = useState(false);
@@ -255,8 +256,8 @@ function ServerSection({ server, onSaved }: { server: ServerType; onSaved: () =>
     setForm((prev) => ({ ...prev, [k]: v }));
   }
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
+  async function submit(e?: FormEvent) {
+    e?.preventDefault();
     setBusy(true);
     setError(null);
     try {
@@ -267,7 +268,7 @@ function ServerSection({ server, onSaved }: { server: ServerType; onSaved: () =>
         singbox_config_path: form.singbox_config_path.trim() || undefined,
         singbox_service_name: form.singbox_service_name.trim() || undefined,
       });
-      toast.notify("Server settings saved", "success");
+      toast.notify("Saved", "success");
       onSaved();
     } catch (err) {
       setError(getAPIErrorMessage(err, "Operation failed"));
@@ -277,56 +278,55 @@ function ServerSection({ server, onSaved }: { server: ServerType; onSaved: () =>
   }
 
   return (
-    <SectionShell
-      id="server"
-      title="Server"
-      description="Public endpoints and sing-box process configuration."
-      icon={<Server size={18} strokeWidth={1.8} />}
-      dirty={dirty}
-      onReset={reset}
-      footer={<SaveButton busy={busy} disabled={!dirty} />}
-    >
-      <form className="space-y-4" onSubmit={submit}>
-        {error && <ErrorBanner message={error} />}
-        <Input
-          label="Public host"
-          placeholder="example.com"
-          value={form.public_host}
-          onChange={(e) => set("public_host", e.target.value)}
-        />
-        <Input
-          label="Subscription base URL"
-          placeholder="https://example.com (optional, defaults to panel URL)"
-          value={form.subscription_base_url}
-          onChange={(e) => set("subscription_base_url", e.target.value)}
-        />
-        <div className="grid gap-4 sm:grid-cols-2">
+    <>
+      <form className="space-y-8" onSubmit={submit}>
+        {error ? <ErrorBanner message={error} /> : null}
+
+        <FieldGroup title="Endpoints">
           <Input
-            label="sing-box binary path"
-            placeholder="/usr/local/bin/sing-box"
-            value={form.singbox_binary_path}
-            onChange={(e) => set("singbox_binary_path", e.target.value)}
+            label="Public host"
+            placeholder="example.com"
+            value={form.public_host}
+            onChange={(e) => set("public_host", e.target.value)}
           />
           <Input
-            label="sing-box config path"
-            placeholder="/etc/h2v2/sing-box/config.json"
-            value={form.singbox_config_path}
-            onChange={(e) => set("singbox_config_path", e.target.value)}
+            label="Subscription base URL"
+            placeholder="https://example.com"
+            value={form.subscription_base_url}
+            onChange={(e) => set("subscription_base_url", e.target.value)}
           />
-        </div>
-        <Input
-          label="sing-box service name"
-          placeholder="sing-box"
-          value={form.singbox_service_name}
-          onChange={(e) => set("singbox_service_name", e.target.value)}
-        />
+        </FieldGroup>
+
+        <FieldGroup title="sing-box">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Binary path"
+              placeholder="/usr/local/bin/sing-box"
+              value={form.singbox_binary_path}
+              onChange={(e) => set("singbox_binary_path", e.target.value)}
+            />
+            <Input
+              label="Config path"
+              placeholder="/etc/h2v2/sing-box/config.json"
+              value={form.singbox_config_path}
+              onChange={(e) => set("singbox_config_path", e.target.value)}
+            />
+          </div>
+          <Input
+            label="Service name"
+            placeholder="sing-box"
+            value={form.singbox_service_name}
+            onChange={(e) => set("singbox_service_name", e.target.value)}
+          />
+        </FieldGroup>
       </form>
-    </SectionShell>
+      <SaveBar dirty={dirty} busy={busy} onSave={() => void submit()} onReset={reset} />
+    </>
   );
 }
 
 // ---------------------------------------------------------------------------
-// VLESS section
+// VLESS form
 // ---------------------------------------------------------------------------
 
 type VLESSFormState = {
@@ -364,7 +364,7 @@ function vlessToForm(ib: Inbound): VLESSFormState {
   };
 }
 
-function VLESSSection({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }) {
+function VLESSForm({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }) {
   const initial = useMemo(() => vlessToForm(inbound), [inbound]);
   const { form, setForm, dirty, reset } = useDirtyForm(initial);
   const [busy, setBusy] = useState(false);
@@ -375,8 +375,8 @@ function VLESSSection({ inbound, onSaved }: { inbound: Inbound; onSaved: () => v
     setForm((prev) => ({ ...prev, [k]: v }));
   }
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
+  async function submit(e?: FormEvent) {
+    e?.preventDefault();
     setBusy(true);
     setError(null);
     try {
@@ -391,8 +391,7 @@ function VLESSSection({ inbound, onSaved }: { inbound: Inbound; onSaved: () => v
           reality_private_key: form.reality_private_key.trim(),
           reality_short_id: form.reality_short_id.trim(),
           reality_handshake_server: form.reality_handshake_server.trim() || "www.cloudflare.com",
-          reality_handshake_server_port:
-            parseInt(form.reality_handshake_server_port, 10) || 443,
+          reality_handshake_server_port: parseInt(form.reality_handshake_server_port, 10) || 443,
           tls_server_name: form.tls_server_name.trim(),
           flow: form.flow.trim(),
           transport_type: form.transport_type,
@@ -400,7 +399,7 @@ function VLESSSection({ inbound, onSaved }: { inbound: Inbound; onSaved: () => v
           transport_path: form.transport_path.trim(),
         },
       });
-      toast.notify("VLESS settings saved", "success");
+      toast.notify("Saved", "success");
       onSaved();
     } catch (err) {
       setError(getAPIErrorMessage(err, "Operation failed"));
@@ -410,54 +409,46 @@ function VLESSSection({ inbound, onSaved }: { inbound: Inbound; onSaved: () => v
   }
 
   return (
-    <SectionShell
-      id="vless"
-      title="VLESS Reality"
-      description="Reality handshake spoofs a real TLS target — leave keys blank to auto-generate."
-      icon={<ShieldCheck size={18} strokeWidth={1.8} />}
-      dirty={dirty}
-      onReset={reset}
-      footer={<SaveButton busy={busy} disabled={!dirty} />}
-    >
-      <form className="space-y-4" onSubmit={submit}>
-        {error && <ErrorBanner message={error} />}
+    <>
+      <form className="space-y-8" onSubmit={submit}>
+        {error ? <ErrorBanner message={error} /> : null}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Listen port"
-            type="number"
-            min="1"
-            max="65535"
-            value={form.listen_port}
-            onChange={(e) => set("listen_port", e.target.value)}
+        <FieldGroup title="Inbound">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Port"
+              type="number"
+              min="1"
+              max="65535"
+              value={form.listen_port}
+              onChange={(e) => set("listen_port", e.target.value)}
+            />
+            <Input
+              label="Flow"
+              value={form.flow}
+              onChange={(e) => set("flow", e.target.value)}
+            />
+          </div>
+          <InlineToggle
+            label="Enabled"
+            checked={form.enabled}
+            onCheckedChange={(v) => set("enabled", v)}
           />
-          <Input
-            label="Flow"
-            placeholder="xtls-rprx-vision"
-            value={form.flow}
-            onChange={(e) => set("flow", e.target.value)}
+          <InlineToggle
+            label="Reality"
+            checked={form.reality_enabled}
+            onCheckedChange={(v) => set("reality_enabled", v)}
           />
-        </div>
-
-        <ToggleField label="Enabled" checked={form.enabled} onCheckedChange={(v) => set("enabled", v)} />
-        <ToggleField
-          label="Reality"
-          checked={form.reality_enabled}
-          onCheckedChange={(v) => set("reality_enabled", v)}
-        />
+        </FieldGroup>
 
         {form.reality_enabled ? (
-          <div className="space-y-3 rounded-xl border border-border/30 bg-surface-1/40 p-4">
-            <p className="text-[12px] font-semibold uppercase tracking-wide text-txt-muted">
-              Reality handshake
-            </p>
+          <FieldGroup title="Reality">
             <Input
               label="Handshake server"
-              placeholder="www.cloudflare.com"
               value={form.reality_handshake_server}
               onChange={(e) => set("reality_handshake_server", e.target.value)}
             />
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <Input
                 label="Handshake port"
                 type="number"
@@ -466,74 +457,69 @@ function VLESSSection({ inbound, onSaved }: { inbound: Inbound; onSaved: () => v
               />
               <CopyField
                 label="Short ID"
-                placeholder="auto-generated if empty"
                 value={form.reality_short_id}
                 onChange={(v) => set("reality_short_id", v)}
-                mono
               />
             </div>
             <CopyField
               label="Private key"
-              placeholder="auto-generated if empty"
               value={form.reality_private_key}
               onChange={(v) => set("reality_private_key", v)}
-              mono
             />
             <CopyField
               label="Public key"
-              placeholder="derived from private key if empty"
               value={form.reality_public_key}
               onChange={(v) => set("reality_public_key", v)}
-              mono
             />
-          </div>
+          </FieldGroup>
         ) : (
-          <Input
-            label="TLS SNI"
-            placeholder="example.com"
-            value={form.tls_server_name}
-            onChange={(e) => set("tls_server_name", e.target.value)}
-          />
+          <FieldGroup title="TLS">
+            <Input
+              label="SNI"
+              value={form.tls_server_name}
+              onChange={(e) => set("tls_server_name", e.target.value)}
+            />
+          </FieldGroup>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div>
-            <label className="mb-2 block text-[13px] font-medium text-txt-secondary">Transport</label>
-            <select
-              className="w-full rounded-lg border-0 bg-[var(--control-bg)] px-3 py-2.5 text-[14px] font-medium text-txt-primary shadow-[inset_0_0_0_1px_var(--control-border)] outline-none transition-colors focus:shadow-[inset_0_0_0_1px_var(--accent),0_0_0_3px_var(--accent-soft)]"
+        <FieldGroup title="Transport">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <SelectField
+              label="Type"
               value={form.transport_type}
-              onChange={(e) => set("transport_type", e.target.value)}
-            >
-              <option value="tcp">TCP</option>
-              <option value="ws">WebSocket</option>
-              <option value="grpc">gRPC</option>
-              <option value="xhttp">XHTTP (SplitHTTP)</option>
-            </select>
+              onChange={(v) => set("transport_type", v)}
+              options={[
+                { value: "tcp", label: "TCP" },
+                { value: "ws", label: "WebSocket" },
+                { value: "grpc", label: "gRPC" },
+                { value: "xhttp", label: "XHTTP" },
+              ]}
+            />
+            {form.transport_type !== "tcp" ? (
+              <>
+                <Input
+                  label="Host"
+                  value={form.transport_host}
+                  onChange={(e) => set("transport_host", e.target.value)}
+                />
+                <Input
+                  label="Path"
+                  placeholder="/"
+                  value={form.transport_path}
+                  onChange={(e) => set("transport_path", e.target.value)}
+                />
+              </>
+            ) : null}
           </div>
-          {form.transport_type !== "tcp" && (
-            <>
-              <Input
-                label="Host"
-                placeholder="optional"
-                value={form.transport_host}
-                onChange={(e) => set("transport_host", e.target.value)}
-              />
-              <Input
-                label="Path"
-                placeholder="/"
-                value={form.transport_path}
-                onChange={(e) => set("transport_path", e.target.value)}
-              />
-            </>
-          )}
-        </div>
+        </FieldGroup>
       </form>
-    </SectionShell>
+      <SaveBar dirty={dirty} busy={busy} onSave={() => void submit()} onReset={reset} />
+    </>
   );
 }
 
 // ---------------------------------------------------------------------------
-// HY2 section
+// HY2 form
 // ---------------------------------------------------------------------------
 
 type HY2FormState = {
@@ -567,7 +553,7 @@ function hy2ToForm(ib: Inbound): HY2FormState {
   };
 }
 
-function HY2Section({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }) {
+function HY2Form({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }) {
   const initial = useMemo(() => hy2ToForm(inbound), [inbound]);
   const { form, setForm, dirty, reset } = useDirtyForm(initial);
   const [busy, setBusy] = useState(false);
@@ -578,8 +564,8 @@ function HY2Section({ inbound, onSaved }: { inbound: Inbound; onSaved: () => voi
     setForm((prev) => ({ ...prev, [k]: v }));
   }
 
-  async function submit(e: FormEvent) {
-    e.preventDefault();
+  async function submit(e?: FormEvent) {
+    e?.preventDefault();
     setBusy(true);
     setError(null);
     try {
@@ -602,7 +588,7 @@ function HY2Section({ inbound, onSaved }: { inbound: Inbound; onSaved: () => voi
           obfs_password: form.obfs_password.trim(),
         },
       });
-      toast.notify("Hysteria2 settings saved", "success");
+      toast.notify("Saved", "success");
       onSaved();
     } catch (err) {
       setError(getAPIErrorMessage(err, "Operation failed"));
@@ -612,73 +598,64 @@ function HY2Section({ inbound, onSaved }: { inbound: Inbound; onSaved: () => voi
   }
 
   return (
-    <SectionShell
-      id="hy2"
-      title="Hysteria2"
-      description="Low-latency QUIC-based transport with optional obfuscation."
-      icon={<Network size={18} strokeWidth={1.8} />}
-      dirty={dirty}
-      onReset={reset}
-      footer={<SaveButton busy={busy} disabled={!dirty} />}
-    >
-      <form className="space-y-4" onSubmit={submit}>
-        {error && <ErrorBanner message={error} />}
+    <>
+      <form className="space-y-8" onSubmit={submit}>
+        {error ? <ErrorBanner message={error} /> : null}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Listen port"
-            type="number"
-            min="1"
-            max="65535"
-            value={form.listen_port}
-            onChange={(e) => set("listen_port", e.target.value)}
-          />
-          <ToggleField
-            label="Enabled"
-            checked={form.enabled}
-            onCheckedChange={(v) => set("enabled", v)}
-          />
-        </div>
+        <FieldGroup title="Inbound">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Port"
+              type="number"
+              min="1"
+              max="65535"
+              value={form.listen_port}
+              onChange={(e) => set("listen_port", e.target.value)}
+            />
+            <div className="self-end">
+              <InlineToggle
+                label="Enabled"
+                checked={form.enabled}
+                onCheckedChange={(v) => set("enabled", v)}
+              />
+            </div>
+          </div>
+        </FieldGroup>
 
-        <div className="space-y-3 rounded-xl border border-border/30 bg-surface-1/40 p-4">
-          <p className="text-[12px] font-semibold uppercase tracking-wide text-txt-muted">TLS</p>
+        <FieldGroup title="TLS">
           <Input
-            label="SNI / domain"
-            placeholder="example.com"
+            label="SNI"
             value={form.tls_server_name}
             onChange={(e) => set("tls_server_name", e.target.value)}
           />
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Input
               label="Certificate path"
-              placeholder="/etc/h2v2/hysteria/server.crt"
               value={form.tls_certificate_path}
               onChange={(e) => set("tls_certificate_path", e.target.value)}
             />
             <Input
               label="Key path"
-              placeholder="/etc/h2v2/hysteria/server.key"
               value={form.tls_key_path}
               onChange={(e) => set("tls_key_path", e.target.value)}
             />
           </div>
-          <ToggleField
-            label="Allow insecure (self-signed cert)"
+          <InlineToggle
+            label="Allow insecure"
             checked={form.allow_insecure}
             onCheckedChange={(v) => set("allow_insecure", v)}
           />
-        </div>
+        </FieldGroup>
 
-        <div className="space-y-3 rounded-xl border border-border/30 bg-surface-1/40 p-4">
-          <p className="text-[12px] font-semibold uppercase tracking-wide text-txt-muted">Bandwidth</p>
-          <ToggleField
-            label="Ignore client-advertised bandwidth"
+        <FieldGroup title="Bandwidth">
+          <InlineToggle
+            label="Ignore client bandwidth"
             checked={form.ignore_client_bandwidth}
             onCheckedChange={(v) => set("ignore_client_bandwidth", v)}
           />
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Input
-              label="Upload limit (Mbps)"
+              label="Upload (Mbps)"
               type="number"
               min="0"
               placeholder="Unlimited"
@@ -686,7 +663,7 @@ function HY2Section({ inbound, onSaved }: { inbound: Inbound; onSaved: () => voi
               onChange={(e) => set("up_mbps", e.target.value)}
             />
             <Input
-              label="Download limit (Mbps)"
+              label="Download (Mbps)"
               type="number"
               min="0"
               placeholder="Unlimited"
@@ -694,43 +671,40 @@ function HY2Section({ inbound, onSaved }: { inbound: Inbound; onSaved: () => voi
               onChange={(e) => set("down_mbps", e.target.value)}
             />
           </div>
-        </div>
+        </FieldGroup>
 
-        <div className="space-y-3 rounded-xl border border-border/30 bg-surface-1/40 p-4">
-          <p className="text-[12px] font-semibold uppercase tracking-wide text-txt-muted">
-            Obfuscation (optional)
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
+        <FieldGroup title="Obfuscation">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Input
-              label="Obfs type"
+              label="Type"
               placeholder="salamander"
               value={form.obfs_type}
               onChange={(e) => set("obfs_type", e.target.value)}
             />
             <Input
-              label="Obfs password"
-              placeholder="leave empty to disable"
+              label="Password"
               value={form.obfs_password}
               onChange={(e) => set("obfs_password", e.target.value)}
             />
           </div>
-        </div>
+        </FieldGroup>
       </form>
-    </SectionShell>
+      <SaveBar dirty={dirty} busy={busy} onSave={() => void submit()} onReset={reset} />
+    </>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Config preview section
+// Config preview
 // ---------------------------------------------------------------------------
 
-function ConfigPreviewSection({ server }: { server: ServerType }) {
+function ConfigPreview({ server }: { server: ServerType }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ config_json: string; check_warning?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  async function loadPreview() {
+  async function load() {
     setLoading(true);
     setError(null);
     setResult(null);
@@ -738,82 +712,70 @@ function ConfigPreviewSection({ server }: { server: ServerType }) {
       const data = await previewServerConfig(server.id);
       setResult(data);
     } catch (err) {
-      setError(getAPIErrorMessage(err, "Failed to load preview"));
+      setError(getAPIErrorMessage(err, "Failed to load"));
     } finally {
       setLoading(false);
     }
   }
 
-  let prettyJson = "";
+  let pretty = "";
   if (result?.config_json) {
     try {
-      prettyJson = JSON.stringify(JSON.parse(result.config_json), null, 2);
+      pretty = JSON.stringify(JSON.parse(result.config_json), null, 2);
     } catch {
-      prettyJson = result.config_json;
+      pretty = result.config_json;
     }
   }
 
   async function copy() {
-    if (!prettyJson) return;
+    if (!pretty) return;
     try {
-      await navigator.clipboard.writeText(prettyJson);
+      await navigator.clipboard.writeText(pretty);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   }
 
   return (
-    <SectionShell
-      id="preview"
-      title="Config preview"
-      description="The sing-box JSON that would be rendered from current inbound settings."
-      icon={<Code2 size={18} strokeWidth={1.8} />}
-    >
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Button type="button" disabled={loading} onClick={() => void loadPreview()}>
-            {loading ? (
-              <>
-                <Loader2 size={15} className="animate-spin" /> Generating…
-              </>
-            ) : (
-              <>
-                <RefreshCw size={15} /> {result ? "Refresh" : "Generate preview"}
-              </>
-            )}
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <Button type="button" disabled={loading} onClick={() => void load()}>
+          {loading ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <RefreshCw size={14} />
+          )}
+          {result ? "Refresh" : "Generate"}
+        </Button>
+        {result ? (
+          <Button type="button" onClick={copy} disabled={!pretty}>
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+            {copied ? "Copied" : "Copy"}
           </Button>
-          {result ? (
-            <Button type="button" onClick={copy} disabled={!prettyJson}>
-              {copied ? <Check size={14} /> : <Copy size={14} />}
-              {copied ? "Copied" : "Copy JSON"}
-            </Button>
-          ) : null}
-        </div>
-
-        {error && <ErrorBanner message={error} />}
-
-        {result && (
-          <div className="space-y-3">
-            {result.check_warning ? (
-              <div className="flex items-start gap-2 rounded-xl border border-status-warning/30 bg-status-warning/8 px-3 py-2.5 text-[13px] text-status-warning">
-                <AlertTriangle size={15} className="mt-0.5 shrink-0" />
-                <span className="break-all">{result.check_warning}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 rounded-xl border border-status-success/30 bg-status-success/8 px-3 py-2.5 text-[13px] text-status-success">
-                <CheckCircle2 size={15} className="shrink-0" />
-                <span>sing-box validation passed</span>
-              </div>
-            )}
-            <pre className="max-h-[520px] overflow-auto rounded-xl border border-border/40 bg-surface-0 p-4 font-mono text-[12px] leading-relaxed text-txt-secondary">
-              {prettyJson}
-            </pre>
-          </div>
-        )}
+        ) : null}
       </div>
-    </SectionShell>
+
+      {error ? <ErrorBanner message={error} /> : null}
+
+      {result ? (
+        <>
+          {result.check_warning ? (
+            <div className="flex items-start gap-2 rounded-lg bg-status-warning/10 px-3 py-2.5 text-[13px] text-status-warning">
+              <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+              <span className="break-all">{result.check_warning}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-lg bg-status-success/10 px-3 py-2.5 text-[13px] text-status-success">
+              <CheckCircle2 size={15} className="shrink-0" />
+              <span>Valid</span>
+            </div>
+          )}
+          <pre className="max-h-[560px] overflow-auto rounded-xl bg-surface-0 p-4 font-mono text-[12px] leading-relaxed text-txt-secondary">
+            {pretty}
+          </pre>
+        </>
+      ) : null}
+    </div>
   );
 }
 
@@ -838,94 +800,50 @@ export default function SettingsPage() {
     void qc.invalidateQueries({ queryKey: ["settings"] });
   }, [qc]);
 
-  const activeKeys = useMemo<SectionKey[]>(() => {
-    const keys: SectionKey[] = [];
-    if (server) keys.push("server");
-    if (vlessInbound) keys.push("vless");
-    if (hy2Inbound) keys.push("hy2");
-    if (server) keys.push("preview");
-    return keys;
+  const tabs = useMemo(() => {
+    const list: { key: Tab; label: string }[] = [];
+    if (server) list.push({ key: "server", label: "Server" });
+    if (vlessInbound) list.push({ key: "vless", label: "VLESS" });
+    if (hy2Inbound) list.push({ key: "hy2", label: "Hysteria2" });
+    if (server) list.push({ key: "preview", label: "Config" });
+    return list;
   }, [server, vlessInbound, hy2Inbound]);
 
-  const active = useScrollSpy(activeKeys);
+  const [tab, setTab] = useState<Tab>("server");
 
-  function jump(key: SectionKey) {
-    const el = document.getElementById(`settings-${key}`);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
+  useEffect(() => {
+    if (tabs.length > 0 && !tabs.find((t) => t.key === tab)) {
+      setTab(tabs[0].key);
+    }
+  }, [tabs, tab]);
 
   return (
-    <div className="space-y-5">
-      <PageHeader
-        title="Settings"
-        subtitle="Configure server endpoints, inbound protocols, and review the rendered sing-box config."
-      />
+    <div className="space-y-6 pb-24">
+      <PageHeader title="Settings" />
 
-      {loading && (
+      {loading ? (
         <div className="flex items-center gap-2 py-8 text-[14px] text-txt-secondary">
-          <Loader2 size={18} className="animate-spin" /> Loading settings…
+          <Loader2 size={18} className="animate-spin" /> Loading
         </div>
-      )}
+      ) : error ? (
+        <ErrorBanner message="Failed to load settings." />
+      ) : tabs.length === 0 ? (
+        <div className="py-10 text-center text-[14px] text-txt-muted">Nothing configured.</div>
+      ) : (
+        <>
+          <TabsBar active={tab} onChange={setTab} tabs={tabs} />
 
-      {!loading && error && (
-        <ErrorBanner message="Failed to load settings. Make sure the server is configured." />
-      )}
-
-      {!loading && !error && (
-        <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-          {/* Sidebar */}
-          <aside className="lg:sticky lg:top-20 lg:self-start">
-            <nav className="flex flex-row gap-1 overflow-x-auto rounded-2xl border border-border/40 bg-surface-2/30 p-2 lg:flex-col lg:overflow-visible">
-              {SECTIONS.filter((s) => activeKeys.includes(s.key)).map((s) => (
-                <button
-                  key={s.key}
-                  type="button"
-                  onClick={() => jump(s.key)}
-                  className={cn(
-                    "flex shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors",
-                    active === s.key
-                      ? "bg-surface-3/70 text-txt-primary"
-                      : "text-txt-secondary hover:bg-surface-3/40 hover:text-txt-primary",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "grid h-6 w-6 place-items-center rounded-md",
-                      active === s.key
-                        ? "bg-accent/12 text-accent-light"
-                        : "bg-surface-3/50 text-txt-muted",
-                    )}
-                  >
-                    {s.icon}
-                  </span>
-                  <span className="truncate">{s.label}</span>
-                </button>
-              ))}
-            </nav>
-          </aside>
-
-          {/* Content */}
-          <div className="space-y-6">
-            {server ? (
-              <ServerSection server={server} onSaved={invalidate} />
-            ) : (
-              <div className="rounded-2xl border border-border/40 bg-surface-1/50 p-6 text-center text-[14px] text-txt-secondary">
-                No server configured. Run <code>panel-api bootstrap-inbounds</code> or create a user first.
-              </div>
-            )}
-
-            {vlessInbound && <VLESSSection inbound={vlessInbound} onSaved={invalidate} />}
-            {hy2Inbound && <HY2Section inbound={hy2Inbound} onSaved={invalidate} />}
-
-            {!vlessInbound && !hy2Inbound && (
-              <div className="rounded-2xl border border-border/40 bg-surface-1/50 p-6 text-center text-[14px] text-txt-secondary">
-                No inbounds found. They will appear here after the installer provisions them.
-              </div>
-            )}
-
-            {server && <ConfigPreviewSection server={server} />}
+          <div className="max-w-[720px]">
+            {tab === "server" && server ? <ServerForm server={server} onSaved={invalidate} /> : null}
+            {tab === "vless" && vlessInbound ? (
+              <VLESSForm inbound={vlessInbound} onSaved={invalidate} />
+            ) : null}
+            {tab === "hy2" && hy2Inbound ? (
+              <HY2Form inbound={hy2Inbound} onSaved={invalidate} />
+            ) : null}
+            {tab === "preview" && server ? <ConfigPreview server={server} /> : null}
           </div>
-        </div>
+        </>
       )}
     </div>
   );

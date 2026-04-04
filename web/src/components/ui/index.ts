@@ -3,7 +3,6 @@ export * from "./Button";
 export * from "./Checkbox";
 export * from "./ConfirmDialog";
 export * from "./DateField";
-export * from "./CommandPalette";
 export * from "./Dialog";
 export * from "./Drawer";
 export * from "./DropdownMenu";
