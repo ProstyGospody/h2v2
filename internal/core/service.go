@@ -316,22 +316,81 @@ func (s *Service) GetInbound(ctx context.Context, id string) (Inbound, error) {
 }
 
 func (s *Service) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, error) {
+	s.applyInboundDefaults(&inbound)
 	if inbound.Protocol == InboundProtocolVLESS {
-		if inbound.VLESS == nil {
-			inbound.VLESS = &VLESSInboundSettings{}
-		}
-		if strings.TrimSpace(inbound.VLESS.TransportType) == "" {
-			inbound.VLESS.TransportType = "tcp"
-		}
 		if err := normalizeRealitySettings(inbound.VLESS); err != nil {
 			return Inbound{}, err
 		}
-	} else if inbound.Protocol == InboundProtocolHysteria2 {
+	}
+	return s.store.UpsertInbound(ctx, inbound)
+}
+
+// applyInboundDefaults fills missing fields with stable working defaults so
+// that operators do not need to configure every knob manually. It is safe to
+// call on partial input; existing non-empty fields are preserved.
+func (s *Service) applyInboundDefaults(inbound *Inbound) {
+	if inbound == nil {
+		return
+	}
+	if inbound.ListenPort <= 0 {
+		inbound.ListenPort = 443
+	}
+	if strings.TrimSpace(inbound.Listen) == "" {
+		inbound.Listen = "::"
+	}
+	switch inbound.Protocol {
+	case InboundProtocolVLESS:
+		if inbound.VLESS == nil {
+			inbound.VLESS = &VLESSInboundSettings{}
+		}
+		v := inbound.VLESS
+		if strings.TrimSpace(v.TransportType) == "" {
+			v.TransportType = "tcp"
+		}
+		// Enable Reality by default for plain TCP transport when no TLS cert
+		// paths are configured — this is the most stable censorship-resistant
+		// profile that works without external certificates.
+		if v.TransportType == "tcp" && !v.RealityEnabled &&
+			strings.TrimSpace(v.TLSCertificatePath) == "" &&
+			strings.TrimSpace(v.TLSKeyPath) == "" {
+			v.RealityEnabled = true
+			v.TLSEnabled = true
+		}
+		if v.RealityEnabled && strings.TrimSpace(v.Flow) == "" {
+			v.Flow = "xtls-rprx-vision"
+		}
+		if v.RealityEnabled && strings.TrimSpace(v.RealityHandshakeServer) == "" {
+			v.RealityHandshakeServer = defaultRealityHost
+		}
+		if v.RealityEnabled && v.RealityHandshakeServerPort <= 0 {
+			v.RealityHandshakeServerPort = defaultRealityPort
+		}
+		// ALPN is only meaningful for classic TLS (not Reality, which spoofs
+		// the handshake of the real target server).
+		if v.TLSEnabled && !v.RealityEnabled && len(v.TLSALPN) == 0 {
+			v.TLSALPN = []string{"h2", "http/1.1"}
+		}
+	case InboundProtocolHysteria2:
 		if inbound.Hysteria2 == nil {
 			inbound.Hysteria2 = &Hysteria2InboundSettings{}
 		}
+		h := inbound.Hysteria2
+		h.TLSEnabled = true
+		if strings.TrimSpace(h.TLSServerName) == "" && strings.TrimSpace(s.cfg.HY2Domain) != "" {
+			h.TLSServerName = strings.TrimSpace(s.cfg.HY2Domain)
+		}
+		if strings.TrimSpace(h.TLSCertificatePath) == "" && strings.TrimSpace(s.cfg.HY2CertPath) != "" {
+			h.TLSCertificatePath = s.cfg.HY2CertPath
+		}
+		if strings.TrimSpace(h.TLSKeyPath) == "" && strings.TrimSpace(s.cfg.HY2KeyPath) != "" {
+			h.TLSKeyPath = s.cfg.HY2KeyPath
+		}
+		// If the operator hasn't pinned bandwidth, trust the client's
+		// advertised speeds — this is the stable "just works" default.
+		if h.UpMbps == nil && h.DownMbps == nil && !h.IgnoreClientBandwidth {
+			h.IgnoreClientBandwidth = true
+		}
 	}
-	return s.store.UpsertInbound(ctx, inbound)
 }
 
 func (s *Service) DeleteInbound(ctx context.Context, id string) error {
@@ -401,15 +460,14 @@ func (s *Service) DeleteUserAccess(ctx context.Context, id string) error {
 	return s.store.DeleteUserAccess(ctx, id)
 }
 
-// ProvisionUser ensures a server and both VLESS+HY2 inbounds exist, then creates
-// the user and access entries for every available protocol inbound on the server.
-// Returns the created user, access entries, and the server ID so the caller can
-// apply the updated config once.
-func (s *Service) ProvisionUser(ctx context.Context, username string, trafficLimitBytes int64, expireAt *time.Time) (User, []UserAccess, string, error) {
-	// Ensure server exists.
+// EnsureDefaultInbounds makes sure a server record exists and that both a
+// VLESS-Reality and a Hysteria2 inbound are provisioned with stable defaults.
+// It is idempotent and safe to call from the installer, from ProvisionUser, or
+// from the CLI bootstrap command.
+func (s *Service) EnsureDefaultInbounds(ctx context.Context) (string, *Inbound, *Inbound, error) {
 	servers, err := s.store.ListServers(ctx)
 	if err != nil {
-		return User{}, nil, "", fmt.Errorf("list servers: %w", err)
+		return "", nil, nil, fmt.Errorf("list servers: %w", err)
 	}
 	var serverID string
 	if len(servers) > 0 {
@@ -417,15 +475,14 @@ func (s *Service) ProvisionUser(ctx context.Context, username string, trafficLim
 	} else {
 		server, err := s.UpsertServer(ctx, Server{ID: "default", Name: "default"})
 		if err != nil {
-			return User{}, nil, "", fmt.Errorf("create default server: %w", err)
+			return "", nil, nil, fmt.Errorf("create default server: %w", err)
 		}
 		serverID = server.ID
 	}
 
-	// Ensure VLESS and HY2 inbounds exist on this server.
 	inbounds, err := s.store.ListInbounds(ctx, serverID)
 	if err != nil {
-		return User{}, nil, "", fmt.Errorf("list inbounds: %w", err)
+		return "", nil, nil, fmt.Errorf("list inbounds: %w", err)
 	}
 	var vlessInbound, hy2Inbound *Inbound
 	for i := range inbounds {
@@ -444,20 +501,12 @@ func (s *Service) ProvisionUser(ctx context.Context, username string, trafficLim
 			Name:        "VLESS Reality",
 			Tag:         "vless-in",
 			Protocol:    InboundProtocolVLESS,
-			Listen:      "::",
 			ListenPort:  443,
 			Enabled:     true,
 			TemplateKey: "vless-reality",
-			VLESS: &VLESSInboundSettings{
-				TLSEnabled:       true,
-				RealityEnabled:   true,
-				Flow:             "xtls-rprx-vision",
-				TransportType:    "tcp",
-				MultiplexEnabled: false,
-			},
 		})
 		if err != nil {
-			return User{}, nil, "", fmt.Errorf("create VLESS inbound: %w", err)
+			return "", nil, nil, fmt.Errorf("create VLESS inbound: %w", err)
 		}
 		vlessInbound = &created
 	}
@@ -466,36 +515,31 @@ func (s *Service) ProvisionUser(ctx context.Context, username string, trafficLim
 		if port <= 0 {
 			port = 443
 		}
-		certPath := s.cfg.HY2CertPath
-		if certPath == "" {
-			certPath = "/etc/h2v2/hysteria/server.crt"
-		}
-		keyPath := s.cfg.HY2KeyPath
-		if keyPath == "" {
-			keyPath = "/etc/h2v2/hysteria/server.key"
-		}
 		created, err := s.UpsertInbound(ctx, Inbound{
 			ServerID:    serverID,
 			Name:        "Hysteria2",
 			Tag:         "hy2-in",
 			Protocol:    InboundProtocolHysteria2,
-			Listen:      "::",
 			ListenPort:  port,
 			Enabled:     true,
 			TemplateKey: "hysteria2-default",
-			Hysteria2: &Hysteria2InboundSettings{
-				TLSEnabled:            true,
-				TLSServerName:         s.cfg.HY2Domain,
-				TLSCertificatePath:    certPath,
-				TLSKeyPath:            keyPath,
-				IgnoreClientBandwidth: true,
-				BrutalDebug:           false,
-			},
 		})
 		if err != nil {
-			return User{}, nil, "", fmt.Errorf("create HY2 inbound: %w", err)
+			return "", nil, nil, fmt.Errorf("create HY2 inbound: %w", err)
 		}
 		hy2Inbound = &created
+	}
+	return serverID, vlessInbound, hy2Inbound, nil
+}
+
+// ProvisionUser ensures a server and both VLESS+HY2 inbounds exist, then creates
+// the user and access entries for every available protocol inbound on the server.
+// Returns the created user, access entries, and the server ID so the caller can
+// apply the updated config once.
+func (s *Service) ProvisionUser(ctx context.Context, username string, trafficLimitBytes int64, expireAt *time.Time) (User, []UserAccess, string, error) {
+	serverID, vlessInbound, hy2Inbound, err := s.EnsureDefaultInbounds(ctx)
+	if err != nil {
+		return User{}, nil, "", err
 	}
 
 	// Create user.
@@ -1037,11 +1081,18 @@ func buildVLESSClientArtifacts(user User, access UserAccess, inbound Inbound, ho
 			query.Set("sid", strings.TrimSpace(inbound.VLESS.RealityShortID))
 		}
 		query.Set("fp", "chrome")
+		query.Set("spx", "/")
 	} else if inbound.VLESS.TLSEnabled {
 		query.Set("security", "tls")
 		if strings.TrimSpace(inbound.VLESS.TLSServerName) != "" {
 			query.Set("sni", strings.TrimSpace(inbound.VLESS.TLSServerName))
 		}
+		if len(inbound.VLESS.TLSALPN) > 0 {
+			query.Set("alpn", strings.Join(inbound.VLESS.TLSALPN, ","))
+		} else {
+			query.Set("alpn", "h2,http/1.1")
+		}
+		query.Set("fp", "chrome")
 	}
 	if flow != "" {
 		query.Set("flow", flow)
@@ -1125,8 +1176,14 @@ func buildHysteria2ClientArtifacts(user User, access UserAccess, inbound Inbound
 		return "", nil, fmt.Errorf("hysteria2 password is not set for user %s", user.ID)
 	}
 	query := url.Values{}
-	if strings.TrimSpace(inbound.Hysteria2.TLSServerName) != "" {
-		query.Set("sni", strings.TrimSpace(inbound.Hysteria2.TLSServerName))
+	sni := strings.TrimSpace(inbound.Hysteria2.TLSServerName)
+	if sni == "" {
+		// Fall back to the endpoint host so the client sends a valid SNI even
+		// when the operator hasn't set one explicitly.
+		sni = host
+	}
+	if sni != "" {
+		query.Set("sni", sni)
 	}
 	if inbound.Hysteria2.AllowInsecure {
 		query.Set("insecure", "1")
@@ -1160,8 +1217,8 @@ func buildHysteria2ClientArtifacts(user User, access UserAccess, inbound Inbound
 		"password":    password,
 	}
 	tls := map[string]any{"enabled": true}
-	if strings.TrimSpace(inbound.Hysteria2.TLSServerName) != "" {
-		tls["server_name"] = strings.TrimSpace(inbound.Hysteria2.TLSServerName)
+	if sni != "" {
+		tls["server_name"] = sni
 	}
 	if inbound.Hysteria2.AllowInsecure {
 		tls["insecure"] = true

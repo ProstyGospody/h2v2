@@ -3,9 +3,12 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"os"
 	"strings"
 
 	"h2v2/internal/config"
+	"h2v2/internal/core"
 	"h2v2/internal/repository"
 	"h2v2/internal/security"
 )
@@ -35,6 +38,22 @@ func BootstrapAdmin(ctx context.Context, cfg config.Config, email string, passwo
 	_, err = repo.UpsertAdmin(ctx, strings.TrimSpace(strings.ToLower(email)), hash, true)
 	if err != nil {
 		return fmt.Errorf("upsert admin: %w", err)
+	}
+	return nil
+}
+
+// BootstrapInbounds creates the default server record and VLESS Reality +
+// Hysteria2 inbounds with stable parameters, auto-generating Reality keys.
+// Idempotent — safe to run on every install.
+func BootstrapInbounds(ctx context.Context, cfg config.Config) error {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	svc, err := core.NewService(cfg, logger, nil)
+	if err != nil {
+		return fmt.Errorf("open core service: %w", err)
+	}
+	defer svc.Close()
+	if _, _, _, err := svc.EnsureDefaultInbounds(ctx); err != nil {
+		return fmt.Errorf("ensure default inbounds: %w", err)
 	}
 	return nil
 }

@@ -716,6 +716,7 @@ bootstrap_admin() {
   source "${ENV_FILE}"
   set +a
   run runuser -u h2v2 -- "${BIN_DIR}/panel-api" bootstrap-admin --email "${INITIAL_ADMIN_EMAIL}" --password "${INITIAL_ADMIN_PASSWORD}"
+  run runuser -u h2v2 -- "${BIN_DIR}/panel-api" bootstrap-inbounds
 }
 
 restart_services() {
