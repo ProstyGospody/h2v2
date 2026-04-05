@@ -106,6 +106,72 @@ func NewRouter(
 				v1.Post("/users/{id}/subscription/tokens", h.IssueCoreUserToken)
 				v1.Post("/users/{id}/subscription/tokens/rotate", h.RotateCoreUserToken)
 				v1.Post("/users/{id}/subscription/tokens/revoke", h.RevokeCoreUserTokens)
+
+				// Domain validation
+				v1.Get("/servers/{id}/validate/domain", h.ValidateCoreServerDomain)
+
+				// Outbounds
+				v1.Get("/outbounds", h.ListCoreOutbounds)
+				v1.Post("/outbounds", h.UpsertCoreOutbound)
+				v1.Get("/outbounds/{id}", h.GetCoreOutbound)
+				v1.Patch("/outbounds/{id}", h.UpsertCoreOutbound)
+				v1.Delete("/outbounds/{id}", h.DeleteCoreOutbound)
+
+				// Route rules
+				v1.Get("/route-rules", h.ListCoreRouteRules)
+				v1.Post("/route-rules", h.UpsertCoreRouteRule)
+				v1.Get("/route-rules/{id}", h.GetCoreRouteRule)
+				v1.Patch("/route-rules/{id}", h.UpsertCoreRouteRule)
+				v1.Delete("/route-rules/{id}", h.DeleteCoreRouteRule)
+
+				// DNS profiles
+				v1.Get("/dns-profiles", h.ListCoreDNSProfiles)
+				v1.Post("/dns-profiles", h.UpsertCoreDNSProfile)
+				v1.Get("/dns-profiles/{id}", h.GetCoreDNSProfile)
+				v1.Patch("/dns-profiles/{id}", h.UpsertCoreDNSProfile)
+				v1.Delete("/dns-profiles/{id}", h.DeleteCoreDNSProfile)
+
+				// Log profiles
+				v1.Get("/log-profiles", h.ListCoreLogProfiles)
+				v1.Post("/log-profiles", h.UpsertCoreLogProfile)
+				v1.Get("/log-profiles/{id}", h.GetCoreLogProfile)
+				v1.Patch("/log-profiles/{id}", h.UpsertCoreLogProfile)
+				v1.Delete("/log-profiles/{id}", h.DeleteCoreLogProfile)
+
+				// Reality profiles
+				v1.Get("/reality-profiles", h.ListCoreRealityProfiles)
+				v1.Post("/reality-profiles", h.UpsertCoreRealityProfile)
+				v1.Get("/reality-profiles/{id}", h.GetCoreRealityProfile)
+				v1.Patch("/reality-profiles/{id}", h.UpsertCoreRealityProfile)
+				v1.Delete("/reality-profiles/{id}", h.DeleteCoreRealityProfile)
+
+				// Transport profiles
+				v1.Get("/transport-profiles", h.ListCoreTransportProfiles)
+				v1.Post("/transport-profiles", h.UpsertCoreTransportProfile)
+				v1.Get("/transport-profiles/{id}", h.GetCoreTransportProfile)
+				v1.Patch("/transport-profiles/{id}", h.UpsertCoreTransportProfile)
+				v1.Delete("/transport-profiles/{id}", h.DeleteCoreTransportProfile)
+
+				// Multiplex profiles
+				v1.Get("/multiplex-profiles", h.ListCoreMultiplexProfiles)
+				v1.Post("/multiplex-profiles", h.UpsertCoreMultiplexProfile)
+				v1.Get("/multiplex-profiles/{id}", h.GetCoreMultiplexProfile)
+				v1.Patch("/multiplex-profiles/{id}", h.UpsertCoreMultiplexProfile)
+				v1.Delete("/multiplex-profiles/{id}", h.DeleteCoreMultiplexProfile)
+
+				// HY2 masquerade profiles
+				v1.Get("/hy2-masquerade-profiles", h.ListCoreHY2MasqueradeProfiles)
+				v1.Post("/hy2-masquerade-profiles", h.UpsertCoreHY2MasqueradeProfile)
+				v1.Get("/hy2-masquerade-profiles/{id}", h.GetCoreHY2MasqueradeProfile)
+				v1.Patch("/hy2-masquerade-profiles/{id}", h.UpsertCoreHY2MasqueradeProfile)
+				v1.Delete("/hy2-masquerade-profiles/{id}", h.DeleteCoreHY2MasqueradeProfile)
+
+				// Client profiles (user-facing connection modes)
+				v1.Get("/client-profiles", h.ListCoreClientProfiles)
+				v1.Post("/client-profiles", h.UpsertCoreClientProfile)
+				v1.Get("/client-profiles/{id}", h.GetCoreClientProfile)
+				v1.Patch("/client-profiles/{id}", h.UpsertCoreClientProfile)
+				v1.Delete("/client-profiles/{id}", h.DeleteCoreClientProfile)
 			})
 		})
 	})

@@ -181,6 +181,19 @@ func deriveRealityPublicKey(privateKey string) (string, error) {
 	return encodeRealityKey(derived), nil
 }
 
+// generateRealityKeyPair generates a new X25519 keypair and returns (privateKey, publicKey) as base64url strings.
+func generateRealityKeyPair() (string, string, error) {
+	privateKey := make([]byte, 32)
+	if _, err := rand.Read(privateKey); err != nil {
+		return "", "", fmt.Errorf("failed to generate reality private key: %w", err)
+	}
+	pub, err := curve25519.X25519(privateKey, curve25519.Basepoint)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to derive reality public key: %w", err)
+	}
+	return encodeRealityKey(privateKey), encodeRealityKey(pub), nil
+}
+
 func normalizeRealitySettings(value *VLESSInboundSettings) error {
 	if value == nil || !value.RealityEnabled {
 		return nil
@@ -1458,8 +1471,15 @@ func (s *Service) buildServerConfigJSON(ctx context.Context, server Server) ([]b
 	if err != nil {
 		return nil, err
 	}
+
 	renderedInbounds := make([]map[string]any, 0, len(inbounds))
 	for _, inbound := range inbounds {
+		// Resolve profile references into inline settings before rendering.
+		if err := s.resolveInboundProfiles(ctx, &inbound); err != nil {
+			s.logger.Warn("buildServerConfigJSON: failed to resolve profiles, using inline settings",
+				"inbound_id", inbound.ID, "err", err)
+		}
+
 		accesses, usersByID, err := s.store.ListInboundActiveUserAccess(ctx, inbound.ID)
 		if err != nil {
 			return nil, err
@@ -1471,6 +1491,9 @@ func (s *Service) buildServerConfigJSON(ctx context.Context, server Server) ([]b
 				continue
 			}
 			if !s.checkUserActive(user, access) {
+				continue
+			}
+			if access.CredentialStatus == "revoked" {
 				continue
 			}
 			switch inbound.Protocol {
@@ -1501,24 +1524,251 @@ func (s *Service) buildServerConfigJSON(ctx context.Context, server Server) ([]b
 		if len(userEntries) == 0 {
 			continue
 		}
-		rendered, err := renderInboundForServer(inbound, userEntries)
+		rendered, err := s.renderInboundForServer(ctx, inbound, userEntries)
 		if err != nil {
 			return nil, err
 		}
 		renderedInbounds = append(renderedInbounds, rendered)
 	}
+
+	// Build log section from active log profile or default.
+	logSection := s.buildLogSection(ctx, server.ID)
+
+	// Build outbounds section from DB + defaults.
+	outboundsSection := s.buildOutboundsSection(ctx, server.ID)
+
+	// Build route section from DB rules.
+	routeSection := s.buildRouteSection(ctx, server.ID)
+
 	payload := map[string]any{
-		"log": map[string]any{"level": "warn"},
-		"inbounds": renderedInbounds,
-		"outbounds": []map[string]any{
-			{"type": "direct", "tag": "direct"},
-			{"type": "block", "tag": "block"},
-		},
-		"route": map[string]any{
-			"final": "direct",
-		},
+		"log":       logSection,
+		"inbounds":  renderedInbounds,
+		"outbounds": outboundsSection,
+		"route":     routeSection,
 	}
+
+	// Attach DNS section if any active DNS profile exists.
+	if dnsSection := s.buildDNSSection(ctx, server.ID); dnsSection != nil {
+		payload["dns"] = dnsSection
+	}
+
 	return json.MarshalIndent(payload, "", "  ")
+}
+
+// resolveInboundProfiles loads profile data into an inbound's inline settings,
+// so the renderer always works with fully-resolved settings.
+func (s *Service) resolveInboundProfiles(ctx context.Context, inbound *Inbound) error {
+	if inbound.VLESS != nil {
+		v := inbound.VLESS
+		// Reality profile overrides inline settings when set.
+		if pid := strings.TrimSpace(v.RealityProfileID); pid != "" {
+			p, err := s.store.GetRealityProfile(ctx, pid)
+			if err == nil && p.Enabled {
+				v.RealityEnabled = true
+				v.RealityPrivateKey = p.PrivateKey
+				v.RealityPublicKey = p.PublicKey
+				v.RealityHandshakeServer = p.HandshakeServer
+				v.RealityHandshakeServerPort = p.HandshakeServerPort
+				if p.ServerName != "" {
+					v.TLSServerName = p.ServerName
+				}
+				if len(p.ShortIDs) > 0 {
+					v.RealityShortID = p.ShortIDs[0]
+				}
+			}
+		}
+		// Transport profile overrides inline settings when set.
+		if pid := strings.TrimSpace(v.TransportProfileID); pid != "" {
+			p, err := s.store.GetTransportProfile(ctx, pid)
+			if err == nil && p.Enabled {
+				v.TransportType = p.Type
+				v.TransportHost = p.Host
+				v.TransportPath = p.Path
+			}
+		}
+		// Multiplex profile overrides inline settings when set.
+		if pid := strings.TrimSpace(v.MultiplexProfileID); pid != "" {
+			p, err := s.store.GetMultiplexProfile(ctx, pid)
+			if err == nil && p.Enabled {
+				v.MultiplexEnabled = true
+				v.MultiplexProtocol = p.Protocol
+				v.MultiplexMaxConnections = p.MaxConnections
+				v.MultiplexMinStreams = p.MinStreams
+				v.MultiplexMaxStreams = p.MaxStreams
+			}
+		}
+	}
+	if inbound.Hysteria2 != nil {
+		h := inbound.Hysteria2
+		// Masquerade profile overrides inline masquerade_json when set.
+		if pid := strings.TrimSpace(h.MasqueradeProfileID); pid != "" {
+			p, err := s.store.GetHY2MasqueradeProfile(ctx, pid)
+			if err == nil && p.Enabled {
+				masqJSON, err := masqueradeProfileToJSON(p)
+				if err == nil {
+					h.MasqueradeJSON = masqJSON
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// buildLogSection returns the sing-box "log" object from the first enabled log profile,
+// or a default "warn" level config.
+func (s *Service) buildLogSection(ctx context.Context, serverID string) map[string]any {
+	profiles, err := s.store.ListLogProfiles(ctx, serverID)
+	if err == nil {
+		for _, p := range profiles {
+			if p.Enabled {
+				log := map[string]any{"level": p.Level}
+				if strings.TrimSpace(p.Output) != "" {
+					log["output"] = p.Output
+				}
+				if p.Timestamp {
+					log["timestamp"] = true
+				}
+				return log
+			}
+		}
+	}
+	return map[string]any{"level": "warn"}
+}
+
+// buildOutboundsSection builds the outbounds array from DB + always-present defaults.
+func (s *Service) buildOutboundsSection(ctx context.Context, serverID string) []map[string]any {
+	result := make([]map[string]any, 0)
+	outbounds, err := s.store.ListEnabledOutbounds(ctx, serverID)
+	if err == nil {
+		for _, ob := range outbounds {
+			entry := map[string]any{"type": ob.Type, "tag": ob.Tag}
+			if strings.TrimSpace(ob.SettingsJSON) != "" {
+				var extra map[string]any
+				if json.Unmarshal([]byte(ob.SettingsJSON), &extra) == nil {
+					for k, v := range extra {
+						entry[k] = v
+					}
+				}
+			}
+			result = append(result, entry)
+		}
+	}
+	// Ensure direct and block always exist (sing-box requires them).
+	hasDirect, hasBlock := false, false
+	for _, ob := range result {
+		if ob["tag"] == "direct" {
+			hasDirect = true
+		}
+		if ob["tag"] == "block" {
+			hasBlock = true
+		}
+	}
+	if !hasDirect {
+		result = append(result, map[string]any{"type": "direct", "tag": "direct"})
+	}
+	if !hasBlock {
+		result = append(result, map[string]any{"type": "block", "tag": "block"})
+	}
+	return result
+}
+
+// buildRouteSection builds the sing-box "route" object from DB rules.
+func (s *Service) buildRouteSection(ctx context.Context, serverID string) map[string]any {
+	rules, err := s.store.ListEnabledRouteRules(ctx, serverID)
+	if err != nil || len(rules) == 0 {
+		return map[string]any{"final": "direct"}
+	}
+	rendered := make([]map[string]any, 0, len(rules))
+	for _, r := range rules {
+		entry := map[string]any{"outbound": r.OutboundTag}
+		if len(r.InboundTags) > 0 {
+			entry["inbound"] = r.InboundTags
+		}
+		if len(r.Protocols) > 0 {
+			entry["protocol"] = r.Protocols
+		}
+		if len(r.Domains) > 0 {
+			entry["domain"] = r.Domains
+		}
+		if len(r.DomainSuffixes) > 0 {
+			entry["domain_suffix"] = r.DomainSuffixes
+		}
+		if len(r.DomainKeywords) > 0 {
+			entry["domain_keyword"] = r.DomainKeywords
+		}
+		if len(r.IPCIDRs) > 0 {
+			entry["ip_cidr"] = r.IPCIDRs
+		}
+		if len(r.Ports) > 0 {
+			entry["port"] = r.Ports
+		}
+		if strings.TrimSpace(r.Network) != "" {
+			entry["network"] = r.Network
+		}
+		if len(r.GeoIPCodes) > 0 {
+			entry["geoip"] = r.GeoIPCodes
+		}
+		if len(r.GeositeCodes) > 0 {
+			entry["geosite"] = r.GeositeCodes
+		}
+		if r.Action == "block" {
+			entry["outbound"] = "block"
+		}
+		if r.Invert {
+			entry["invert"] = true
+		}
+		rendered = append(rendered, entry)
+	}
+	return map[string]any{
+		"rules": rendered,
+		"final": "direct",
+	}
+}
+
+// buildDNSSection builds the sing-box "dns" object from the first enabled DNS profile.
+// Returns nil if no DNS profile is configured.
+func (s *Service) buildDNSSection(ctx context.Context, serverID string) map[string]any {
+	profiles, err := s.store.ListDNSProfiles(ctx, serverID)
+	if err != nil {
+		return nil
+	}
+	for _, p := range profiles {
+		if !p.Enabled {
+			continue
+		}
+		dns := map[string]any{}
+		if strings.TrimSpace(p.Strategy) != "" {
+			dns["strategy"] = p.Strategy
+		}
+		if p.DisableCache {
+			dns["disable_cache"] = true
+		}
+		if strings.TrimSpace(p.FinalServer) != "" {
+			dns["final"] = p.FinalServer
+		}
+		if strings.TrimSpace(p.ServersJSON) != "" {
+			var servers []any
+			if json.Unmarshal([]byte(p.ServersJSON), &servers) == nil {
+				dns["servers"] = servers
+			}
+		}
+		if strings.TrimSpace(p.RulesJSON) != "" {
+			var rules []any
+			if json.Unmarshal([]byte(p.RulesJSON), &rules) == nil {
+				dns["rules"] = rules
+			}
+		}
+		if p.FakeIPEnabled {
+			dns["fakeip"] = map[string]any{"enabled": true}
+		}
+		return dns
+	}
+	return nil
+}
+
+// renderInboundForServer is the service-level inbound renderer (replaces standalone func).
+func (s *Service) renderInboundForServer(ctx context.Context, inbound Inbound, users []map[string]any) (map[string]any, error) {
+	return renderInboundForServer(inbound, users)
 }
 
 func renderInboundForServer(inbound Inbound, users []map[string]any) (map[string]any, error) {

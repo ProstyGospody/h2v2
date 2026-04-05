@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -129,13 +130,13 @@ func (s *Store) DeleteServer(ctx context.Context, id string) error {
 }
 
 func (s *Store) ListInbounds(ctx context.Context, serverID string) ([]Inbound, error) {
-	query := `SELECT id, server_id, name, tag, protocol, listen, listen_port, enabled, template_key, created_at_ns, updated_at_ns FROM core_inbounds`
+	query := `SELECT id, server_id, name, tag, protocol, listen, listen_port, enabled, template_key, COALESCE(notes,''), COALESCE(labels_json,''), COALESCE(sort_order,0), COALESCE(log_profile_id,''), created_at_ns, updated_at_ns FROM core_inbounds`
 	args := make([]any, 0, 1)
 	if normalizeString(serverID) != "" {
 		query += ` WHERE server_id = ?`
 		args = append(args, normalizeString(serverID))
 	}
-	query += ` ORDER BY created_at_ns DESC`
+	query += ` ORDER BY COALESCE(sort_order,0) ASC, created_at_ns DESC`
 
 	rows, err := s.db.QueryContext(resolveCtx(ctx), query, args...)
 	if err != nil {
@@ -163,7 +164,7 @@ func (s *Store) ListInbounds(ctx context.Context, serverID string) ([]Inbound, e
 }
 
 func (s *Store) GetInbound(ctx context.Context, id string) (Inbound, error) {
-	row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT id, server_id, name, tag, protocol, listen, listen_port, enabled, template_key, created_at_ns, updated_at_ns FROM core_inbounds WHERE id = ? LIMIT 1`, normalizeString(id))
+	row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT id, server_id, name, tag, protocol, listen, listen_port, enabled, template_key, COALESCE(notes,''), COALESCE(labels_json,''), COALESCE(sort_order,0), COALESCE(log_profile_id,''), created_at_ns, updated_at_ns FROM core_inbounds WHERE id = ? LIMIT 1`, normalizeString(id))
 	item, err := scanInboundBase(row)
 	if err != nil {
 		return Inbound{}, err
@@ -225,8 +226,8 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 
 	_, err = tx.ExecContext(
 		resolveCtx(ctx),
-		`INSERT INTO core_inbounds(id, server_id, name, tag, protocol, listen, listen_port, enabled, template_key, created_at_ns, updated_at_ns)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`INSERT INTO core_inbounds(id, server_id, name, tag, protocol, listen, listen_port, enabled, template_key, notes, labels_json, sort_order, log_profile_id, created_at_ns, updated_at_ns)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(id) DO UPDATE SET
 			server_id = excluded.server_id,
 			name = excluded.name,
@@ -236,6 +237,10 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 			listen_port = excluded.listen_port,
 			enabled = excluded.enabled,
 			template_key = excluded.template_key,
+			notes = excluded.notes,
+			labels_json = excluded.labels_json,
+			sort_order = excluded.sort_order,
+			log_profile_id = excluded.log_profile_id,
 			updated_at_ns = excluded.updated_at_ns`,
 		inbound.ID,
 		inbound.ServerID,
@@ -246,6 +251,10 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 		inbound.ListenPort,
 		boolToInt(inbound.Enabled),
 		inbound.TemplateKey,
+		nullIfEmpty(inbound.Notes),
+		nullIfEmpty(stringsToJSON(inbound.Labels)),
+		inbound.SortOrder,
+		nullIfEmpty(inbound.LogProfileID),
 		toUnixNano(inbound.CreatedAt),
 		toUnixNano(inbound.UpdatedAt),
 	)
@@ -274,8 +283,9 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 				inbound_id, tls_enabled, tls_server_name, tls_alpn_csv, tls_certificate_path, tls_key_path,
 				reality_enabled, reality_public_key, reality_private_key_enc, reality_short_id, reality_handshake_server, reality_handshake_server_port,
 				flow, transport_type, transport_host, transport_path,
-				multiplex_enabled, multiplex_protocol, multiplex_max_connections, multiplex_min_streams, multiplex_max_streams
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				multiplex_enabled, multiplex_protocol, multiplex_max_connections, multiplex_min_streams, multiplex_max_streams,
+				reality_profile_id, transport_profile_id, multiplex_profile_id, packet_encoding_default
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(inbound_id) DO UPDATE SET
 				tls_enabled = excluded.tls_enabled,
 				tls_server_name = excluded.tls_server_name,
@@ -296,7 +306,11 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 				multiplex_protocol = excluded.multiplex_protocol,
 				multiplex_max_connections = excluded.multiplex_max_connections,
 				multiplex_min_streams = excluded.multiplex_min_streams,
-				multiplex_max_streams = excluded.multiplex_max_streams`,
+				multiplex_max_streams = excluded.multiplex_max_streams,
+				reality_profile_id = excluded.reality_profile_id,
+				transport_profile_id = excluded.transport_profile_id,
+				multiplex_profile_id = excluded.multiplex_profile_id,
+				packet_encoding_default = excluded.packet_encoding_default`,
 			inbound.ID,
 			boolToInt(inbound.VLESS.TLSEnabled),
 			nullIfEmpty(inbound.VLESS.TLSServerName),
@@ -318,6 +332,10 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 			inbound.VLESS.MultiplexMaxConnections,
 			inbound.VLESS.MultiplexMinStreams,
 			inbound.VLESS.MultiplexMaxStreams,
+			nullIfEmpty(inbound.VLESS.RealityProfileID),
+			nullIfEmpty(inbound.VLESS.TransportProfileID),
+			nullIfEmpty(inbound.VLESS.MultiplexProfileID),
+			nullIfEmpty(inbound.VLESS.PacketEncodingDefault),
 		)
 		if err != nil {
 			return Inbound{}, err
@@ -333,8 +351,9 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 			resolveCtx(ctx),
 			`INSERT INTO core_inbound_hysteria2_settings(
 				inbound_id, tls_enabled, tls_server_name, tls_certificate_path, tls_key_path,
-				allow_insecure, up_mbps, down_mbps, ignore_client_bandwidth, obfs_type, obfs_password_enc, masquerade_json, bbr_profile, brutal_debug
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				allow_insecure, up_mbps, down_mbps, ignore_client_bandwidth, obfs_type, obfs_password_enc, masquerade_json, bbr_profile, brutal_debug,
+				masquerade_profile_id, server_ports, hop_interval, network, tls_alpn_csv, bandwidth_profile_mode
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(inbound_id) DO UPDATE SET
 				tls_enabled = excluded.tls_enabled,
 				tls_server_name = excluded.tls_server_name,
@@ -348,7 +367,13 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 				obfs_password_enc = excluded.obfs_password_enc,
 				masquerade_json = excluded.masquerade_json,
 				bbr_profile = excluded.bbr_profile,
-				brutal_debug = excluded.brutal_debug`,
+				brutal_debug = excluded.brutal_debug,
+				masquerade_profile_id = excluded.masquerade_profile_id,
+				server_ports = excluded.server_ports,
+				hop_interval = excluded.hop_interval,
+				network = excluded.network,
+				tls_alpn_csv = excluded.tls_alpn_csv,
+				bandwidth_profile_mode = excluded.bandwidth_profile_mode`,
 			inbound.ID,
 			boolToInt(inbound.Hysteria2.TLSEnabled),
 			nullIfEmpty(inbound.Hysteria2.TLSServerName),
@@ -363,6 +388,12 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 			nullIfEmpty(inbound.Hysteria2.MasqueradeJSON),
 			nullIfEmpty(inbound.Hysteria2.BBRProfile),
 			boolToInt(inbound.Hysteria2.BrutalDebug),
+			nullIfEmpty(inbound.Hysteria2.MasqueradeProfileID),
+			nullIfEmpty(inbound.Hysteria2.ServerPorts),
+			nullableIntVal(inbound.Hysteria2.HopInterval),
+			nullIfEmpty(inbound.Hysteria2.Network),
+			nullIfEmpty(joinCSV(inbound.Hysteria2.TLSALPN)),
+			nullIfEmpty(inbound.Hysteria2.BandwidthProfileMode),
 		)
 		if err != nil {
 			return Inbound{}, err
@@ -496,12 +527,17 @@ func (s *Store) UpsertUserAccess(ctx context.Context, access UserAccess) (UserAc
 	}
 	access.UpdatedAt = now
 
+	if strings.TrimSpace(access.CredentialStatus) == "" {
+		access.CredentialStatus = "active"
+	}
 	_, err := s.db.ExecContext(
 		resolveCtx(ctx),
 		`INSERT INTO core_user_access(
 			id, user_id, inbound_id, enabled, vless_uuid, vless_flow_override, hy2_password_enc,
-			traffic_limit_bytes_override, expire_at_ns_override, created_at_ns, updated_at_ns
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			traffic_limit_bytes_override, expire_at_ns_override,
+			display_name, description, credential_status, last_seen_at_ns, last_client_ip, client_profile_id,
+			created_at_ns, updated_at_ns
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(user_id, inbound_id) DO UPDATE SET
 			enabled = excluded.enabled,
 			vless_uuid = excluded.vless_uuid,
@@ -509,6 +545,10 @@ func (s *Store) UpsertUserAccess(ctx context.Context, access UserAccess) (UserAc
 			hy2_password_enc = excluded.hy2_password_enc,
 			traffic_limit_bytes_override = excluded.traffic_limit_bytes_override,
 			expire_at_ns_override = excluded.expire_at_ns_override,
+			display_name = excluded.display_name,
+			description = excluded.description,
+			credential_status = excluded.credential_status,
+			client_profile_id = excluded.client_profile_id,
 			updated_at_ns = excluded.updated_at_ns`,
 		access.ID,
 		access.UserID,
@@ -519,6 +559,12 @@ func (s *Store) UpsertUserAccess(ctx context.Context, access UserAccess) (UserAc
 		nullIfEmpty(access.Hysteria2Password),
 		nullableInt64(access.TrafficLimitBytesOverride),
 		nullableTime(access.ExpireAtOverride),
+		nullIfEmpty(access.DisplayName),
+		nullIfEmpty(access.Description),
+		access.CredentialStatus,
+		nullableTime(access.LastSeenAt),
+		nullIfEmpty(valueOrEmpty(access.LastClientIP)),
+		nullIfEmpty(access.ClientProfileID),
 		toUnixNano(access.CreatedAt),
 		toUnixNano(access.UpdatedAt),
 	)
@@ -528,8 +574,10 @@ func (s *Store) UpsertUserAccess(ctx context.Context, access UserAccess) (UserAc
 	return s.GetUserAccessByPair(ctx, access.UserID, access.InboundID)
 }
 
+const userAccessSelectCols = `id, user_id, inbound_id, enabled, vless_uuid, vless_flow_override, hy2_password_enc, traffic_limit_bytes_override, expire_at_ns_override, COALESCE(display_name,''), COALESCE(description,''), COALESCE(credential_status,'active'), last_seen_at_ns, last_client_ip, COALESCE(client_profile_id,''), created_at_ns, updated_at_ns`
+
 func (s *Store) GetUserAccess(ctx context.Context, id string) (UserAccess, error) {
-	row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT id, user_id, inbound_id, enabled, vless_uuid, vless_flow_override, hy2_password_enc, traffic_limit_bytes_override, expire_at_ns_override, created_at_ns, updated_at_ns FROM core_user_access WHERE id = ? LIMIT 1`, normalizeString(id))
+	row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT `+userAccessSelectCols+` FROM core_user_access WHERE id = ? LIMIT 1`, normalizeString(id))
 	item, err := scanUserAccess(row)
 	if err != nil {
 		return UserAccess{}, err
@@ -538,7 +586,7 @@ func (s *Store) GetUserAccess(ctx context.Context, id string) (UserAccess, error
 }
 
 func (s *Store) GetUserAccessByPair(ctx context.Context, userID string, inboundID string) (UserAccess, error) {
-	row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT id, user_id, inbound_id, enabled, vless_uuid, vless_flow_override, hy2_password_enc, traffic_limit_bytes_override, expire_at_ns_override, created_at_ns, updated_at_ns FROM core_user_access WHERE user_id = ? AND inbound_id = ? LIMIT 1`, normalizeString(userID), normalizeString(inboundID))
+	row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT `+userAccessSelectCols+` FROM core_user_access WHERE user_id = ? AND inbound_id = ? LIMIT 1`, normalizeString(userID), normalizeString(inboundID))
 	item, err := scanUserAccess(row)
 	if err != nil {
 		return UserAccess{}, err
@@ -547,7 +595,7 @@ func (s *Store) GetUserAccessByPair(ctx context.Context, userID string, inboundI
 }
 
 func (s *Store) ListUserAccessByUser(ctx context.Context, userID string) ([]UserAccess, error) {
-	rows, err := s.db.QueryContext(resolveCtx(ctx), `SELECT id, user_id, inbound_id, enabled, vless_uuid, vless_flow_override, hy2_password_enc, traffic_limit_bytes_override, expire_at_ns_override, created_at_ns, updated_at_ns FROM core_user_access WHERE user_id = ? ORDER BY created_at_ns DESC`, normalizeString(userID))
+	rows, err := s.db.QueryContext(resolveCtx(ctx), `SELECT `+userAccessSelectCols+` FROM core_user_access WHERE user_id = ? ORDER BY created_at_ns DESC`, normalizeString(userID))
 	if err != nil {
 		return nil, err
 	}
@@ -567,7 +615,7 @@ func (s *Store) ListUserAccessByUser(ctx context.Context, userID string) ([]User
 }
 
 func (s *Store) ListUserAccessByInbound(ctx context.Context, inboundID string, enabledOnly bool) ([]UserAccess, error) {
-	query := `SELECT id, user_id, inbound_id, enabled, vless_uuid, vless_flow_override, hy2_password_enc, traffic_limit_bytes_override, expire_at_ns_override, created_at_ns, updated_at_ns FROM core_user_access WHERE inbound_id = ?`
+	query := `SELECT ` + userAccessSelectCols + ` FROM core_user_access WHERE inbound_id = ?`
 	args := []any{normalizeString(inboundID)}
 	if enabledOnly {
 		query += ` AND enabled = 1`
@@ -590,6 +638,14 @@ func (s *Store) ListUserAccessByInbound(ctx context.Context, inboundID string, e
 		return nil, err
 	}
 	return items, nil
+}
+
+// UpdateUserAccessLastSeen records the last connection metadata for an access entry.
+func (s *Store) UpdateUserAccessLastSeen(ctx context.Context, id string, ip string) error {
+	_, err := s.db.ExecContext(resolveCtx(ctx),
+		`UPDATE core_user_access SET last_seen_at_ns = ?, last_client_ip = ? WHERE id = ?`,
+		nowNano(), nullIfEmpty(ip), normalizeString(id))
+	return err
 }
 
 func (s *Store) DeleteUserAccess(ctx context.Context, id string) error {
@@ -849,6 +905,10 @@ func (s *Store) ResolveSubscriptionToken(ctx context.Context, plainToken string,
 }
 
 func (s *Store) CreateConfigRevision(ctx context.Context, serverID string, renderedJSON string, configHash string, checkOK bool, checkError *string, rollbackFrom *string) (ConfigRevision, error) {
+	return s.CreateConfigRevisionEx(ctx, serverID, renderedJSON, configHash, checkOK, checkError, rollbackFrom, "")
+}
+
+func (s *Store) CreateConfigRevisionEx(ctx context.Context, serverID string, renderedJSON string, configHash string, checkOK bool, checkError *string, rollbackFrom *string, createdBy string) (ConfigRevision, error) {
 	serverID = normalizeString(serverID)
 	if serverID == "" {
 		return ConfigRevision{}, fmt.Errorf("server_id is required")
@@ -871,8 +931,8 @@ func (s *Store) CreateConfigRevision(ctx context.Context, serverID string, rende
 	now := time.Now().UTC()
 	_, err = tx.ExecContext(
 		resolveCtx(ctx),
-		`INSERT INTO core_config_revisions(id, server_id, revision_no, config_hash, rendered_json, check_ok, check_error, applied_at_ns, rollback_from_revision_id, created_at_ns)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+		`INSERT INTO core_config_revisions(id, server_id, revision_no, config_hash, rendered_json, check_ok, check_error, applied_at_ns, rollback_from_revision_id, schema_version, renderer_version, created_by, is_current, created_at_ns)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, 0, ?)`,
 		revisionID,
 		serverID,
 		revisionNo,
@@ -881,6 +941,9 @@ func (s *Store) CreateConfigRevision(ctx context.Context, serverID string, rende
 		boolToInt(checkOK),
 		nullIfEmpty(valueOrNil(checkError)),
 		nullIfEmpty(valueOrNil(rollbackFrom)),
+		currentSchemaVersion,
+		rendererVersion,
+		nullIfEmpty(createdBy),
 		toUnixNano(now),
 	)
 	if err != nil {
@@ -892,8 +955,10 @@ func (s *Store) CreateConfigRevision(ctx context.Context, serverID string, rende
 	return s.GetConfigRevision(ctx, revisionID)
 }
 
+const configRevisionSelectCols = `id, server_id, revision_no, config_hash, rendered_json, check_ok, check_error, applied_at_ns, rollback_from_revision_id, COALESCE(schema_version,0), COALESCE(renderer_version,''), COALESCE(created_by,''), COALESCE(is_current,0), created_at_ns`
+
 func (s *Store) GetConfigRevision(ctx context.Context, revisionID string) (ConfigRevision, error) {
-	row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT id, server_id, revision_no, config_hash, rendered_json, check_ok, check_error, applied_at_ns, rollback_from_revision_id, created_at_ns FROM core_config_revisions WHERE id = ? LIMIT 1`, normalizeString(revisionID))
+	row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT `+configRevisionSelectCols+` FROM core_config_revisions WHERE id = ? LIMIT 1`, normalizeString(revisionID))
 	item, err := scanConfigRevision(row)
 	if err != nil {
 		return ConfigRevision{}, err
@@ -902,7 +967,16 @@ func (s *Store) GetConfigRevision(ctx context.Context, revisionID string) (Confi
 }
 
 func (s *Store) GetLatestConfigRevision(ctx context.Context, serverID string) (ConfigRevision, error) {
-	row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT id, server_id, revision_no, config_hash, rendered_json, check_ok, check_error, applied_at_ns, rollback_from_revision_id, created_at_ns FROM core_config_revisions WHERE server_id = ? ORDER BY revision_no DESC LIMIT 1`, normalizeString(serverID))
+	row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT `+configRevisionSelectCols+` FROM core_config_revisions WHERE server_id = ? ORDER BY revision_no DESC LIMIT 1`, normalizeString(serverID))
+	item, err := scanConfigRevision(row)
+	if err != nil {
+		return ConfigRevision{}, err
+	}
+	return item, nil
+}
+
+func (s *Store) GetCurrentConfigRevision(ctx context.Context, serverID string) (ConfigRevision, error) {
+	row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT `+configRevisionSelectCols+` FROM core_config_revisions WHERE server_id = ? AND COALESCE(is_current,0) = 1 ORDER BY revision_no DESC LIMIT 1`, normalizeString(serverID))
 	item, err := scanConfigRevision(row)
 	if err != nil {
 		return ConfigRevision{}, err
@@ -914,7 +988,7 @@ func (s *Store) ListConfigRevisions(ctx context.Context, serverID string, limit 
 	if limit <= 0 {
 		limit = 20
 	}
-	rows, err := s.db.QueryContext(resolveCtx(ctx), `SELECT id, server_id, revision_no, config_hash, rendered_json, check_ok, check_error, applied_at_ns, rollback_from_revision_id, created_at_ns FROM core_config_revisions WHERE server_id = ? ORDER BY revision_no DESC LIMIT ?`, normalizeString(serverID), limit)
+	rows, err := s.db.QueryContext(resolveCtx(ctx), `SELECT `+configRevisionSelectCols+` FROM core_config_revisions WHERE server_id = ? ORDER BY revision_no DESC LIMIT ?`, normalizeString(serverID), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -934,7 +1008,26 @@ func (s *Store) ListConfigRevisions(ctx context.Context, serverID string, limit 
 }
 
 func (s *Store) MarkConfigRevisionApplied(ctx context.Context, revisionID string) error {
-	result, err := s.db.ExecContext(resolveCtx(ctx), `UPDATE core_config_revisions SET applied_at_ns = ? WHERE id = ?`, nowNano(), normalizeString(revisionID))
+	tx, err := s.db.BeginTx(resolveCtx(ctx), nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Fetch server_id for this revision to unset other is_current flags.
+	var serverID string
+	if err = tx.QueryRowContext(resolveCtx(ctx), `SELECT server_id FROM core_config_revisions WHERE id = ?`, normalizeString(revisionID)).Scan(&serverID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	// Clear is_current for all revisions of this server.
+	if _, err = tx.ExecContext(resolveCtx(ctx), `UPDATE core_config_revisions SET is_current = 0 WHERE server_id = ?`, serverID); err != nil {
+		return err
+	}
+	// Mark the target revision as applied and current.
+	result, err := tx.ExecContext(resolveCtx(ctx), `UPDATE core_config_revisions SET applied_at_ns = ?, is_current = 1 WHERE id = ?`, nowNano(), normalizeString(revisionID))
 	if err != nil {
 		return err
 	}
@@ -945,7 +1038,7 @@ func (s *Store) MarkConfigRevisionApplied(ctx context.Context, revisionID string
 	if rows == 0 {
 		return ErrNotFound
 	}
-	return nil
+	return tx.Commit()
 }
 
 func (s *Store) ListUsersByIDs(ctx context.Context, ids []string) (map[string]User, error) {
@@ -1025,29 +1118,29 @@ func (s *Store) populateInboundSettings(ctx context.Context, inbound *Inbound) e
 	}
 	switch inbound.Protocol {
 	case InboundProtocolVLESS:
-		row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT tls_enabled, tls_server_name, tls_alpn_csv, tls_certificate_path, tls_key_path, reality_enabled, reality_public_key, reality_private_key_enc, reality_short_id, reality_handshake_server, reality_handshake_server_port, flow, transport_type, transport_host, transport_path, multiplex_enabled, multiplex_protocol, multiplex_max_connections, multiplex_min_streams, multiplex_max_streams FROM core_inbound_vless_settings WHERE inbound_id = ? LIMIT 1`, inbound.ID)
+		row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT tls_enabled, tls_server_name, tls_alpn_csv, tls_certificate_path, tls_key_path, reality_enabled, reality_public_key, reality_private_key_enc, reality_short_id, reality_handshake_server, reality_handshake_server_port, flow, transport_type, transport_host, transport_path, multiplex_enabled, multiplex_protocol, multiplex_max_connections, multiplex_min_streams, multiplex_max_streams, COALESCE(reality_profile_id,''), COALESCE(transport_profile_id,''), COALESCE(multiplex_profile_id,''), COALESCE(packet_encoding_default,'') FROM core_inbound_vless_settings WHERE inbound_id = ? LIMIT 1`, inbound.ID)
 		var (
-			item VLESSInboundSettings
-			tlsServerName sql.NullString
-			tlsALPN sql.NullString
-			tlsCertPath sql.NullString
-			tlsKeyPath sql.NullString
-			realityPub sql.NullString
-			realityPriv sql.NullString
-			realitySID sql.NullString
+			item             VLESSInboundSettings
+			tlsServerName    sql.NullString
+			tlsALPN          sql.NullString
+			tlsCertPath      sql.NullString
+			tlsKeyPath       sql.NullString
+			realityPub       sql.NullString
+			realityPriv      sql.NullString
+			realitySID       sql.NullString
 			realityHandshake sql.NullString
-			realityPort sql.NullInt64
-			flow sql.NullString
-			transportType string
-			transportHost sql.NullString
-			transportPath sql.NullString
-			muxProtocol sql.NullString
-			muxMaxConn sql.NullInt64
-			muxMinStreams sql.NullInt64
-			muxMaxStreams sql.NullInt64
-			tlsEnabled int64
-			realityEnabled int64
-			muxEnabled int64
+			realityPort      sql.NullInt64
+			flow             sql.NullString
+			transportType    string
+			transportHost    sql.NullString
+			transportPath    sql.NullString
+			muxProtocol      sql.NullString
+			muxMaxConn       sql.NullInt64
+			muxMinStreams     sql.NullInt64
+			muxMaxStreams     sql.NullInt64
+			tlsEnabled       int64
+			realityEnabled   int64
+			muxEnabled       int64
 		)
 		if err := row.Scan(
 			&tlsEnabled,
@@ -1070,6 +1163,10 @@ func (s *Store) populateInboundSettings(ctx context.Context, inbound *Inbound) e
 			&muxMaxConn,
 			&muxMinStreams,
 			&muxMaxStreams,
+			&item.RealityProfileID,
+			&item.TransportProfileID,
+			&item.MultiplexProfileID,
+			&item.PacketEncodingDefault,
 		); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				inbound.VLESS = &VLESSInboundSettings{TransportType: "tcp"}
@@ -1103,22 +1200,23 @@ func (s *Store) populateInboundSettings(ctx context.Context, inbound *Inbound) e
 		inbound.VLESS = &item
 		inbound.Hysteria2 = nil
 	case InboundProtocolHysteria2:
-		row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT tls_enabled, tls_server_name, tls_certificate_path, tls_key_path, COALESCE(allow_insecure, 0), up_mbps, down_mbps, ignore_client_bandwidth, obfs_type, obfs_password_enc, masquerade_json, bbr_profile, brutal_debug FROM core_inbound_hysteria2_settings WHERE inbound_id = ? LIMIT 1`, inbound.ID)
+		row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT tls_enabled, tls_server_name, tls_certificate_path, tls_key_path, COALESCE(allow_insecure, 0), up_mbps, down_mbps, ignore_client_bandwidth, obfs_type, obfs_password_enc, masquerade_json, bbr_profile, brutal_debug, COALESCE(masquerade_profile_id,''), COALESCE(server_ports,''), COALESCE(hop_interval,0), COALESCE(network,''), COALESCE(tls_alpn_csv,''), COALESCE(bandwidth_profile_mode,'') FROM core_inbound_hysteria2_settings WHERE inbound_id = ? LIMIT 1`, inbound.ID)
 		var (
-			item Hysteria2InboundSettings
-			tlsEnabled int64
-			tlsSNI sql.NullString
-			tlsCert sql.NullString
-			tlsKey sql.NullString
+			item          Hysteria2InboundSettings
+			tlsEnabled    int64
+			tlsSNI        sql.NullString
+			tlsCert       sql.NullString
+			tlsKey        sql.NullString
 			allowInsecure int64
-			up sql.NullInt64
-			down sql.NullInt64
-			ignoreBW int64
-			obfsType sql.NullString
-			obfsPassword sql.NullString
-			masquerade sql.NullString
-			bbrProfile sql.NullString
-			brutalDebug int64
+			up            sql.NullInt64
+			down          sql.NullInt64
+			ignoreBW      int64
+			obfsType      sql.NullString
+			obfsPassword  sql.NullString
+			masquerade    sql.NullString
+			bbrProfile    sql.NullString
+			brutalDebug   int64
+			tlsALPNCSV    string
 		)
 		if err := row.Scan(
 			&tlsEnabled,
@@ -1134,6 +1232,12 @@ func (s *Store) populateInboundSettings(ctx context.Context, inbound *Inbound) e
 			&masquerade,
 			&bbrProfile,
 			&brutalDebug,
+			&item.MasqueradeProfileID,
+			&item.ServerPorts,
+			&item.HopInterval,
+			&item.Network,
+			&tlsALPNCSV,
+			&item.BandwidthProfileMode,
 		); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				inbound.Hysteria2 = &Hysteria2InboundSettings{}
@@ -1154,6 +1258,7 @@ func (s *Store) populateInboundSettings(ctx context.Context, inbound *Inbound) e
 		item.MasqueradeJSON = valueOrEmpty(optionalString(masquerade))
 		item.BBRProfile = valueOrEmpty(optionalString(bbrProfile))
 		item.BrutalDebug = intToBool(brutalDebug)
+		item.TLSALPN = splitCSV(tlsALPNCSV)
 		inbound.Hysteria2 = &item
 		inbound.VLESS = nil
 	default:
@@ -1189,11 +1294,13 @@ func scanServer(row interface{ Scan(dest ...any) error }) (Server, error) {
 
 func scanInboundBase(row interface{ Scan(dest ...any) error }) (Inbound, error) {
 	var (
-		item Inbound
-		protocol string
-		enabled int64
-		createdAt int64
-		updatedAt int64
+		item         Inbound
+		protocol     string
+		enabled      int64
+		labelsJSON   string
+		logProfileID string
+		createdAt    int64
+		updatedAt    int64
 	)
 	if err := row.Scan(
 		&item.ID,
@@ -1205,6 +1312,10 @@ func scanInboundBase(row interface{ Scan(dest ...any) error }) (Inbound, error) 
 		&item.ListenPort,
 		&enabled,
 		&item.TemplateKey,
+		&item.Notes,
+		&labelsJSON,
+		&item.SortOrder,
+		&logProfileID,
 		&createdAt,
 		&updatedAt,
 	); err != nil {
@@ -1212,6 +1323,8 @@ func scanInboundBase(row interface{ Scan(dest ...any) error }) (Inbound, error) 
 	}
 	item.Protocol = InboundProtocol(strings.TrimSpace(protocol))
 	item.Enabled = intToBool(enabled)
+	item.Labels = jsonToStrings(labelsJSON)
+	item.LogProfileID = strings.TrimSpace(logProfileID)
 	item.CreatedAt = fromUnixNano(createdAt)
 	item.UpdatedAt = fromUnixNano(updatedAt)
 	return item, nil
@@ -1247,15 +1360,17 @@ func scanUser(row interface{ Scan(dest ...any) error }) (User, error) {
 
 func scanUserAccess(row interface{ Scan(dest ...any) error }) (UserAccess, error) {
 	var (
-		item UserAccess
-		enabled int64
-		vlessUUID sql.NullString
-		vlessFlow sql.NullString
-		hy2Password sql.NullString
-		overrideLimit sql.NullInt64
+		item           UserAccess
+		enabled        int64
+		vlessUUID      sql.NullString
+		vlessFlow      sql.NullString
+		hy2Password    sql.NullString
+		overrideLimit  sql.NullInt64
 		overrideExpire sql.NullInt64
-		createdAt int64
-		updatedAt int64
+		lastSeenAt     sql.NullInt64
+		lastClientIP   sql.NullString
+		createdAt      int64
+		updatedAt      int64
 	)
 	if err := row.Scan(
 		&item.ID,
@@ -1267,6 +1382,12 @@ func scanUserAccess(row interface{ Scan(dest ...any) error }) (UserAccess, error
 		&hy2Password,
 		&overrideLimit,
 		&overrideExpire,
+		&item.DisplayName,
+		&item.Description,
+		&item.CredentialStatus,
+		&lastSeenAt,
+		&lastClientIP,
+		&item.ClientProfileID,
 		&createdAt,
 		&updatedAt,
 	); err != nil {
@@ -1281,6 +1402,8 @@ func scanUserAccess(row interface{ Scan(dest ...any) error }) (UserAccess, error
 		item.TrafficLimitBytesOverride = &value
 	}
 	item.ExpireAtOverride = optionalTime(overrideExpire)
+	item.LastSeenAt = optionalTime(lastSeenAt)
+	item.LastClientIP = optionalString(lastClientIP)
 	item.CreatedAt = fromUnixNano(createdAt)
 	item.UpdatedAt = fromUnixNano(updatedAt)
 	return item, nil
@@ -1340,12 +1463,13 @@ func scanSubscriptionToken(row interface{ Scan(dest ...any) error }) (Subscripti
 
 func scanConfigRevision(row interface{ Scan(dest ...any) error }) (ConfigRevision, error) {
 	var (
-		item ConfigRevision
-		checkOK int64
-		checkError sql.NullString
-		appliedAt sql.NullInt64
+		item         ConfigRevision
+		checkOK      int64
+		checkError   sql.NullString
+		appliedAt    sql.NullInt64
 		rollbackFrom sql.NullString
-		createdAt int64
+		isCurrent    int64
+		createdAt    int64
 	)
 	if err := row.Scan(
 		&item.ID,
@@ -1357,6 +1481,10 @@ func scanConfigRevision(row interface{ Scan(dest ...any) error }) (ConfigRevisio
 		&checkError,
 		&appliedAt,
 		&rollbackFrom,
+		&item.SchemaVersion,
+		&item.RendererVersion,
+		&item.CreatedBy,
+		&isCurrent,
 		&createdAt,
 	); err != nil {
 		return ConfigRevision{}, parseUnique(err)
@@ -1365,6 +1493,7 @@ func scanConfigRevision(row interface{ Scan(dest ...any) error }) (ConfigRevisio
 	item.CheckError = optionalString(checkError)
 	item.AppliedAt = optionalTime(appliedAt)
 	item.RollbackFromRevisionID = optionalString(rollbackFrom)
+	item.IsCurrent = intToBool(isCurrent)
 	item.CreatedAt = fromUnixNano(createdAt)
 	return item, nil
 }
@@ -1421,6 +1550,63 @@ func valueOrEmpty(value *string) string {
 		return ""
 	}
 	return strings.TrimSpace(*value)
+}
+
+func nullableIntVal(v int) any {
+	if v == 0 {
+		return nil
+	}
+	return v
+}
+
+// jsonToStrings parses a JSON string array, returning nil on empty/invalid input.
+func jsonToStrings(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" || s == "null" || s == "[]" {
+		return nil
+	}
+	var out []string
+	if err := json.Unmarshal([]byte(s), &out); err != nil {
+		return nil
+	}
+	return out
+}
+
+// stringsToJSON encodes a string slice as a JSON array; returns "" for empty slices.
+func stringsToJSON(ss []string) string {
+	if len(ss) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(ss)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+// intsToJSON encodes an int slice as a JSON array.
+func intsToJSON(ii []int) string {
+	if len(ii) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(ii)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+// jsonToInts parses a JSON int array.
+func jsonToInts(s string) []int {
+	s = strings.TrimSpace(s)
+	if s == "" || s == "null" || s == "[]" {
+		return nil
+	}
+	var out []int
+	if err := json.Unmarshal([]byte(s), &out); err != nil {
+		return nil
+	}
+	return out
 }
 
 func formatTrafficUserInfo(user User) string {

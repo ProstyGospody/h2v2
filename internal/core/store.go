@@ -271,6 +271,198 @@ func (s *Store) runMigrations(ctx context.Context) error {
 		{version: 2, stmts: []string{
 			`ALTER TABLE core_inbound_hysteria2_settings ADD COLUMN allow_insecure INTEGER NOT NULL DEFAULT 0`,
 		}},
+		// v3: First-class policy entities — outbounds, route rules, DNS/log profiles.
+		{version: 3, stmts: []string{
+			`CREATE TABLE IF NOT EXISTS core_outbounds (
+				id TEXT PRIMARY KEY,
+				server_id TEXT NOT NULL,
+				tag TEXT NOT NULL,
+				type TEXT NOT NULL,
+				enabled INTEGER NOT NULL DEFAULT 1,
+				priority INTEGER NOT NULL DEFAULT 0,
+				settings_json TEXT,
+				healthcheck_enabled INTEGER NOT NULL DEFAULT 0,
+				created_at_ns INTEGER NOT NULL,
+				updated_at_ns INTEGER NOT NULL,
+				FOREIGN KEY(server_id) REFERENCES core_servers(id) ON DELETE CASCADE,
+				UNIQUE(server_id, tag)
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_core_outbounds_server ON core_outbounds(server_id, enabled, priority)`,
+			`CREATE TABLE IF NOT EXISTS core_route_rules (
+				id TEXT PRIMARY KEY,
+				server_id TEXT NOT NULL,
+				enabled INTEGER NOT NULL DEFAULT 1,
+				priority INTEGER NOT NULL DEFAULT 0,
+				inbound_tags_json TEXT,
+				protocols_json TEXT,
+				domains_json TEXT,
+				domain_suffixes_json TEXT,
+				domain_keywords_json TEXT,
+				ip_cidrs_json TEXT,
+				ports_json TEXT,
+				network TEXT,
+				geoip_codes_json TEXT,
+				geosite_codes_json TEXT,
+				outbound_tag TEXT NOT NULL,
+				action TEXT NOT NULL DEFAULT 'route',
+				invert INTEGER NOT NULL DEFAULT 0,
+				created_at_ns INTEGER NOT NULL,
+				updated_at_ns INTEGER NOT NULL,
+				FOREIGN KEY(server_id) REFERENCES core_servers(id) ON DELETE CASCADE
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_core_route_rules_server ON core_route_rules(server_id, enabled, priority)`,
+			`CREATE TABLE IF NOT EXISTS core_dns_profiles (
+				id TEXT PRIMARY KEY,
+				server_id TEXT NOT NULL,
+				name TEXT NOT NULL,
+				enabled INTEGER NOT NULL DEFAULT 1,
+				strategy TEXT,
+				disable_cache INTEGER NOT NULL DEFAULT 0,
+				final_server TEXT,
+				servers_json TEXT,
+				rules_json TEXT,
+				fakeip_enabled INTEGER NOT NULL DEFAULT 0,
+				created_at_ns INTEGER NOT NULL,
+				updated_at_ns INTEGER NOT NULL,
+				FOREIGN KEY(server_id) REFERENCES core_servers(id) ON DELETE CASCADE
+			)`,
+			`CREATE TABLE IF NOT EXISTS core_log_profiles (
+				id TEXT PRIMARY KEY,
+				server_id TEXT NOT NULL,
+				name TEXT NOT NULL,
+				enabled INTEGER NOT NULL DEFAULT 1,
+				level TEXT NOT NULL DEFAULT 'warn',
+				output TEXT,
+				timestamp INTEGER NOT NULL DEFAULT 0,
+				access_log_enabled INTEGER NOT NULL DEFAULT 0,
+				debug_mode INTEGER NOT NULL DEFAULT 0,
+				created_at_ns INTEGER NOT NULL,
+				updated_at_ns INTEGER NOT NULL,
+				FOREIGN KEY(server_id) REFERENCES core_servers(id) ON DELETE CASCADE
+			)`,
+		}},
+		// v4: Security and transport profiles — reality, transport, multiplex, masquerade.
+		{version: 4, stmts: []string{
+			`CREATE TABLE IF NOT EXISTS core_reality_profiles (
+				id TEXT PRIMARY KEY,
+				server_id TEXT NOT NULL,
+				name TEXT NOT NULL,
+				enabled INTEGER NOT NULL DEFAULT 1,
+				server_name TEXT,
+				handshake_server TEXT NOT NULL,
+				handshake_server_port INTEGER NOT NULL DEFAULT 443,
+				private_key_enc TEXT,
+				public_key TEXT,
+				short_ids_json TEXT,
+				short_id_rotation_mode TEXT,
+				key_rotation_mode TEXT,
+				created_at_ns INTEGER NOT NULL,
+				updated_at_ns INTEGER NOT NULL,
+				FOREIGN KEY(server_id) REFERENCES core_servers(id) ON DELETE CASCADE
+			)`,
+			`CREATE TABLE IF NOT EXISTS core_transport_profiles (
+				id TEXT PRIMARY KEY,
+				server_id TEXT NOT NULL,
+				name TEXT NOT NULL,
+				enabled INTEGER NOT NULL DEFAULT 1,
+				type TEXT NOT NULL DEFAULT 'tcp',
+				host TEXT,
+				path TEXT,
+				service_name TEXT,
+				headers_json TEXT,
+				idle_timeout INTEGER,
+				ping_timeout INTEGER,
+				created_at_ns INTEGER NOT NULL,
+				updated_at_ns INTEGER NOT NULL,
+				FOREIGN KEY(server_id) REFERENCES core_servers(id) ON DELETE CASCADE
+			)`,
+			`CREATE TABLE IF NOT EXISTS core_multiplex_profiles (
+				id TEXT PRIMARY KEY,
+				server_id TEXT NOT NULL,
+				name TEXT NOT NULL,
+				enabled INTEGER NOT NULL DEFAULT 1,
+				protocol TEXT,
+				max_connections INTEGER,
+				min_streams INTEGER,
+				max_streams INTEGER,
+				padding INTEGER NOT NULL DEFAULT 0,
+				brutal INTEGER NOT NULL DEFAULT 0,
+				created_at_ns INTEGER NOT NULL,
+				updated_at_ns INTEGER NOT NULL,
+				FOREIGN KEY(server_id) REFERENCES core_servers(id) ON DELETE CASCADE
+			)`,
+			`CREATE TABLE IF NOT EXISTS core_hy2_masquerade_profiles (
+				id TEXT PRIMARY KEY,
+				server_id TEXT NOT NULL,
+				name TEXT NOT NULL,
+				enabled INTEGER NOT NULL DEFAULT 1,
+				type TEXT NOT NULL DEFAULT 'off',
+				url TEXT,
+				rewrite_host INTEGER NOT NULL DEFAULT 0,
+				directory TEXT,
+				status_code INTEGER,
+				headers_json TEXT,
+				content TEXT,
+				created_at_ns INTEGER NOT NULL,
+				updated_at_ns INTEGER NOT NULL,
+				FOREIGN KEY(server_id) REFERENCES core_servers(id) ON DELETE CASCADE
+			)`,
+		}},
+		// v5: Client profiles for user-facing connection modes.
+		{version: 5, stmts: []string{
+			`CREATE TABLE IF NOT EXISTS core_client_profiles (
+				id TEXT PRIMARY KEY,
+				server_id TEXT NOT NULL,
+				name TEXT NOT NULL,
+				protocol TEXT NOT NULL,
+				mode TEXT NOT NULL,
+				description TEXT,
+				settings_json TEXT,
+				enabled INTEGER NOT NULL DEFAULT 1,
+				created_at_ns INTEGER NOT NULL,
+				updated_at_ns INTEGER NOT NULL,
+				FOREIGN KEY(server_id) REFERENCES core_servers(id) ON DELETE CASCADE
+			)`,
+		}},
+		// v6: VLESS inbound settings — add profile ID references.
+		{version: 6, stmts: []string{
+			`ALTER TABLE core_inbound_vless_settings ADD COLUMN reality_profile_id TEXT`,
+			`ALTER TABLE core_inbound_vless_settings ADD COLUMN transport_profile_id TEXT`,
+			`ALTER TABLE core_inbound_vless_settings ADD COLUMN multiplex_profile_id TEXT`,
+			`ALTER TABLE core_inbound_vless_settings ADD COLUMN packet_encoding_default TEXT`,
+		}},
+		// v7: HY2 inbound settings — add port hopping, network, masquerade profile, ALPN override.
+		{version: 7, stmts: []string{
+			`ALTER TABLE core_inbound_hysteria2_settings ADD COLUMN masquerade_profile_id TEXT`,
+			`ALTER TABLE core_inbound_hysteria2_settings ADD COLUMN server_ports TEXT`,
+			`ALTER TABLE core_inbound_hysteria2_settings ADD COLUMN hop_interval INTEGER`,
+			`ALTER TABLE core_inbound_hysteria2_settings ADD COLUMN network TEXT`,
+			`ALTER TABLE core_inbound_hysteria2_settings ADD COLUMN tls_alpn_csv TEXT`,
+			`ALTER TABLE core_inbound_hysteria2_settings ADD COLUMN bandwidth_profile_mode TEXT`,
+		}},
+		// v8: User access — add lifecycle metadata fields.
+		{version: 8, stmts: []string{
+			`ALTER TABLE core_user_access ADD COLUMN display_name TEXT`,
+			`ALTER TABLE core_user_access ADD COLUMN description TEXT`,
+			`ALTER TABLE core_user_access ADD COLUMN credential_status TEXT NOT NULL DEFAULT 'active'`,
+			`ALTER TABLE core_user_access ADD COLUMN last_seen_at_ns INTEGER`,
+			`ALTER TABLE core_user_access ADD COLUMN last_client_ip TEXT`,
+			`ALTER TABLE core_user_access ADD COLUMN client_profile_id TEXT`,
+		}},
+		// v9: Config revisions — add schema version, renderer version, created_by, is_current.
+		{version: 9, stmts: []string{
+			`ALTER TABLE core_config_revisions ADD COLUMN schema_version INTEGER NOT NULL DEFAULT 0`,
+			`ALTER TABLE core_config_revisions ADD COLUMN renderer_version TEXT`,
+			`ALTER TABLE core_config_revisions ADD COLUMN created_by TEXT`,
+			`ALTER TABLE core_config_revisions ADD COLUMN is_current INTEGER NOT NULL DEFAULT 0`,
+		}},
+		// v10: Inbounds — add notes, labels, sort_order, log_profile_id.
+		{version: 10, stmts: []string{
+			`ALTER TABLE core_inbounds ADD COLUMN notes TEXT`,
+			`ALTER TABLE core_inbounds ADD COLUMN labels_json TEXT`,
+			`ALTER TABLE core_inbounds ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0`,
+			`ALTER TABLE core_inbounds ADD COLUMN log_profile_id TEXT`,
+		}},
 	}
 	for _, m := range migrations {
 		var count int
