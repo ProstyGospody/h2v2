@@ -4,10 +4,15 @@ import {
   Check,
   CheckCircle2,
   Copy,
+  FileCode2,
+  Globe,
   Loader2,
   RefreshCw,
   RotateCcw,
   Save,
+  Server as ServerIcon,
+  Shield,
+  Zap,
 } from "lucide-react";
 import {
   type FormEvent,
@@ -54,35 +59,53 @@ function useDirtyForm<T>(initial: T) {
 
 function FieldGroup({
   title,
+  description,
   children,
 }: {
   title?: string;
+  description?: string;
   children: ReactNode;
 }) {
   return (
     <div className="space-y-4">
       {title ? (
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">
-          {title}
-        </h3>
+        <div className="space-y-1">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">
+            {title}
+          </h3>
+          {description ? (
+            <p className="text-[12px] text-txt-tertiary">{description}</p>
+          ) : null}
+        </div>
       ) : null}
       {children}
     </div>
   );
 }
 
+function SectionDivider() {
+  return <div className="h-px w-full bg-border/40" />;
+}
+
 function InlineToggle({
   label,
+  description,
   checked,
   onCheckedChange,
 }: {
   label: string;
+  description?: string;
   checked: boolean;
   onCheckedChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-lg px-1 py-2">
-      <span className="text-[14px] font-medium text-txt-primary">{label}</span>
+    <label className="group flex cursor-pointer items-center justify-between gap-4 rounded-lg px-3 py-2.5 -mx-3 transition-colors hover:bg-surface-3/35">
+      <div className="min-w-0">
+        <div className="text-[14px] font-medium text-txt-primary">{label}</div>
+        {description ? (
+          <div className="mt-0.5 text-[12px] text-txt-tertiary">{description}</div>
+        ) : null}
+      </div>
       <Toggle checked={checked} onCheckedChange={onCheckedChange} />
     </label>
   );
@@ -148,10 +171,10 @@ function CopyField({
           type="button"
           onClick={copy}
           disabled={!value}
-          className="inline-grid h-10 w-10 shrink-0 place-items-center rounded-lg text-txt-muted transition-colors hover:bg-surface-3/60 hover:text-txt-primary disabled:opacity-40"
+          className="inline-grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-surface-3/40 text-txt-muted transition-colors hover:bg-surface-3/70 hover:text-txt-primary disabled:opacity-40 disabled:hover:bg-surface-3/40"
           aria-label="Copy"
         >
-          {copied ? <Check size={14} /> : <Copy size={14} />}
+          {copied ? <Check size={14} className="text-status-success" /> : <Copy size={14} />}
         </button>
       </div>
     </div>
@@ -172,8 +195,11 @@ function SaveBar({
   if (!dirty) return null;
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
-      <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-surface-2/95 px-3 py-2 shadow-[0_18px_42px_-16px_var(--dialog-shadow)] backdrop-blur-xl">
-        <span className="px-2 text-[13px] font-medium text-txt-secondary">Unsaved changes</span>
+      <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-surface-2/95 px-3 py-2 shadow-[0_18px_42px_-16px_var(--dialog-shadow)] backdrop-blur-xl ring-1 ring-border/40">
+        <div className="flex items-center gap-2 px-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-status-warning animate-pulse" />
+          <span className="text-[13px] font-medium text-txt-secondary">Unsaved changes</span>
+        </div>
         <div className="mx-1 h-4 w-px bg-border/40" />
         <Button size="sm" onClick={onReset} disabled={busy}>
           <RotateCcw size={13} /> Reset
@@ -188,34 +214,127 @@ function SaveBar({
 }
 
 // ---------------------------------------------------------------------------
-// Tabs
+// Section header with icon
+// ---------------------------------------------------------------------------
+
+function SectionHeader({
+  icon,
+  title,
+  description,
+}: {
+  icon: ReactNode;
+  title: string;
+  description?: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 pb-5 border-b border-border/40 mb-6">
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-3/55 text-txt-secondary">
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1 pt-0.5">
+        <h2 className="text-[15px] font-semibold text-txt-primary">{title}</h2>
+        {description ? (
+          <p className="mt-0.5 text-[13px] text-txt-tertiary">{description}</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tabs (sidebar + mobile horizontal)
 // ---------------------------------------------------------------------------
 
 type Tab = "server" | "vless" | "hy2" | "preview";
 
-function TabsBar({
+type TabDef = {
+  key: Tab;
+  label: string;
+  description: string;
+  icon: ReactNode;
+};
+
+function SideNav({
   active,
   onChange,
   tabs,
 }: {
   active: Tab;
   onChange: (t: Tab) => void;
-  tabs: { key: Tab; label: string }[];
+  tabs: TabDef[];
 }) {
   return (
-    <div className="flex items-center gap-1 overflow-x-auto">
+    <nav className="hidden md:block w-[240px] shrink-0">
+      <div className="sticky top-4 space-y-1">
+        {tabs.map((t) => {
+          const isActive = active === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => onChange(t.key)}
+              className={cn(
+                "group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all",
+                isActive
+                  ? "bg-surface-2 shadow-[inset_0_0_0_1px_var(--border)]"
+                  : "hover:bg-surface-2/60",
+              )}
+            >
+              <div
+                className={cn(
+                  "grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-colors",
+                  isActive
+                    ? "bg-accent-soft text-accent"
+                    : "bg-surface-3/45 text-txt-muted group-hover:text-txt-secondary",
+                )}
+              >
+                {t.icon}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div
+                  className={cn(
+                    "text-[13px] font-semibold leading-tight transition-colors",
+                    isActive ? "text-txt-primary" : "text-txt-secondary group-hover:text-txt-primary",
+                  )}
+                >
+                  {t.label}
+                </div>
+                <div className="mt-0.5 truncate text-[11px] text-txt-tertiary">
+                  {t.description}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
+function MobileTabsBar({
+  active,
+  onChange,
+  tabs,
+}: {
+  active: Tab;
+  onChange: (t: Tab) => void;
+  tabs: TabDef[];
+}) {
+  return (
+    <div className="md:hidden flex items-center gap-1 overflow-x-auto rounded-xl bg-surface-2 p-1">
       {tabs.map((t) => (
         <button
           key={t.key}
           type="button"
           onClick={() => onChange(t.key)}
           className={cn(
-            "shrink-0 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors",
+            "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors",
             active === t.key
               ? "bg-surface-3/70 text-txt-primary"
               : "text-txt-secondary hover:text-txt-primary",
           )}
         >
+          <span className="opacity-80">{t.icon}</span>
           {t.label}
         </button>
       ))}
@@ -279,10 +398,15 @@ function ServerForm({ server, onSaved }: { server: ServerType; onSaved: () => vo
 
   return (
     <>
-      <form className="space-y-8" onSubmit={submit}>
+      <SectionHeader
+        icon={<ServerIcon size={18} strokeWidth={1.8} />}
+        title="Server"
+        description="Public endpoints and sing-box runtime paths"
+      />
+      <form className="space-y-6" onSubmit={submit}>
         {error ? <ErrorBanner message={error} /> : null}
 
-        <FieldGroup title="Endpoints">
+        <FieldGroup title="Endpoints" description="How clients reach this server">
           <Input
             label="Public host"
             placeholder="example.com"
@@ -297,7 +421,9 @@ function ServerForm({ server, onSaved }: { server: ServerType; onSaved: () => vo
           />
         </FieldGroup>
 
-        <FieldGroup title="sing-box">
+        <SectionDivider />
+
+        <FieldGroup title="sing-box" description="Binary, config, and systemd unit">
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
               label="Binary path"
@@ -410,7 +536,12 @@ function VLESSForm({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void
 
   return (
     <>
-      <form className="space-y-8" onSubmit={submit}>
+      <SectionHeader
+        icon={<Shield size={18} strokeWidth={1.8} />}
+        title="VLESS"
+        description="Reality handshake, TLS, and transport"
+      />
+      <form className="space-y-6" onSubmit={submit}>
         {error ? <ErrorBanner message={error} /> : null}
 
         <FieldGroup title="Inbound">
@@ -429,20 +560,26 @@ function VLESSForm({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void
               onChange={(e) => set("flow", e.target.value)}
             />
           </div>
-          <InlineToggle
-            label="Enabled"
-            checked={form.enabled}
-            onCheckedChange={(v) => set("enabled", v)}
-          />
-          <InlineToggle
-            label="Reality"
-            checked={form.reality_enabled}
-            onCheckedChange={(v) => set("reality_enabled", v)}
-          />
+          <div className="space-y-1 pt-1">
+            <InlineToggle
+              label="Enabled"
+              description="Accept incoming connections on this inbound"
+              checked={form.enabled}
+              onCheckedChange={(v) => set("enabled", v)}
+            />
+            <InlineToggle
+              label="Reality"
+              description="Use Reality instead of classic TLS"
+              checked={form.reality_enabled}
+              onCheckedChange={(v) => set("reality_enabled", v)}
+            />
+          </div>
         </FieldGroup>
 
+        <SectionDivider />
+
         {form.reality_enabled ? (
-          <FieldGroup title="Reality">
+          <FieldGroup title="Reality" description="Handshake target and keypair">
             <Input
               label="Handshake server"
               value={form.reality_handshake_server}
@@ -481,6 +618,8 @@ function VLESSForm({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void
             />
           </FieldGroup>
         )}
+
+        <SectionDivider />
 
         <FieldGroup title="Transport">
           <div className="grid gap-4 sm:grid-cols-3">
@@ -599,7 +738,12 @@ function HY2Form({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }
 
   return (
     <>
-      <form className="space-y-8" onSubmit={submit}>
+      <SectionHeader
+        icon={<Zap size={18} strokeWidth={1.8} />}
+        title="Hysteria2"
+        description="TLS, bandwidth shaping, and obfuscation"
+      />
+      <form className="space-y-6" onSubmit={submit}>
         {error ? <ErrorBanner message={error} /> : null}
 
         <FieldGroup title="Inbound">
@@ -612,17 +756,20 @@ function HY2Form({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }
               value={form.listen_port}
               onChange={(e) => set("listen_port", e.target.value)}
             />
-            <div className="self-end">
-              <InlineToggle
-                label="Enabled"
-                checked={form.enabled}
-                onCheckedChange={(v) => set("enabled", v)}
-              />
-            </div>
+          </div>
+          <div className="pt-1">
+            <InlineToggle
+              label="Enabled"
+              description="Accept incoming connections on this inbound"
+              checked={form.enabled}
+              onCheckedChange={(v) => set("enabled", v)}
+            />
           </div>
         </FieldGroup>
 
-        <FieldGroup title="TLS">
+        <SectionDivider />
+
+        <FieldGroup title="TLS" description="Certificate and SNI">
           <Input
             label="SNI"
             value={form.tls_server_name}
@@ -640,19 +787,27 @@ function HY2Form({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }
               onChange={(e) => set("tls_key_path", e.target.value)}
             />
           </div>
-          <InlineToggle
-            label="Allow insecure"
-            checked={form.allow_insecure}
-            onCheckedChange={(v) => set("allow_insecure", v)}
-          />
+          <div className="pt-1">
+            <InlineToggle
+              label="Allow insecure"
+              description="Skip certificate verification (not recommended)"
+              checked={form.allow_insecure}
+              onCheckedChange={(v) => set("allow_insecure", v)}
+            />
+          </div>
         </FieldGroup>
 
-        <FieldGroup title="Bandwidth">
-          <InlineToggle
-            label="Ignore client bandwidth"
-            checked={form.ignore_client_bandwidth}
-            onCheckedChange={(v) => set("ignore_client_bandwidth", v)}
-          />
+        <SectionDivider />
+
+        <FieldGroup title="Bandwidth" description="Per-client upload/download caps">
+          <div className="pb-1">
+            <InlineToggle
+              label="Ignore client bandwidth"
+              description="Server-side shaping overrides client hints"
+              checked={form.ignore_client_bandwidth}
+              onCheckedChange={(v) => set("ignore_client_bandwidth", v)}
+            />
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
               label="Upload (Mbps)"
@@ -672,6 +827,8 @@ function HY2Form({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }
             />
           </div>
         </FieldGroup>
+
+        <SectionDivider />
 
         <FieldGroup title="Obfuscation">
           <div className="grid gap-4 sm:grid-cols-2">
@@ -737,45 +894,57 @@ function ConfigPreview({ server }: { server: ServerType }) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Button type="button" disabled={loading} onClick={() => void load()}>
-          {loading ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <RefreshCw size={14} />
-          )}
-          {result ? "Refresh" : "Generate"}
-        </Button>
-        {result ? (
-          <Button type="button" onClick={copy} disabled={!pretty}>
-            {copied ? <Check size={14} /> : <Copy size={14} />}
-            {copied ? "Copied" : "Copy"}
+    <>
+      <SectionHeader
+        icon={<FileCode2 size={18} strokeWidth={1.8} />}
+        title="Config"
+        description="Preview the generated sing-box configuration"
+      />
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Button type="button" disabled={loading} onClick={() => void load()}>
+            {loading ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <RefreshCw size={14} />
+            )}
+            {result ? "Refresh" : "Generate"}
           </Button>
-        ) : null}
+          {result ? (
+            <Button type="button" onClick={copy} disabled={!pretty}>
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+              {copied ? "Copied" : "Copy"}
+            </Button>
+          ) : null}
+        </div>
+
+        {error ? <ErrorBanner message={error} /> : null}
+
+        {result ? (
+          <>
+            {result.check_warning ? (
+              <div className="flex items-start gap-2 rounded-lg bg-status-warning/10 px-3 py-2.5 text-[13px] text-status-warning">
+                <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+                <span className="break-all">{result.check_warning}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 rounded-lg bg-status-success/10 px-3 py-2.5 text-[13px] text-status-success">
+                <CheckCircle2 size={15} className="shrink-0" />
+                <span>Valid</span>
+              </div>
+            )}
+            <pre className="max-h-[560px] overflow-auto rounded-xl bg-surface-0 p-4 font-mono text-[12px] leading-relaxed text-txt-secondary ring-1 ring-border/30">
+              {pretty}
+            </pre>
+          </>
+        ) : (
+          <div className="flex items-center gap-2 rounded-lg bg-surface-3/25 px-3 py-2.5 text-[13px] text-txt-tertiary">
+            <Globe size={15} className="shrink-0" />
+            <span>Click Generate to render the current config.</span>
+          </div>
+        )}
       </div>
-
-      {error ? <ErrorBanner message={error} /> : null}
-
-      {result ? (
-        <>
-          {result.check_warning ? (
-            <div className="flex items-start gap-2 rounded-lg bg-status-warning/10 px-3 py-2.5 text-[13px] text-status-warning">
-              <AlertTriangle size={15} className="mt-0.5 shrink-0" />
-              <span className="break-all">{result.check_warning}</span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 rounded-lg bg-status-success/10 px-3 py-2.5 text-[13px] text-status-success">
-              <CheckCircle2 size={15} className="shrink-0" />
-              <span>Valid</span>
-            </div>
-          )}
-          <pre className="max-h-[560px] overflow-auto rounded-xl bg-surface-0 p-4 font-mono text-[12px] leading-relaxed text-txt-secondary">
-            {pretty}
-          </pre>
-        </>
-      ) : null}
-    </div>
+    </>
   );
 }
 
@@ -801,11 +970,39 @@ export default function SettingsPage() {
   }, [qc]);
 
   const tabs = useMemo(() => {
-    const list: { key: Tab; label: string }[] = [];
-    if (server) list.push({ key: "server", label: "Server" });
-    if (vlessInbound) list.push({ key: "vless", label: "VLESS" });
-    if (hy2Inbound) list.push({ key: "hy2", label: "Hysteria2" });
-    if (server) list.push({ key: "preview", label: "Config" });
+    const list: TabDef[] = [];
+    if (server) {
+      list.push({
+        key: "server",
+        label: "Server",
+        description: "Host & sing-box",
+        icon: <ServerIcon size={15} strokeWidth={1.8} />,
+      });
+    }
+    if (vlessInbound) {
+      list.push({
+        key: "vless",
+        label: "VLESS",
+        description: "Reality & transport",
+        icon: <Shield size={15} strokeWidth={1.8} />,
+      });
+    }
+    if (hy2Inbound) {
+      list.push({
+        key: "hy2",
+        label: "Hysteria2",
+        description: "TLS & bandwidth",
+        icon: <Zap size={15} strokeWidth={1.8} />,
+      });
+    }
+    if (server) {
+      list.push({
+        key: "preview",
+        label: "Config",
+        description: "Preview JSON",
+        icon: <FileCode2 size={15} strokeWidth={1.8} />,
+      });
+    }
     return list;
   }, [server, vlessInbound, hy2Inbound]);
 
@@ -828,22 +1025,27 @@ export default function SettingsPage() {
       ) : error ? (
         <ErrorBanner message="Failed to load settings." />
       ) : tabs.length === 0 ? (
-        <div className="py-10 text-center text-[14px] text-txt-muted">Nothing configured.</div>
+        <div className="rounded-2xl bg-surface-2 py-12 text-center text-[14px] text-txt-muted">
+          Nothing configured.
+        </div>
       ) : (
-        <>
-          <TabsBar active={tab} onChange={setTab} tabs={tabs} />
+        <div className="flex flex-col gap-6 md:flex-row md:items-start">
+          <SideNav active={tab} onChange={setTab} tabs={tabs} />
+          <MobileTabsBar active={tab} onChange={setTab} tabs={tabs} />
 
-          <div className="max-w-[720px]">
-            {tab === "server" && server ? <ServerForm server={server} onSaved={invalidate} /> : null}
-            {tab === "vless" && vlessInbound ? (
-              <VLESSForm inbound={vlessInbound} onSaved={invalidate} />
-            ) : null}
-            {tab === "hy2" && hy2Inbound ? (
-              <HY2Form inbound={hy2Inbound} onSaved={invalidate} />
-            ) : null}
-            {tab === "preview" && server ? <ConfigPreview server={server} /> : null}
+          <div className="min-w-0 flex-1 md:max-w-[760px]">
+            <div className="panel-card">
+              {tab === "server" && server ? <ServerForm server={server} onSaved={invalidate} /> : null}
+              {tab === "vless" && vlessInbound ? (
+                <VLESSForm inbound={vlessInbound} onSaved={invalidate} />
+              ) : null}
+              {tab === "hy2" && hy2Inbound ? (
+                <HY2Form inbound={hy2Inbound} onSaved={invalidate} />
+              ) : null}
+              {tab === "preview" && server ? <ConfigPreview server={server} /> : null}
+            </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
