@@ -57,17 +57,15 @@ const SelectItem = forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer select-none items-center rounded-lg px-3 py-2.5 text-[14px] text-txt-primary outline-none transition-colors hover:bg-surface-3/60 data-[state=checked]:font-semibold",
+      "flex cursor-pointer select-none items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-[14px] text-txt-primary outline-none transition-colors hover:bg-surface-3/60 data-[state=checked]:font-semibold",
       className,
     )}
     {...props}
   >
-    <span className="absolute left-2 inline-flex h-4 w-4 items-center justify-center">
-      <SelectPrimitive.ItemIndicator>
-        <Check size={15} strokeWidth={1.6} className="text-accent-secondary" />
-      </SelectPrimitive.ItemIndicator>
-    </span>
-    <SelectPrimitive.ItemText className="pl-5">{children}</SelectPrimitive.ItemText>
+    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+    <SelectPrimitive.ItemIndicator className="shrink-0">
+      <Check size={15} strokeWidth={1.8} className="text-accent-secondary" />
+    </SelectPrimitive.ItemIndicator>
   </SelectPrimitive.Item>
 ));
 
