@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   Copy,
   FileCode2,
-  Globe,
   Loader2,
   RefreshCw,
   RotateCcw,
@@ -59,24 +58,17 @@ function useDirtyForm<T>(initial: T) {
 
 function FieldGroup({
   title,
-  description,
   children,
 }: {
   title?: string;
-  description?: string;
   children: ReactNode;
 }) {
   return (
     <div className="space-y-4">
       {title ? (
-        <div className="space-y-1">
-          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">
-            {title}
-          </h3>
-          {description ? (
-            <p className="text-[12px] text-txt-tertiary">{description}</p>
-          ) : null}
-        </div>
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">
+          {title}
+        </h3>
       ) : null}
       {children}
     </div>
@@ -89,23 +81,16 @@ function SectionDivider() {
 
 function InlineToggle({
   label,
-  description,
   checked,
   onCheckedChange,
 }: {
   label: string;
-  description?: string;
   checked: boolean;
   onCheckedChange: (v: boolean) => void;
 }) {
   return (
-    <label className="group flex cursor-pointer items-center justify-between gap-4 rounded-lg px-3 py-2.5 -mx-3 transition-colors hover:bg-surface-3/35">
-      <div className="min-w-0">
-        <div className="text-[14px] font-medium text-txt-primary">{label}</div>
-        {description ? (
-          <div className="mt-0.5 text-[12px] text-txt-tertiary">{description}</div>
-        ) : null}
-      </div>
+    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-lg px-1 py-2">
+      <span className="text-[14px] font-medium text-txt-primary">{label}</span>
       <Toggle checked={checked} onCheckedChange={onCheckedChange} />
     </label>
   );
@@ -220,23 +205,16 @@ function SaveBar({
 function SectionHeader({
   icon,
   title,
-  description,
 }: {
   icon: ReactNode;
   title: string;
-  description?: string;
 }) {
   return (
-    <div className="flex items-start gap-3 pb-5 border-b border-border/40 mb-6">
+    <div className="flex items-center gap-3 pb-5 border-b border-border/40 mb-6">
       <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-3/55 text-txt-secondary">
         {icon}
       </div>
-      <div className="min-w-0 flex-1 pt-0.5">
-        <h2 className="text-[15px] font-semibold text-txt-primary">{title}</h2>
-        {description ? (
-          <p className="mt-0.5 text-[13px] text-txt-tertiary">{description}</p>
-        ) : null}
-      </div>
+      <h2 className="text-[15px] font-semibold text-txt-primary">{title}</h2>
     </div>
   );
 }
@@ -250,7 +228,6 @@ type Tab = "server" | "vless" | "hy2" | "preview";
 type TabDef = {
   key: Tab;
   label: string;
-  description: string;
   icon: ReactNode;
 };
 
@@ -264,45 +241,34 @@ function SideNav({
   tabs: TabDef[];
 }) {
   return (
-    <nav className="hidden md:block w-[240px] shrink-0">
-      <div className="sticky top-4 space-y-1">
+    <nav className="hidden md:block w-[220px] shrink-0">
+      <div className="sticky top-4 space-y-1.5">
         {tabs.map((t) => {
-          const isActive = active === t.key;
+          const selected = active === t.key;
           return (
             <button
               key={t.key}
               type="button"
               onClick={() => onChange(t.key)}
               className={cn(
-                "group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-all",
-                isActive
-                  ? "bg-surface-2 shadow-[inset_0_0_0_1px_var(--border)]"
-                  : "hover:bg-surface-2/60",
+                "group relative flex h-12 w-full items-center gap-3 rounded-2xl px-4 transition-[transform,background-color,color,box-shadow] duration-200 will-change-transform hover:translate-x-0.5",
+                selected
+                  ? "bg-surface-3/70 text-txt-primary shadow-[inset_0_1px_0_var(--shell-highlight),0_2px_8px_var(--shell-shadow)]"
+                  : "text-txt-secondary hover:bg-surface-3/45 hover:text-txt-primary",
               )}
             >
-              <div
+              {selected && (
+                <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-accent to-accent-secondary" />
+              )}
+              <span
                 className={cn(
-                  "grid h-8 w-8 shrink-0 place-items-center rounded-lg transition-colors",
-                  isActive
-                    ? "bg-accent-soft text-accent"
-                    : "bg-surface-3/45 text-txt-muted group-hover:text-txt-secondary",
+                  "shrink-0 transition-colors duration-200",
+                  selected ? "text-accent-secondary" : "text-txt-tertiary group-hover:text-txt-primary",
                 )}
               >
                 {t.icon}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div
-                  className={cn(
-                    "text-[13px] font-semibold leading-tight transition-colors",
-                    isActive ? "text-txt-primary" : "text-txt-secondary group-hover:text-txt-primary",
-                  )}
-                >
-                  {t.label}
-                </div>
-                <div className="mt-0.5 truncate text-[11px] text-txt-tertiary">
-                  {t.description}
-                </div>
-              </div>
+              </span>
+              <span className="text-[14px] font-semibold whitespace-nowrap">{t.label}</span>
             </button>
           );
         })}
@@ -398,15 +364,11 @@ function ServerForm({ server, onSaved }: { server: ServerType; onSaved: () => vo
 
   return (
     <>
-      <SectionHeader
-        icon={<ServerIcon size={18} strokeWidth={1.8} />}
-        title="Server"
-        description="Public endpoints and sing-box runtime paths"
-      />
+      <SectionHeader icon={<ServerIcon size={18} strokeWidth={1.8} />} title="Server" />
       <form className="space-y-6" onSubmit={submit}>
         {error ? <ErrorBanner message={error} /> : null}
 
-        <FieldGroup title="Endpoints" description="How clients reach this server">
+        <FieldGroup title="Endpoints">
           <Input
             label="Public host"
             placeholder="example.com"
@@ -423,7 +385,7 @@ function ServerForm({ server, onSaved }: { server: ServerType; onSaved: () => vo
 
         <SectionDivider />
 
-        <FieldGroup title="sing-box" description="Binary, config, and systemd unit">
+        <FieldGroup title="sing-box">
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
               label="Binary path"
@@ -536,11 +498,7 @@ function VLESSForm({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void
 
   return (
     <>
-      <SectionHeader
-        icon={<Shield size={18} strokeWidth={1.8} />}
-        title="VLESS"
-        description="Reality handshake, TLS, and transport"
-      />
+      <SectionHeader icon={<Shield size={18} strokeWidth={1.8} />} title="VLESS" />
       <form className="space-y-6" onSubmit={submit}>
         {error ? <ErrorBanner message={error} /> : null}
 
@@ -560,26 +518,22 @@ function VLESSForm({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void
               onChange={(e) => set("flow", e.target.value)}
             />
           </div>
-          <div className="space-y-1 pt-1">
-            <InlineToggle
-              label="Enabled"
-              description="Accept incoming connections on this inbound"
-              checked={form.enabled}
-              onCheckedChange={(v) => set("enabled", v)}
-            />
-            <InlineToggle
-              label="Reality"
-              description="Use Reality instead of classic TLS"
-              checked={form.reality_enabled}
-              onCheckedChange={(v) => set("reality_enabled", v)}
-            />
-          </div>
+          <InlineToggle
+            label="Enabled"
+            checked={form.enabled}
+            onCheckedChange={(v) => set("enabled", v)}
+          />
+          <InlineToggle
+            label="Reality"
+            checked={form.reality_enabled}
+            onCheckedChange={(v) => set("reality_enabled", v)}
+          />
         </FieldGroup>
 
         <SectionDivider />
 
         {form.reality_enabled ? (
-          <FieldGroup title="Reality" description="Handshake target and keypair">
+          <FieldGroup title="Reality">
             <Input
               label="Handshake server"
               value={form.reality_handshake_server}
@@ -738,11 +692,7 @@ function HY2Form({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }
 
   return (
     <>
-      <SectionHeader
-        icon={<Zap size={18} strokeWidth={1.8} />}
-        title="Hysteria2"
-        description="TLS, bandwidth shaping, and obfuscation"
-      />
+      <SectionHeader icon={<Zap size={18} strokeWidth={1.8} />} title="Hysteria2" />
       <form className="space-y-6" onSubmit={submit}>
         {error ? <ErrorBanner message={error} /> : null}
 
@@ -757,19 +707,16 @@ function HY2Form({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }
               onChange={(e) => set("listen_port", e.target.value)}
             />
           </div>
-          <div className="pt-1">
-            <InlineToggle
-              label="Enabled"
-              description="Accept incoming connections on this inbound"
-              checked={form.enabled}
-              onCheckedChange={(v) => set("enabled", v)}
-            />
-          </div>
+          <InlineToggle
+            label="Enabled"
+            checked={form.enabled}
+            onCheckedChange={(v) => set("enabled", v)}
+          />
         </FieldGroup>
 
         <SectionDivider />
 
-        <FieldGroup title="TLS" description="Certificate and SNI">
+        <FieldGroup title="TLS">
           <Input
             label="SNI"
             value={form.tls_server_name}
@@ -787,27 +734,21 @@ function HY2Form({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }
               onChange={(e) => set("tls_key_path", e.target.value)}
             />
           </div>
-          <div className="pt-1">
-            <InlineToggle
-              label="Allow insecure"
-              description="Skip certificate verification (not recommended)"
-              checked={form.allow_insecure}
-              onCheckedChange={(v) => set("allow_insecure", v)}
-            />
-          </div>
+          <InlineToggle
+            label="Allow insecure"
+            checked={form.allow_insecure}
+            onCheckedChange={(v) => set("allow_insecure", v)}
+          />
         </FieldGroup>
 
         <SectionDivider />
 
-        <FieldGroup title="Bandwidth" description="Per-client upload/download caps">
-          <div className="pb-1">
-            <InlineToggle
-              label="Ignore client bandwidth"
-              description="Server-side shaping overrides client hints"
-              checked={form.ignore_client_bandwidth}
-              onCheckedChange={(v) => set("ignore_client_bandwidth", v)}
-            />
-          </div>
+        <FieldGroup title="Bandwidth">
+          <InlineToggle
+            label="Ignore client bandwidth"
+            checked={form.ignore_client_bandwidth}
+            onCheckedChange={(v) => set("ignore_client_bandwidth", v)}
+          />
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
               label="Upload (Mbps)"
@@ -895,11 +836,7 @@ function ConfigPreview({ server }: { server: ServerType }) {
 
   return (
     <>
-      <SectionHeader
-        icon={<FileCode2 size={18} strokeWidth={1.8} />}
-        title="Config"
-        description="Preview the generated sing-box configuration"
-      />
+      <SectionHeader icon={<FileCode2 size={18} strokeWidth={1.8} />} title="Config" />
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <Button type="button" disabled={loading} onClick={() => void load()}>
@@ -937,12 +874,7 @@ function ConfigPreview({ server }: { server: ServerType }) {
               {pretty}
             </pre>
           </>
-        ) : (
-          <div className="flex items-center gap-2 rounded-lg bg-surface-3/25 px-3 py-2.5 text-[13px] text-txt-tertiary">
-            <Globe size={15} className="shrink-0" />
-            <span>Click Generate to render the current config.</span>
-          </div>
-        )}
+        ) : null}
       </div>
     </>
   );
@@ -972,36 +904,16 @@ export default function SettingsPage() {
   const tabs = useMemo(() => {
     const list: TabDef[] = [];
     if (server) {
-      list.push({
-        key: "server",
-        label: "Server",
-        description: "Host & sing-box",
-        icon: <ServerIcon size={15} strokeWidth={1.8} />,
-      });
+      list.push({ key: "server", label: "Server", icon: <ServerIcon size={18} strokeWidth={1.8} /> });
     }
     if (vlessInbound) {
-      list.push({
-        key: "vless",
-        label: "VLESS",
-        description: "Reality & transport",
-        icon: <Shield size={15} strokeWidth={1.8} />,
-      });
+      list.push({ key: "vless", label: "VLESS", icon: <Shield size={18} strokeWidth={1.8} /> });
     }
     if (hy2Inbound) {
-      list.push({
-        key: "hy2",
-        label: "Hysteria2",
-        description: "TLS & bandwidth",
-        icon: <Zap size={15} strokeWidth={1.8} />,
-      });
+      list.push({ key: "hy2", label: "Hysteria2", icon: <Zap size={18} strokeWidth={1.8} /> });
     }
     if (server) {
-      list.push({
-        key: "preview",
-        label: "Config",
-        description: "Preview JSON",
-        icon: <FileCode2 size={15} strokeWidth={1.8} />,
-      });
+      list.push({ key: "preview", label: "Config", icon: <FileCode2 size={18} strokeWidth={1.8} /> });
     }
     return list;
   }, [server, vlessInbound, hy2Inbound]);
