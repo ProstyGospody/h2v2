@@ -128,8 +128,8 @@ html.dark {
   --border-hover: rgba(228, 234, 255, 0.18);
   --border-focus: rgba(157, 144, 255, 0.34);
 
-  --control-bg: rgba(0, 0, 0, 0.32);
-  --control-bg-hover: rgba(0, 0, 0, 0.48);
+  --control-bg: rgba(255, 255, 255, 0.04);
+  --control-bg-hover: rgba(255, 255, 255, 0.08);
   --control-border: rgba(0, 0, 0, 0);
   --control-border-strong: rgba(200, 214, 240, 0.10);
 
