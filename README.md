@@ -52,14 +52,13 @@ Installer modes:
 ## Service names
 
 - `h2v2-api.service`
-- `h2v2-web.service`
 - `sing-box.service` (or `${SINGBOX_SERVICE_NAME}` from env)
-- `caddy.service`
+- `caddy.service` (also serves the static web panel from `/opt/h2v2/current/web/dist`)
 
 Check status:
 
 ```bash
-systemctl status h2v2-api h2v2-web sing-box caddy
+systemctl status h2v2-api sing-box caddy
 ```
 
 ## API routes

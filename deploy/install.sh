@@ -18,7 +18,6 @@ HY2_DIR="${ETC_ROOT}/hysteria"
 SINGBOX_DIR="${ETC_ROOT}/sing-box"
 
 PANEL_API_PORT=18080
-PANEL_WEB_PORT=13000
 SINGBOX_SERVICE_NAME="${SINGBOX_SERVICE_NAME:-sing-box}"
 
 BACKUP_DIR=""
@@ -89,7 +88,7 @@ check_os() {
 detect_existing_installation() {
   local env_hit=0 unit_hit=0 dir_hit=0
   [[ -f "${ENV_FILE}" ]] && env_hit=1
-  systemctl list-unit-files h2v2-api.service h2v2-web.service >/dev/null 2>&1 && unit_hit=1 || true
+  systemctl list-unit-files h2v2-api.service >/dev/null 2>&1 && unit_hit=1 || true
   systemctl list-unit-files "${SINGBOX_SERVICE_NAME}.service" >/dev/null 2>&1 && unit_hit=1 || true
   [[ -d /var/lib/h2v2 || -d /etc/h2v2 ]] && dir_hit=1
   info "detected: env=${env_hit}, units=${unit_hit}, dirs=${dir_hit}"
@@ -245,6 +244,10 @@ build_frontend() {
   VITE_API_PROXY_TARGET="${api_target}" VITE_CSRF_COOKIE_NAME="${csrf_cookie}" VITE_CSRF_HEADER_NAME="${csrf_header}" npm run build
   popd >/dev/null
   run chown -R h2v2:h2v2 "${SRC_DIR}/web"
+  # Caddy (running as caddy user) serves web/dist directly; ensure it is world-readable.
+  if [[ -d "${SRC_DIR}/web/dist" ]]; then
+    run chmod -R a+rX "${SRC_DIR}/web/dist"
+  fi
   changed "panel-web rebuilt"
 }
 
@@ -379,7 +382,7 @@ collect_config() {
   RUNTIME_POLL_INTERVAL="${RUNTIME_POLL_INTERVAL:-20s}"
   SERVICE_POLL_INTERVAL="${SERVICE_POLL_INTERVAL:-60s}"
   SINGBOX_SERVICE_NAME="${SINGBOX_SERVICE_NAME:-sing-box}"
-  MANAGED_SERVICES="h2v2-api,h2v2-web,${SINGBOX_SERVICE_NAME}"
+  MANAGED_SERVICES="h2v2-api,${SINGBOX_SERVICE_NAME}"
   SYSTEMCTL_PATH="/usr/bin/systemctl"
   SUDO_PATH="/usr/bin/sudo"
   JOURNALCTL_PATH="/usr/bin/journalctl"
@@ -395,7 +398,7 @@ collect_config() {
 
 validate_config() {
   [[ -n "${PANEL_PUBLIC_HOST:-}" && -n "${SUBSCRIPTION_PUBLIC_HOST:-}" && -n "${HY2_DOMAIN:-}" ]] || fatal "public hosts and HY2_DOMAIN are required"
-  [[ "${PANEL_PUBLIC_PORT}" != "${PANEL_API_PORT}" && "${PANEL_PUBLIC_PORT}" != "${PANEL_WEB_PORT}" ]] || fatal "PANEL_PUBLIC_PORT conflicts with internal port"
+  [[ "${PANEL_PUBLIC_PORT}" != "${PANEL_API_PORT}" ]] || fatal "PANEL_PUBLIC_PORT conflicts with internal port"
 }
 
 write_env_files() {
@@ -405,7 +408,6 @@ write_env_files() {
 APP_ENV=${APP_ENV}
 PANEL_API_LISTEN_ADDR=${PANEL_API_LISTEN_ADDR}
 PANEL_API_PORT=${PANEL_API_PORT}
-PANEL_WEB_PORT=${PANEL_WEB_PORT}
 PANEL_PUBLIC_HOST=${PANEL_PUBLIC_HOST}
 PANEL_PUBLIC_PORT=${PANEL_PUBLIC_PORT}
 PANEL_PUBLIC_URL=${PANEL_PUBLIC_URL}
@@ -459,7 +461,6 @@ EOF
 PANEL_PUBLIC_HOST=${PANEL_PUBLIC_HOST}
 PANEL_PUBLIC_PORT=${PANEL_PUBLIC_PORT}
 PANEL_API_PORT=${PANEL_API_PORT}
-PANEL_WEB_PORT=${PANEL_WEB_PORT}
 PANEL_ACME_EMAIL=${PANEL_ACME_EMAIL}
 SUBSCRIPTION_PUBLIC_HOST=${SUBSCRIPTION_PUBLIC_HOST}
 HY2_DOMAIN=${HY2_DOMAIN}
@@ -495,7 +496,13 @@ ${SUBSCRIPTION_PUBLIC_HOST}:${PANEL_PUBLIC_PORT} {
     reverse_proxy 127.0.0.1:${PANEL_API_PORT}
   }
 
-  reverse_proxy 127.0.0.1:${PANEL_WEB_PORT}
+  handle {
+    root * /opt/h2v2/current/web/dist
+    @hashed_asset path_regexp ^/assets/.+\.[0-9a-f]{8,}\.[^.]+$
+    header @hashed_asset Cache-Control "public, max-age=31536000, immutable"
+    try_files {path} /index.html
+    file_server
+  }
 }
 EOF
   fi
@@ -568,17 +575,21 @@ install_sudoers_and_units() {
   phase "build/install: sudoers + systemd"
   (( DRY_RUN == 1 )) && return 0
   cat > /etc/sudoers.d/h2v2-api <<EOF
-Cmnd_Alias H2V2_SHOW = /usr/bin/systemctl show h2v2-api --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show h2v2-web --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show ${SINGBOX_SERVICE_NAME} --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp
-Cmnd_Alias H2V2_RESTART = /usr/bin/systemctl restart h2v2-api, /usr/bin/systemctl restart h2v2-web, /usr/bin/systemctl restart ${SINGBOX_SERVICE_NAME}
-Cmnd_Alias H2V2_RELOAD = /usr/bin/systemctl reload h2v2-api, /usr/bin/systemctl reload h2v2-web, /usr/bin/systemctl reload ${SINGBOX_SERVICE_NAME}
-Cmnd_Alias H2V2_LOGS = /usr/bin/journalctl -u h2v2-api -n * --no-pager --output=short-iso, /usr/bin/journalctl -u h2v2-web -n * --no-pager --output=short-iso, /usr/bin/journalctl -u ${SINGBOX_SERVICE_NAME} -n * --no-pager --output=short-iso
+Cmnd_Alias H2V2_SHOW = /usr/bin/systemctl show h2v2-api --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp, /usr/bin/systemctl show ${SINGBOX_SERVICE_NAME} --property=ActiveState --property=SubState --property=MainPID --property=ActiveEnterTimestamp
+Cmnd_Alias H2V2_RESTART = /usr/bin/systemctl restart h2v2-api, /usr/bin/systemctl restart ${SINGBOX_SERVICE_NAME}
+Cmnd_Alias H2V2_RELOAD = /usr/bin/systemctl reload h2v2-api, /usr/bin/systemctl reload ${SINGBOX_SERVICE_NAME}
+Cmnd_Alias H2V2_LOGS = /usr/bin/journalctl -u h2v2-api -n * --no-pager --output=short-iso, /usr/bin/journalctl -u ${SINGBOX_SERVICE_NAME} -n * --no-pager --output=short-iso
 h2v2 ALL=(root) NOPASSWD: H2V2_SHOW, H2V2_RESTART, H2V2_RELOAD, H2V2_LOGS
 EOF
   run chmod 0440 /etc/sudoers.d/h2v2-api
   run visudo -cf /etc/sudoers.d/h2v2-api >/dev/null
   run install -m 0644 "${SRC_DIR}/systemd/h2v2-api.service" /etc/systemd/system/h2v2-api.service
-  run install -m 0644 "${SRC_DIR}/systemd/h2v2-web.service" /etc/systemd/system/h2v2-web.service
   run install -m 0644 "${SRC_DIR}/systemd/sing-box.service" "/etc/systemd/system/${SINGBOX_SERVICE_NAME}.service"
+  # Migration: remove legacy vite-preview unit if left over from previous installs.
+  if [[ -f /etc/systemd/system/h2v2-web.service ]]; then
+    systemctl disable --now h2v2-web.service 2>/dev/null || true
+    run rm -f /etc/systemd/system/h2v2-web.service
+  fi
   run sed -i "s|__SINGBOX_BINARY_PATH__|${SINGBOX_BINARY_PATH}|g; s|__SINGBOX_CONFIG_PATH__|${SINGBOX_CONFIG_PATH}|g" "/etc/systemd/system/${SINGBOX_SERVICE_NAME}.service"
   systemctl disable --now hysteria-server.service 2>/dev/null || true
   systemctl disable --now xray.service 2>/dev/null || true
@@ -605,7 +616,7 @@ create_backup() {
   [[ -f "${CREDENTIALS_FILE}" ]] && run cp -a "${CREDENTIALS_FILE}" "${BACKUP_DIR}/env/credentials.txt"
   [[ -d "${ETC_ROOT}" ]] && run rsync -a "${ETC_ROOT}/" "${BACKUP_DIR}/etc/h2v2/"
   [[ -f /etc/caddy/h2v2.env ]] && run cp -a /etc/caddy/h2v2.env "${BACKUP_DIR}/etc/caddy.env"
-  for u in h2v2-api.service h2v2-web.service "${SINGBOX_SERVICE_NAME}.service"; do
+  for u in h2v2-api.service "${SINGBOX_SERVICE_NAME}.service"; do
     [[ -f "/etc/systemd/system/${u}" ]] && run cp -a "/etc/systemd/system/${u}" "${BACKUP_DIR}/systemd/${u}"
   done
   [[ -d /var/lib/h2v2/data ]] && run rsync -a /var/lib/h2v2/data/ "${BACKUP_DIR}/storage/data/"
@@ -622,12 +633,12 @@ rollback_from_backup() {
   [[ -f "${BACKUP_DIR}/env/credentials.txt" ]] && run cp -a "${BACKUP_DIR}/env/credentials.txt" "${CREDENTIALS_FILE}"
   [[ -d "${BACKUP_DIR}/etc/h2v2" ]] && run rsync -a --delete "${BACKUP_DIR}/etc/h2v2/" "${ETC_ROOT}/"
   [[ -f "${BACKUP_DIR}/etc/caddy.env" ]] && run cp -a "${BACKUP_DIR}/etc/caddy.env" /etc/caddy/h2v2.env
-  for u in h2v2-api.service h2v2-web.service "${SINGBOX_SERVICE_NAME}.service"; do
+  for u in h2v2-api.service "${SINGBOX_SERVICE_NAME}.service"; do
     [[ -f "${BACKUP_DIR}/systemd/${u}" ]] && run cp -a "${BACKUP_DIR}/systemd/${u}" "/etc/systemd/system/${u}"
   done
   [[ -d "${BACKUP_DIR}/storage/data" ]] && run rsync -a --delete "${BACKUP_DIR}/storage/data/" /var/lib/h2v2/data/
   run systemctl daemon-reload
-  run systemctl restart h2v2-api.service h2v2-web.service caddy.service "${SINGBOX_SERVICE_NAME}.service" || true
+  run systemctl restart h2v2-api.service caddy.service "${SINGBOX_SERVICE_NAME}.service" || true
 }
 
 on_error() {
@@ -730,11 +741,10 @@ bootstrap_admin() {
 restart_services() {
   phase "finalize: restart services"
   local s
-  for s in h2v2-api h2v2-web caddy "${SINGBOX_SERVICE_NAME}"; do
+  for s in h2v2-api caddy "${SINGBOX_SERVICE_NAME}"; do
     run systemctl enable "${s}.service"
   done
   run systemctl restart h2v2-api.service
-  run systemctl restart h2v2-web.service
   run systemctl restart caddy.service
   # Wait up to 90 s for Caddy to obtain the ACME cert for HY2_DOMAIN, then
   # sync it to the HY2 cert dir so sing-box starts with a valid certificate.
@@ -798,7 +808,6 @@ health_checks() {
   phase "health checks"
   (( DRY_RUN == 1 )) && return 0
   require_service_active h2v2-api
-  require_service_active h2v2-web
   require_service_active caddy
   require_service_active "${SINGBOX_SERVICE_NAME}"
   if ! wait_for_panel_api; then
@@ -838,7 +847,7 @@ summary() {
   printf "backup: %s\n" "${BACKUP_DIR:-not-created}"
   printf "active storage driver: sqlite\n"
   printf "\nverify:\n"
-  printf "  systemctl status h2v2-api h2v2-web %s caddy\n" "${SINGBOX_SERVICE_NAME}"
+  printf "  systemctl status h2v2-api %s caddy\n" "${SINGBOX_SERVICE_NAME}"
   printf "  bash %s/scripts/smoke-check.sh %s\n" "${SRC_DIR}" "${ENV_FILE}"
   printf "\nrollback:\n"
   printf "  rsync -a --delete %s/storage/data/ /var/lib/h2v2/data/\n" "${BACKUP_DIR:-/path/to/backup}"

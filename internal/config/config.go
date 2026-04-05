@@ -63,7 +63,7 @@ func Load() (Config, error) {
 		InternalAuthToken:   getEnv("INTERNAL_AUTH_TOKEN", ""),
 		RuntimePollInterval: getEnvDuration("RUNTIME_POLL_INTERVAL", 20*time.Second),
 		ServicePollInterval: getEnvDuration("SERVICE_POLL_INTERVAL", 60*time.Second),
-		ManagedServices:     parseCSV(getEnv("MANAGED_SERVICES", "h2v2-api,h2v2-web,sing-box")),
+		ManagedServices:     parseCSV(getEnv("MANAGED_SERVICES", "h2v2-api,sing-box")),
 		SystemctlPath:       getEnv("SYSTEMCTL_PATH", "/usr/bin/systemctl"),
 		SudoPath:            getEnv("SUDO_PATH", "/usr/bin/sudo"),
 		JournalctlPath:      getEnv("JOURNALCTL_PATH", "/usr/bin/journalctl"),

@@ -53,5 +53,4 @@ Service actions are restricted to `MANAGED_SERVICES`.
 Default list:
 
 - `h2v2-api`
-- `h2v2-web`
 - `sing-box`

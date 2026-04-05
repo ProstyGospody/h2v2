@@ -72,8 +72,6 @@ func (j *Jobs) pollServices(ctx context.Context) error {
 			version, _ = services.DetectBinaryVersion(ctx, j.cfg.SingBoxBinaryPath, "version")
 		case "h2v2-api":
 			version = "managed-by-systemd"
-		case "h2v2-web":
-			version = "managed-by-systemd"
 		}
 		var versionPtr *string
 		if version != "" {

@@ -67,7 +67,7 @@ sudo bash ./deploy/verify.sh
 
 Checks include:
 
-- systemd services (`h2v2-api`, `h2v2-web`, `sing-box`, `caddy`)
+- systemd services (`h2v2-api`, `sing-box`, `caddy`)
 - API health/readiness
 - runtime listeners from configured inbounds
 - admin login flow

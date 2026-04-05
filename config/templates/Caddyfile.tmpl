@@ -17,5 +17,11 @@
     reverse_proxy 127.0.0.1:{$PANEL_API_PORT}
   }
 
-  reverse_proxy 127.0.0.1:{$PANEL_WEB_PORT}
+  handle {
+    root * /opt/h2v2/current/web/dist
+    @hashed_asset path_regexp ^/assets/.+\.[0-9a-f]{8,}\.[^.]+$
+    header @hashed_asset Cache-Control "public, max-age=31536000, immutable"
+    try_files {path} /index.html
+    file_server
+  }
 }

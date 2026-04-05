@@ -3,14 +3,13 @@
 ## Service status
 
 ```bash
-systemctl status h2v2-api h2v2-web sing-box caddy
+systemctl status h2v2-api sing-box caddy
 ```
 
 ## Restart / reload
 
 ```bash
 systemctl restart h2v2-api
-systemctl restart h2v2-web
 systemctl restart sing-box
 systemctl reload caddy
 ```
@@ -19,7 +18,6 @@ systemctl reload caddy
 
 ```bash
 journalctl -u h2v2-api -n 200 --no-pager
-journalctl -u h2v2-web -n 200 --no-pager
 journalctl -u sing-box -n 200 --no-pager
 journalctl -u caddy -n 200 --no-pager
 ```
