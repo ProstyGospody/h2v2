@@ -1,26 +1,3 @@
-export type ServiceSummary = {
-  id?: number;
-  service_name: string;
-  status: string;
-  version?: string | null;
-  last_check_at: string;
-  raw_json?: string | null;
-  error?: string;
-};
-
-export type ServiceDetails = {
-  name: string;
-  active: string;
-  sub_state: string;
-  main_pid: number;
-  uptime: string;
-  raw: Record<string, string>;
-  last_logs?: string[];
-  version?: string;
-  checked_at: string;
-  status_text: string;
-};
-
 export type SystemLiveResponse = {
   collected_at: string;
   system: {

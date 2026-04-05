@@ -1,19 +1,17 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
 import { apiFetch, getAPIErrorMessage } from "@/services/api";
-import { Button, Dialog } from "@/src/components/ui";
 import { queryRefetchInterval } from "@/src/queries/polling";
-import { type ServiceDetails, type ServiceSummary, type SystemHistoryResponse, type SystemLiveResponse } from "@/types/common";
-import { formatDateTime, formatUptime } from "@/utils/format";
+import { type SystemHistoryResponse, type SystemLiveResponse } from "@/types/common";
+import { formatUptime } from "@/utils/format";
 
 import { DashboardMetrics } from "@/src/features/dashboard/dashboard-metrics";
 import { DashboardTraffic } from "@/src/features/dashboard/dashboard-traffic";
 import { type HistoryTrendPoint, type HistoryWindow, type TrafficUsageBarPoint } from "@/src/features/dashboard/dashboard-types";
 import { clampPercent } from "@/src/features/dashboard/dashboard-utils";
-import { ServiceGrid } from "@/src/features/dashboard/service-grid";
 
 const LIVE_POLL_MS = 5000;
 const HISTORY_WINDOW_CONFIG: Record<
@@ -47,16 +45,9 @@ const HISTORY_WINDOW_CONFIG: Record<
 
 export default function DashboardPage() {
   const [historyWindow, setHistoryWindow] = useState<HistoryWindow>("24h");
-  const [servicesBusy, setServicesBusy] = useState(false);
-  const [servicesActionError, setServicesActionError] = useState("");
   const [dismissedLiveError, setDismissedLiveError] = useState(false);
   const [dismissedHistoryError, setDismissedHistoryError] = useState(false);
-  const [dismissedServicesError, setDismissedServicesError] = useState(false);
-  const [serviceDetails, setServiceDetails] = useState<ServiceDetails | null>(null);
-  const [serviceDetailsOpen, setServiceDetailsOpen] = useState(false);
   const historyConfig = HISTORY_WINDOW_CONFIG[historyWindow];
-
-  const queryClient = useQueryClient();
 
   const liveQuery = useQuery({
     queryKey: ["dashboard", "live"],
@@ -64,14 +55,6 @@ export default function DashboardPage() {
     staleTime: 3_000,
     refetchOnWindowFocus: true,
     refetchInterval: (query) => queryRefetchInterval(LIVE_POLL_MS, query),
-  });
-
-  const servicesQuery = useQuery({
-    queryKey: ["dashboard", "services"],
-    queryFn: ({ signal }) => apiFetch<{ items: ServiceSummary[] }>("/api/services", { method: "GET", signal }),
-    staleTime: 10_000,
-    refetchOnWindowFocus: true,
-    refetchInterval: (query) => queryRefetchInterval(15_000, query),
   });
 
   const historyQuery = useQuery({
@@ -97,39 +80,13 @@ export default function DashboardPage() {
     }
   }, [historyQuery.dataUpdatedAt, historyQuery.isSuccess]);
 
-  useEffect(() => {
-    if (servicesQuery.isSuccess) {
-      setDismissedServicesError(false);
-    }
-  }, [servicesQuery.dataUpdatedAt, servicesQuery.isSuccess]);
-
   const live = liveQuery.data || null;
   const historyItems = Array.isArray(historyQuery.data?.items) ? historyQuery.data.items : [];
-  const serviceItems = useMemo<ServiceSummary[]>(() => {
-    const source = Array.isArray(servicesQuery.data?.items) ? servicesQuery.data.items : [];
-    if (source.length === 0) {
-      return [];
-    }
-
-    const uniqueByName = new Map<string, ServiceSummary>();
-    for (const item of source) {
-      const name = typeof item?.service_name === "string" ? item.service_name.trim() : "";
-      if (!name) {
-        continue;
-      }
-      uniqueByName.set(name, item);
-    }
-
-    return Array.from(uniqueByName.values()).sort((a, b) => a.service_name.localeCompare(b.service_name));
-  }, [servicesQuery.data?.items]);
   const loading = liveQuery.isPending;
   const historyLoading = historyQuery.isPending;
-  const servicesLoading = servicesQuery.isPending;
 
   const liveError = dismissedLiveError ? "" : (liveQuery.error ? getAPIErrorMessage(liveQuery.error, "Failed to load dashboard data") : "");
   const historyError = dismissedHistoryError ? "" : (historyQuery.error ? getAPIErrorMessage(historyQuery.error, "Failed to load history") : "");
-  const servicesQueryError = dismissedServicesError ? "" : (servicesQuery.error ? getAPIErrorMessage(servicesQuery.error, "Failed to load services") : "");
-  const servicesError = servicesActionError || servicesQueryError;
 
   const retryLive = useCallback(() => {
     setDismissedLiveError(false);
@@ -145,51 +102,15 @@ export default function DashboardPage() {
     setDismissedHistoryError(true);
   }, []);
 
-  const retryServices = useCallback(() => {
-    setDismissedServicesError(false);
-    setServicesActionError("");
-    void servicesQuery.refetch();
-  }, [servicesQuery]);
-
   const retryAll = useCallback(() => {
     retryLive();
-    retryServices();
     retryHistory();
-  }, [retryHistory, retryLive, retryServices]);
+  }, [retryHistory, retryLive]);
 
   const warningMessages = useMemo(
     () => (Array.isArray(live?.errors) ? live.errors.filter((item): item is string => typeof item === "string") : []),
     [live],
   );
-
-  async function openServiceDetails(name: string) {
-    setServicesBusy(true);
-    setServicesActionError("");
-    try {
-      setServiceDetails(await apiFetch<ServiceDetails>(`/api/services/${name}?lines=60`, { method: "GET" }));
-      setServiceDetailsOpen(true);
-    } catch (err) {
-      setServicesActionError(getAPIErrorMessage(err, "Failed to load service details"));
-    } finally {
-      setServicesBusy(false);
-    }
-  }
-
-  async function runServiceAction(name: string, action: "restart" | "reload") {
-    setServicesBusy(true);
-    setServicesActionError("");
-    try {
-      await apiFetch<{ ok: boolean }>(`/api/services/${name}/${action}`, { method: "POST", body: JSON.stringify({}) });
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["dashboard", "services"] }),
-        queryClient.invalidateQueries({ queryKey: ["dashboard", "live"] }),
-      ]);
-    } catch (err) {
-      setServicesActionError(getAPIErrorMessage(err, "Failed to run action"));
-    } finally {
-      setServicesBusy(false);
-    }
-  }
 
   const showInitialLoading = loading && !live;
   const cpuPercent = clampPercent(live?.system.cpu_usage_percent ?? 0);
@@ -316,63 +237,6 @@ export default function DashboardPage() {
         trafficUsageBars={trafficUsageBars}
       />
 
-      <ServiceGrid
-        loading={servicesLoading}
-        items={serviceItems}
-        busy={servicesBusy}
-        error={servicesError}
-        canRetry={Boolean(servicesQueryError || servicesActionError)}
-        onDismissError={() => {
-          if (servicesActionError) {
-            setServicesActionError("");
-            return;
-          }
-          setDismissedServicesError(true);
-        }}
-        onRetryError={retryServices}
-        onOpenDetails={(name) => void openServiceDetails(name)}
-        onRunAction={(name, action) => void runServiceAction(name, action)}
-      />
-
-      <Dialog
-        open={serviceDetailsOpen}
-        onOpenChange={(next) => {
-          if (!next) {
-            setServiceDetailsOpen(false);
-          }
-        }}
-        title={`${serviceDetails?.name || "Service"} details`}
-        contentClassName="max-w-[760px]"
-        footer={<Button onClick={() => setServiceDetailsOpen(false)}>Close</Button>}
-      >
-        {serviceDetails && (
-          <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl bg-surface-0/50 p-4">
-                <p className="text-[12px] font-medium text-txt-muted">Status</p>
-                <p className="mt-1.5 text-[14px] font-medium text-txt">{serviceDetails.status_text}</p>
-              </div>
-              <div className="rounded-xl bg-surface-0/50 p-4">
-                <p className="text-[12px] font-medium text-txt-muted">Active</p>
-                <p className="mt-1.5 text-[14px] font-medium text-txt">{serviceDetails.active} / {serviceDetails.sub_state}</p>
-              </div>
-              <div className="rounded-xl bg-surface-0/50 p-4">
-                <p className="text-[12px] font-medium text-txt-muted">PID</p>
-                <p className="mt-1.5 text-[14px] font-medium text-txt">{serviceDetails.main_pid || 0}</p>
-              </div>
-            </div>
-
-            <p className="text-[13px] text-txt-muted">Checked: {formatDateTime(serviceDetails.checked_at)}</p>
-
-            <div>
-              <p className="mb-2 text-[14px] font-semibold text-txt">Recent logs</p>
-              <pre className="m-0 max-h-[320px] overflow-auto rounded-xl border border-[var(--control-border)] bg-[var(--control-bg)] p-4 font-mono text-[13px] leading-6 text-txt-secondary shadow-[inset_0_0_0_1px_var(--control-border)]">
-                {serviceDetails.last_logs?.length ? serviceDetails.last_logs.join("\n") : "No logs available"}
-              </pre>
-            </div>
-          </div>
-        )}
-      </Dialog>
     </div>
   );
 }
