@@ -128,10 +128,10 @@ html.dark {
   --border-hover: rgba(228, 234, 255, 0.18);
   --border-focus: rgba(157, 144, 255, 0.34);
 
-  --control-bg: rgba(34, 42, 62, 0.85);
-  --control-bg-hover: rgba(44, 54, 78, 0.92);
-  --control-border: rgba(200, 214, 240, 0.18);
-  --control-border-strong: rgba(214, 226, 248, 0.32);
+  --control-bg: rgba(0, 0, 0, 0.32);
+  --control-bg-hover: rgba(0, 0, 0, 0.48);
+  --control-border: rgba(0, 0, 0, 0);
+  --control-border-strong: rgba(200, 214, 240, 0.10);
 
   --dialog-overlay: rgba(3, 5, 10, 0.62);
   --dialog-surface: rgba(18, 24, 38, 0.94);
