@@ -2,7 +2,6 @@
 @import "@fontsource/unbounded/500.css";
 @import "@fontsource/unbounded/600.css";
 @import "@fontsource/unbounded/700.css";
-@import "@fontsource/unbounded/800.css";
 @import "tailwindcss";
 
 :root {
@@ -412,9 +411,19 @@ html.dark {
     animation: tooltip-out 0.1s ease-in;
   }
 
+  .panel-route-transition {
+    animation: fadein 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .panel-mobile-sidebar {
+    animation: slide-in-left 0.25s ease;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .tooltip-content,
-    .tooltip-content[data-state="closed"] {
+    .tooltip-content[data-state="closed"],
+    .panel-route-transition,
+    .panel-mobile-sidebar {
       animation: none;
     }
   }

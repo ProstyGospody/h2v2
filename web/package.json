@@ -13,7 +13,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@fontsource/inter": "latest",
     "@fontsource/jetbrains-mono": "latest",
     "@fontsource/unbounded": "latest",
     "@radix-ui/react-checkbox": "^1.3.3",

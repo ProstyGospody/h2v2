@@ -10,8 +10,7 @@ import {
   Users2,
   Zap,
 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { type ReactNode, type TouchEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { memo, type ReactNode, type TouchEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Tooltip, cn } from "@/src/components/ui";
@@ -25,6 +24,175 @@ type NavItem = {
   label: string;
   icon: ReactNode;
 };
+
+type SidebarNavLinkProps = {
+  item: NavItem;
+  compact: boolean;
+  selected: boolean;
+  onNavigate: (href: string) => void;
+};
+
+const SidebarNavLink = memo(function SidebarNavLink({ item, compact, selected, onNavigate }: SidebarNavLinkProps) {
+  const content = (
+    <button
+      type="button"
+      aria-label={item.label}
+      onClick={() => onNavigate(item.href)}
+      className={cn(
+        "group relative flex h-12 w-full items-center rounded-2xl transition-[transform,background-color,color,box-shadow] duration-200 will-change-transform",
+        compact ? "justify-center px-0 hover:scale-[1.03]" : "gap-3 px-4 hover:translate-x-0.5",
+        selected
+          ? "bg-surface-3/70 text-txt-primary shadow-[inset_0_1px_0_var(--shell-highlight),0_2px_8px_var(--shell-shadow)]"
+          : "text-txt-secondary hover:bg-surface-3/45 hover:text-txt-primary",
+      )}
+    >
+      {selected && (
+        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-accent to-accent-secondary" />
+      )}
+      <span className={cn("shrink-0 transition-colors duration-200", selected ? "text-accent-secondary" : "text-txt-tertiary group-hover:text-txt-primary")}>
+        {item.icon}
+      </span>
+
+      {!compact && <span className="text-[14px] font-semibold whitespace-nowrap">{item.label}</span>}
+    </button>
+  );
+
+  if (compact) {
+    return <Tooltip content={item.label}>{content}</Tooltip>;
+  }
+  return content;
+});
+
+type SidebarContentProps = {
+  compact: boolean;
+  mobile: boolean;
+  pathname: string;
+  collapsed: boolean;
+  theme: ThemeMode;
+  onNavigate: (href: string) => void;
+  onToggleCollapsed: () => void;
+  onToggleTheme: () => void;
+  onLogout: () => void;
+};
+
+const SidebarContent = memo(function SidebarContent({
+  compact,
+  mobile,
+  pathname,
+  collapsed,
+  theme,
+  onNavigate,
+  onToggleCollapsed,
+  onToggleTheme,
+  onLogout,
+}: SidebarContentProps) {
+  return (
+    <div className={cn("flex h-full flex-col", compact && "items-center")}>
+      <div className={cn("relative flex w-full items-center pb-4 pt-5", compact ? "justify-center px-2" : "justify-start px-5")}>
+        <div className={cn("relative flex min-w-0 items-center", compact && "mx-auto")}>
+          <div className="relative">
+            <div className={cn("relative grid place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-secondary shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]", compact ? "h-11 w-11" : "h-12 w-12")}>
+              <Zap size={compact ? 22 : 24} strokeWidth={2} className="text-white" />
+            </div>
+          </div>
+
+          {!compact && (
+            <div className="min-w-0 flex-1 pl-3">
+              <p className="truncate text-[17px] font-bold text-txt-primary">H2V2</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className={cn("w-full", compact ? "px-3" : "px-5")}>
+        <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+      </div>
+
+      <nav className={cn("w-full flex-1 overflow-y-auto pt-4", compact ? "px-2" : "px-3")}>
+        <div>
+          {!compact && <p className="mb-2 px-4 text-section-label uppercase text-txt-muted">Main</p>}
+          <div className="space-y-1.5">
+            {navItems.map((item) => (
+              <SidebarNavLink
+                key={item.href}
+                item={item}
+                compact={compact}
+                selected={isActive(pathname, item.href)}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </div>
+        </div>
+      </nav>
+
+      <div className="w-full space-y-2 p-3">
+        <div className={cn("w-full mb-2", compact ? "px-1" : "px-0")}>
+          <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+        </div>
+
+        {!compact && (
+          <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-surface-3/30 px-3 py-3 transition-colors duration-200 hover:bg-surface-3/50">
+            <div className="relative grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent/20 to-accent-secondary/20 text-[14px] font-bold text-txt-primary">
+              <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface-0 bg-status-success" />
+              A
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-semibold text-txt">Admin</p>
+              <p className="truncate text-[12px] text-txt-muted">root@h2v2</p>
+            </div>
+          </div>
+        )}
+
+        {!mobile && (
+          <Tooltip content={compact ? (collapsed ? "Expand sidebar" : "Collapse sidebar") : undefined}>
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              className={cn(
+                "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-all duration-200 hover:bg-surface-3/40 hover:text-txt-primary",
+                compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
+              )}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {collapsed ? <ChevronRight size={compact ? 22 : 18} strokeWidth={1.8} /> : <ChevronLeft size={compact ? 22 : 18} strokeWidth={1.8} />}
+              {!compact && (collapsed ? "Expand sidebar" : "Collapse sidebar")}
+            </button>
+          </Tooltip>
+        )}
+
+        <Tooltip content={compact ? "Toggle theme" : undefined}>
+          <button
+            type="button"
+            aria-label="Toggle theme"
+            onClick={onToggleTheme}
+            className={cn(
+              "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-all duration-200 hover:bg-surface-3/40 hover:text-txt-primary",
+              compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
+            )}
+          >
+            {theme === "dark" ? <Sun size={compact ? 22 : 18} strokeWidth={1.8} /> : <Moon size={compact ? 22 : 18} strokeWidth={1.8} />}
+            {!compact && (theme === "dark" ? "Light theme" : "Dark theme")}
+          </button>
+        </Tooltip>
+
+        <Tooltip content={compact ? "Sign out" : undefined}>
+          <button
+            type="button"
+            aria-label="Sign out"
+            onClick={onLogout}
+            className={cn(
+              "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-all duration-200 hover:bg-status-danger/8 hover:text-status-danger",
+              compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
+            )}
+          >
+            <LogOut size={compact ? 22 : 18} strokeWidth={1.8} />
+            {!compact && "Sign out"}
+          </button>
+        </Tooltip>
+      </div>
+    </div>
+  );
+});
 
 const SIDEBAR_COLLAPSED_KEY = "panel-sidebar-collapsed";
 
@@ -45,7 +213,6 @@ export function PanelShell({ children }: { children: ReactNode }) {
   const { confirm } = useConfirmDialog();
 
   const [mobileOpen, setMobileOpen] = useState(false);
-  const reduceMotion = useReducedMotion();
   const [theme, setTheme] = useState<ThemeMode>(() => resolveTheme());
   const swipeStartXRef = useRef<number | null>(null);
   const swipeStartYRef = useRef<number | null>(null);
@@ -101,7 +268,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
     });
   }, [confirm]);
 
-  async function logout() {
+  const logout = useCallback(async () => {
     const shouldProceed = await confirmDiscardChanges();
     if (!shouldProceed) {
       return;
@@ -112,7 +279,53 @@ export function PanelShell({ children }: { children: ReactNode }) {
       // no-op
     }
     navigate("/login", { replace: true });
-  }
+  }, [confirmDiscardChanges, navigate]);
+
+  const handleNavigate = useCallback(
+    async (href: string) => {
+      if (href !== pathname) {
+        const shouldProceed = await confirmDiscardChanges();
+        if (!shouldProceed) {
+          return;
+        }
+      }
+      navigate(href);
+      setMobileOpen(false);
+    },
+    [confirmDiscardChanges, navigate, pathname],
+  );
+
+  const onNavigate = useCallback(
+    (href: string) => {
+      void handleNavigate(href);
+    },
+    [handleNavigate],
+  );
+
+  const onToggleCollapsed = useCallback(() => {
+    setCollapsed((prev) => !prev);
+  }, []);
+
+  const onToggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  }, []);
+
+  const onLogout = useCallback(() => {
+    void logout();
+  }, [logout]);
+
+  const sidebarProps = useMemo(
+    () => ({
+      pathname,
+      collapsed,
+      theme,
+      onNavigate,
+      onToggleCollapsed,
+      onToggleTheme,
+      onLogout,
+    }),
+    [pathname, collapsed, theme, onNavigate, onToggleCollapsed, onToggleTheme, onLogout],
+  );
 
   function resetSwipeTrack() {
     swipeStartXRef.current = null;
@@ -139,154 +352,6 @@ export function PanelShell({ children }: { children: ReactNode }) {
     resetSwipeTrack();
   }
 
-  function SidebarNavLink({ item, compact, onNavigate }: { item: NavItem; compact: boolean; onNavigate?: () => void }) {
-    const selected = isActive(pathname, item.href);
-    async function handleNavigate() {
-      if (item.href !== pathname) {
-        const shouldProceed = await confirmDiscardChanges();
-        if (!shouldProceed) {
-          return;
-        }
-      }
-      navigate(item.href);
-      onNavigate?.();
-    }
-
-    const content = (
-      <button
-        type="button"
-        aria-label={item.label}
-        onClick={() => {
-          void handleNavigate();
-        }}
-        className={cn(
-          "group relative flex h-12 w-full items-center rounded-2xl transition-[transform,background-color,color,box-shadow] duration-200 will-change-transform",
-          compact ? "justify-center px-0 hover:scale-[1.03]" : "gap-3 px-4 hover:translate-x-0.5",
-          selected
-            ? "bg-surface-3/70 text-txt-primary shadow-[inset_0_1px_0_var(--shell-highlight),0_2px_8px_var(--shell-shadow)]"
-            : "text-txt-secondary hover:bg-surface-3/45 hover:text-txt-primary",
-        )}
-      >
-        {selected && (
-          <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-accent to-accent-secondary" />
-        )}
-        <span className={cn("shrink-0 transition-colors duration-200", selected ? "text-accent-secondary" : "text-txt-tertiary group-hover:text-txt-primary")}>
-          {item.icon}
-        </span>
-
-        {!compact && <span className="text-[14px] font-semibold whitespace-nowrap">{item.label}</span>}
-      </button>
-    );
-
-    if (compact) {
-      return <Tooltip content={item.label}>{content}</Tooltip>;
-    }
-    return content;
-  }
-
-  function SidebarContent({ compact, mobile }: { compact: boolean; mobile: boolean }) {
-    return (
-      <div className={cn("flex h-full flex-col", compact && "items-center")}>
-        <div className={cn("relative flex w-full items-center pb-4 pt-5", compact ? "justify-center px-2" : "justify-start px-5")}>
-          <div className={cn("relative flex min-w-0 items-center", compact && "mx-auto")}>
-            <div className="relative">
-              <div className={cn("relative grid place-items-center rounded-xl bg-gradient-to-br from-accent to-accent-secondary shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]", compact ? "h-11 w-11" : "h-12 w-12")}>
-                <Zap size={compact ? 22 : 24} strokeWidth={2} className="text-white" />
-              </div>
-            </div>
-
-            {!compact && (
-              <div className="min-w-0 flex-1 pl-3">
-                <p className="truncate text-[17px] font-bold text-txt-primary">H2V2</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className={cn("w-full", compact ? "px-3" : "px-5")}>
-          <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-        </div>
-
-        <nav className={cn("w-full flex-1 overflow-y-auto pt-4", compact ? "px-2" : "px-3")}>
-          <div>
-            {!compact && <p className="mb-2 px-4 text-section-label uppercase text-txt-muted">Main</p>}
-            <div className="space-y-1.5">
-              {navItems.map((item) => (
-                <SidebarNavLink key={item.href} item={item} compact={compact} onNavigate={() => setMobileOpen(false)} />
-              ))}
-            </div>
-          </div>
-        </nav>
-
-        <div className={cn("w-full p-3", compact ? "space-y-2" : "space-y-2")}>
-          <div className={cn("w-full mb-2", compact ? "px-1" : "px-0")}>
-            <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
-          </div>
-
-          {!compact && (
-            <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-surface-3/30 px-3 py-3 transition-colors duration-200 hover:bg-surface-3/50">
-              <div className="relative grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent/20 to-accent-secondary/20 text-[14px] font-bold text-txt-primary">
-                <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface-0 bg-status-success" />
-                A
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-semibold text-txt">Admin</p>
-                <p className="truncate text-[12px] text-txt-muted">root@h2v2</p>
-              </div>
-            </div>
-          )}
-
-          {!mobile && (
-            <Tooltip content={compact ? (collapsed ? "Expand sidebar" : "Collapse sidebar") : undefined}>
-              <button
-                type="button"
-                onClick={() => setCollapsed((prev) => !prev)}
-                className={cn(
-                  "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-all duration-200 hover:bg-surface-3/40 hover:text-txt-primary",
-                  compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
-                )}
-                aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              >
-                {collapsed ? <ChevronRight size={compact ? 22 : 18} strokeWidth={1.8} /> : <ChevronLeft size={compact ? 22 : 18} strokeWidth={1.8} />}
-                {!compact && (collapsed ? "Expand sidebar" : "Collapse sidebar")}
-              </button>
-            </Tooltip>
-          )}
-
-          <Tooltip content={compact ? "Toggle theme" : undefined}>
-            <button
-              type="button"
-              aria-label="Toggle theme"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className={cn(
-                "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-all duration-200 hover:bg-surface-3/40 hover:text-txt-primary",
-                compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
-              )}
-            >
-              {theme === "dark" ? <Sun size={compact ? 22 : 18} strokeWidth={1.8} /> : <Moon size={compact ? 22 : 18} strokeWidth={1.8} />}
-              {!compact && (theme === "dark" ? "Light theme" : "Dark theme")}
-            </button>
-          </Tooltip>
-
-          <Tooltip content={compact ? "Sign out" : undefined}>
-            <button
-              type="button"
-              aria-label="Sign out"
-              onClick={() => void logout()}
-              className={cn(
-                "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-all duration-200 hover:bg-status-danger/8 hover:text-status-danger",
-                compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
-              )}
-            >
-              <LogOut size={compact ? 22 : 18} strokeWidth={1.8} />
-              {!compact && "Sign out"}
-            </button>
-          </Tooltip>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className={cn("panel-layout min-h-screen bg-surface-0 text-txt", collapsed ? "sidebar-collapsed" : "sidebar-expanded")}>
       {/* Desktop sidebar */}
@@ -294,7 +359,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
         className="panel-desktop-sidebar fixed inset-y-0 left-0 z-30 hidden overflow-x-hidden border-r border-border/30 sidebar-glass lg:block"
       >
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
-        <SidebarContent compact={collapsed} mobile={false} />
+        <SidebarContent {...sidebarProps} compact={collapsed} mobile={false} />
       </aside>
 
       {/* Main content */}
@@ -311,17 +376,9 @@ export function PanelShell({ children }: { children: ReactNode }) {
         )}
 
         <main className="min-w-0 p-4 pt-16 sm:p-5 sm:pt-20 md:p-8 md:pt-20 lg:pt-8">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={pathname}
-              initial={reduceMotion ? { opacity: 1 } : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={reduceMotion ? { opacity: 1 } : { opacity: 0 }}
-              transition={reduceMotion ? { duration: 0 } : { duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
+          <div key={pathname} className="panel-route-transition">
+            {children}
+          </div>
         </main>
       </div>
 
@@ -340,10 +397,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
             aria-modal="true"
             aria-label="Navigation menu"
             tabIndex={-1}
-            className={cn(
-              "absolute inset-y-0 left-0 w-[min(280px,100vw)] border-r border-border/30 sidebar-glass shadow-[0_22px_52px_-28px_var(--dialog-shadow)]",
-              !reduceMotion && "animate-[slide-in-left_0.25s_ease]",
-            )}
+            className="absolute inset-y-0 left-0 w-[min(280px,100vw)] border-r border-border/30 sidebar-glass shadow-[0_22px_52px_-28px_var(--dialog-shadow)] panel-mobile-sidebar"
             onTouchStart={onMobileSidebarTouchStart}
             onTouchEnd={onMobileSidebarTouchEnd}
             onTouchCancel={onMobileSidebarTouchCancel}
@@ -380,7 +434,7 @@ export function PanelShell({ children }: { children: ReactNode }) {
             }}
           >
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
-            <SidebarContent compact={false} mobile />
+            <SidebarContent {...sidebarProps} compact={false} mobile />
           </aside>
         </div>
       )}

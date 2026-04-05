@@ -1,27 +1,72 @@
-import { animate, motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
 import { ArrowDownToLine, ArrowUpFromLine, Clock, Globe, Network, Users2, Zap } from "lucide-react";
-import { useEffect } from "react";
-import { Cell, PolarAngleAxis, RadialBar, RadialBarChart, ResponsiveContainer } from "recharts";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Cell, PolarAngleAxis, RadialBar, RadialBarChart } from "recharts";
 
 import { formatBytes, formatRate } from "@/utils/format";
 
 import { gaugeColor } from "./dashboard-utils";
 
-function AnimatedNumber({ value, format = (n) => n.toFixed(0) }: { value: number; format?: (value: number) => string }) {
-  const mv = useMotionValue(0);
-  const display = useTransform(mv, (latest) => format(latest));
-  const reduceMotion = useReducedMotion();
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  });
 
   useEffect(() => {
-    if (reduceMotion) {
-      mv.set(value);
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const handler = (event: MediaQueryListEvent) => setReduced(event.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  return reduced;
+}
+
+const NUMBER_TWEEN_MS = 800;
+
+function useTweenedNumber(target: number): number {
+  const reduced = usePrefersReducedMotion();
+  const [display, setDisplay] = useState(target);
+  const fromRef = useRef(target);
+
+  useEffect(() => {
+    if (!Number.isFinite(target)) {
       return;
     }
-    const controls = animate(mv, value, { duration: 0.8, ease: "easeOut" });
-    return () => controls.stop();
-  }, [mv, reduceMotion, value]);
+    if (reduced) {
+      fromRef.current = target;
+      setDisplay(target);
+      return;
+    }
+    const start = fromRef.current;
+    const end = target;
+    if (start === end) {
+      return;
+    }
+    const startedAt = performance.now();
+    let rafId = 0;
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / NUMBER_TWEEN_MS);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = start + (end - start) * eased;
+      setDisplay(current);
+      if (progress < 1) {
+        rafId = requestAnimationFrame(tick);
+      } else {
+        fromRef.current = end;
+      }
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [target, reduced]);
 
-  return <motion.span>{display}</motion.span>;
+  return display;
+}
+
+function AnimatedNumber({ value, format = (n) => n.toFixed(0) }: { value: number; format?: (value: number) => string }) {
+  const current = useTweenedNumber(value);
+  return <span>{format(current)}</span>;
 }
 
 function RadialGauge({
@@ -37,39 +82,37 @@ function RadialGauge({
   color?: string;
   trackColor?: string;
 }) {
-  const reduceMotion = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
   const clamped = Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
   const fill = autoColor ? gaugeColor(clamped) : color;
-  const data = [{ value: clamped, fill }];
+  const data = useMemo(() => [{ value: clamped, fill }], [clamped, fill]);
 
   return (
-    <div style={{ width: size, height: size }}>
-      <ResponsiveContainer width="100%" height="100%" minWidth={size} minHeight={size} aspect={1}>
-        <RadialBarChart
-          cx="50%"
-          cy="50%"
-          innerRadius="70%"
-          outerRadius="100%"
-          startAngle={90}
-          endAngle={-270}
-          barSize={5}
-          data={data}
-        >
-          <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-          <RadialBar
-            dataKey="value"
-            angleAxisId={0}
-            background={{ fill: trackColor }}
-            cornerRadius={10}
-            isAnimationActive={!reduceMotion}
-            animationDuration={reduceMotion ? 0 : 800}
-            animationEasing="ease-out"
-          >
-            <Cell fill={fill} />
-          </RadialBar>
-        </RadialBarChart>
-      </ResponsiveContainer>
-    </div>
+    <RadialBarChart
+      width={size}
+      height={size}
+      cx="50%"
+      cy="50%"
+      innerRadius="70%"
+      outerRadius="100%"
+      startAngle={90}
+      endAngle={-270}
+      barSize={5}
+      data={data}
+    >
+      <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
+      <RadialBar
+        dataKey="value"
+        angleAxisId={0}
+        background={{ fill: trackColor }}
+        cornerRadius={10}
+        isAnimationActive={!reduced}
+        animationDuration={reduced ? 0 : 800}
+        animationEasing="ease-out"
+      >
+        <Cell fill={fill} />
+      </RadialBar>
+    </RadialBarChart>
   );
 }
 
