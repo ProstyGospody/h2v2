@@ -432,7 +432,7 @@ export default function UsersPage() {
       ) : null}
 
       {/* List */}
-      <div className="overflow-hidden rounded-2xl bg-surface-2/20">
+      <div className="overflow-hidden rounded-2xl bg-surface-2">
         <div className="overflow-x-auto">
           <div className="min-w-[760px]">
             {/* Header */}
@@ -485,7 +485,7 @@ export default function UsersPage() {
                       key={c.id}
                       className={cn(
                         "group flex items-center gap-4 px-5 py-3.5 transition-colors",
-                        isSelected ? "bg-accent/6" : "hover:bg-surface-2/50",
+                        isSelected ? "bg-accent/6" : "hover:bg-surface-3/25",
                       )}
                     >
                       <div className="w-5">
