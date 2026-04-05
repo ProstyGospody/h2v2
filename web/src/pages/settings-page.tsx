@@ -37,10 +37,6 @@ import { getAPIErrorMessage } from "@/services/api";
 import { Button, Input, SelectField, Toggle, cn } from "@/src/components/ui";
 import { useToast } from "@/src/components/ui/Toast";
 
-// ---------------------------------------------------------------------------
-// Shared primitives
-// ---------------------------------------------------------------------------
-
 function useDirtyForm<T>(initial: T) {
   const [form, setForm] = useState<T>(initial);
   const snapshot = useRef<T>(initial);
@@ -53,7 +49,33 @@ function useDirtyForm<T>(initial: T) {
     [form],
   );
   const reset = useCallback(() => setForm(snapshot.current), []);
-  return { form, setForm, dirty, reset };
+  function set<K extends keyof T>(k: K, v: T[K]) {
+    setForm((prev) => ({ ...prev, [k]: v }));
+  }
+  return { form, set, dirty, reset };
+}
+
+function useFormSubmit(save: () => Promise<unknown>, onSaved: () => void) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
+
+  async function submit(e?: FormEvent) {
+    e?.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await save();
+      toast.notify("Saved", "success");
+      onSaved();
+    } catch (err) {
+      setError(getAPIErrorMessage(err, "Operation failed"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return { busy, error, submit };
 }
 
 function FieldGroup({
@@ -112,7 +134,7 @@ function CopyField({
       await navigator.clipboard.writeText(value);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch { /* ignore */ }
+    } catch {}
   }
   return (
     <div>
@@ -169,10 +191,6 @@ function SaveBar({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Section header with icon
-// ---------------------------------------------------------------------------
-
 function SectionHeader({
   icon,
   title,
@@ -189,10 +207,6 @@ function SectionHeader({
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Horizontal tabs
-// ---------------------------------------------------------------------------
 
 type Tab = "server" | "vless" | "hy2" | "preview";
 
@@ -243,10 +257,6 @@ function TabsNav({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Server form
-// ---------------------------------------------------------------------------
-
 type ServerFormState = {
   public_host: string;
   subscription_base_url: string;
@@ -267,35 +277,18 @@ function serverToForm(s: ServerType): ServerFormState {
 
 function ServerForm({ server, onSaved }: { server: ServerType; onSaved: () => void }) {
   const initial = useMemo(() => serverToForm(server), [server]);
-  const { form, setForm, dirty, reset } = useDirtyForm(initial);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const toast = useToast();
-
-  function set<K extends keyof ServerFormState>(k: K, v: ServerFormState[K]) {
-    setForm((prev) => ({ ...prev, [k]: v }));
-  }
-
-  async function submit(e?: FormEvent) {
-    e?.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await updateServer(server.id, {
+  const { form, set, dirty, reset } = useDirtyForm(initial);
+  const { busy, error, submit } = useFormSubmit(
+    () =>
+      updateServer(server.id, {
         public_host: form.public_host.trim() || undefined,
         subscription_base_url: form.subscription_base_url.trim() || undefined,
         singbox_binary_path: form.singbox_binary_path.trim() || undefined,
         singbox_config_path: form.singbox_config_path.trim() || undefined,
         singbox_service_name: form.singbox_service_name.trim() || undefined,
-      });
-      toast.notify("Saved", "success");
-      onSaved();
-    } catch (err) {
-      setError(getAPIErrorMessage(err, "Operation failed"));
-    } finally {
-      setBusy(false);
-    }
-  }
+      }),
+    onSaved,
+  );
 
   return (
     <>
@@ -348,10 +341,6 @@ function ServerForm({ server, onSaved }: { server: ServerType; onSaved: () => vo
   );
 }
 
-// ---------------------------------------------------------------------------
-// VLESS form
-// ---------------------------------------------------------------------------
-
 type VLESSFormState = {
   listen_port: string;
   enabled: boolean;
@@ -389,47 +378,28 @@ function vlessToForm(ib: Inbound): VLESSFormState {
 
 function VLESSForm({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }) {
   const initial = useMemo(() => vlessToForm(inbound), [inbound]);
-  const { form, setForm, dirty, reset } = useDirtyForm(initial);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const toast = useToast();
-
-  function set<K extends keyof VLESSFormState>(k: K, v: VLESSFormState[K]) {
-    setForm((prev) => ({ ...prev, [k]: v }));
-  }
-
-  async function submit(e?: FormEvent) {
-    e?.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const port = parseInt(form.listen_port, 10);
-      await updateInbound(inbound.id, {
-        listen_port: Number.isFinite(port) ? port : inbound.listen_port,
-        enabled: form.enabled,
-        vless: {
-          tls_enabled: true,
-          reality_enabled: form.reality_enabled,
-          reality_public_key: form.reality_public_key.trim(),
-          reality_private_key: form.reality_private_key.trim(),
-          reality_short_id: form.reality_short_id.trim(),
-          reality_handshake_server: form.reality_handshake_server.trim() || "www.cloudflare.com",
-          reality_handshake_server_port: parseInt(form.reality_handshake_server_port, 10) || 443,
-          tls_server_name: form.tls_server_name.trim(),
-          flow: form.flow.trim(),
-          transport_type: form.transport_type,
-          transport_host: form.transport_host.trim(),
-          transport_path: form.transport_path.trim(),
-        },
-      });
-      toast.notify("Saved", "success");
-      onSaved();
-    } catch (err) {
-      setError(getAPIErrorMessage(err, "Operation failed"));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { form, set, dirty, reset } = useDirtyForm(initial);
+  const { busy, error, submit } = useFormSubmit(() => {
+    const port = parseInt(form.listen_port, 10);
+    return updateInbound(inbound.id, {
+      listen_port: Number.isFinite(port) ? port : inbound.listen_port,
+      enabled: form.enabled,
+      vless: {
+        tls_enabled: true,
+        reality_enabled: form.reality_enabled,
+        reality_public_key: form.reality_public_key.trim(),
+        reality_private_key: form.reality_private_key.trim(),
+        reality_short_id: form.reality_short_id.trim(),
+        reality_handshake_server: form.reality_handshake_server.trim() || "www.cloudflare.com",
+        reality_handshake_server_port: parseInt(form.reality_handshake_server_port, 10) || 443,
+        tls_server_name: form.tls_server_name.trim(),
+        flow: form.flow.trim(),
+        transport_type: form.transport_type,
+        transport_host: form.transport_host.trim(),
+        transport_path: form.transport_path.trim(),
+      },
+    });
+  }, onSaved);
 
   return (
     <>
@@ -546,10 +516,6 @@ function VLESSForm({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void
   );
 }
 
-// ---------------------------------------------------------------------------
-// HY2 form
-// ---------------------------------------------------------------------------
-
 type HY2FormState = {
   listen_port: string;
   enabled: boolean;
@@ -583,47 +549,28 @@ function hy2ToForm(ib: Inbound): HY2FormState {
 
 function HY2Form({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }) {
   const initial = useMemo(() => hy2ToForm(inbound), [inbound]);
-  const { form, setForm, dirty, reset } = useDirtyForm(initial);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const toast = useToast();
-
-  function set<K extends keyof HY2FormState>(k: K, v: HY2FormState[K]) {
-    setForm((prev) => ({ ...prev, [k]: v }));
-  }
-
-  async function submit(e?: FormEvent) {
-    e?.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const port = parseInt(form.listen_port, 10);
-      const upMbps = form.up_mbps.trim() ? parseInt(form.up_mbps, 10) : null;
-      const downMbps = form.down_mbps.trim() ? parseInt(form.down_mbps, 10) : null;
-      await updateInbound(inbound.id, {
-        listen_port: Number.isFinite(port) ? port : inbound.listen_port,
-        enabled: form.enabled,
-        hysteria2: {
-          tls_enabled: true,
-          tls_server_name: form.tls_server_name.trim(),
-          tls_certificate_path: form.tls_certificate_path.trim(),
-          tls_key_path: form.tls_key_path.trim(),
-          allow_insecure: form.allow_insecure,
-          ignore_client_bandwidth: form.ignore_client_bandwidth,
-          up_mbps: Number.isFinite(upMbps as number) ? upMbps : null,
-          down_mbps: Number.isFinite(downMbps as number) ? downMbps : null,
-          obfs_type: form.obfs_type.trim(),
-          obfs_password: form.obfs_password.trim(),
-        },
-      });
-      toast.notify("Saved", "success");
-      onSaved();
-    } catch (err) {
-      setError(getAPIErrorMessage(err, "Operation failed"));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { form, set, dirty, reset } = useDirtyForm(initial);
+  const { busy, error, submit } = useFormSubmit(() => {
+    const port = parseInt(form.listen_port, 10);
+    const upMbps = form.up_mbps.trim() ? parseInt(form.up_mbps, 10) : null;
+    const downMbps = form.down_mbps.trim() ? parseInt(form.down_mbps, 10) : null;
+    return updateInbound(inbound.id, {
+      listen_port: Number.isFinite(port) ? port : inbound.listen_port,
+      enabled: form.enabled,
+      hysteria2: {
+        tls_enabled: true,
+        tls_server_name: form.tls_server_name.trim(),
+        tls_certificate_path: form.tls_certificate_path.trim(),
+        tls_key_path: form.tls_key_path.trim(),
+        allow_insecure: form.allow_insecure,
+        ignore_client_bandwidth: form.ignore_client_bandwidth,
+        up_mbps: Number.isFinite(upMbps as number) ? upMbps : null,
+        down_mbps: Number.isFinite(downMbps as number) ? downMbps : null,
+        obfs_type: form.obfs_type.trim(),
+        obfs_password: form.obfs_password.trim(),
+      },
+    });
+  }, onSaved);
 
   return (
     <>
@@ -727,10 +674,6 @@ function HY2Form({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }
   );
 }
 
-// ---------------------------------------------------------------------------
-// Config preview
-// ---------------------------------------------------------------------------
-
 function ConfigPreview({ server }: { server: ServerType }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ config_json: string; check_warning?: string } | null>(null);
@@ -766,7 +709,7 @@ function ConfigPreview({ server }: { server: ServerType }) {
       await navigator.clipboard.writeText(pretty);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch { /* ignore */ }
+    } catch {}
   }
 
   return (
@@ -814,10 +757,6 @@ function ConfigPreview({ server }: { server: ServerType }) {
     </>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
 
 export default function SettingsPage() {
   const qc = useQueryClient();
