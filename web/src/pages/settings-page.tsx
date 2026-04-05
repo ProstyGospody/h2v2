@@ -34,7 +34,7 @@ import {
 } from "@/domain/inbounds/services";
 import type { Inbound, Server as ServerType } from "@/domain/inbounds/types";
 import { getAPIErrorMessage } from "@/services/api";
-import { Button, Input, Toggle, cn } from "@/src/components/ui";
+import { Button, Input, SelectField, Toggle, cn } from "@/src/components/ui";
 import { useToast } from "@/src/components/ui/Toast";
 
 // ---------------------------------------------------------------------------
@@ -93,35 +93,6 @@ function InlineToggle({
       <span className="text-[14px] font-medium text-txt-primary">{label}</span>
       <Toggle checked={checked} onCheckedChange={onCheckedChange} />
     </label>
-  );
-}
-
-function SelectField({
-  label,
-  value,
-  onChange,
-  options,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <div>
-      <label className="mb-2 block text-[13px] font-medium text-txt-secondary">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border-0 bg-[var(--control-bg)] px-4 py-2.5 text-[14px] font-medium text-txt-primary shadow-[inset_0_0_0_1px_var(--control-border)] outline-none transition-colors focus:shadow-[inset_0_0_0_1px_var(--accent),0_0_0_3px_var(--accent-soft)]"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </div>
   );
 }
 
@@ -544,7 +515,7 @@ function VLESSForm({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void
             <SelectField
               label="Type"
               value={form.transport_type}
-              onChange={(v) => set("transport_type", v)}
+              onValueChange={(v) => set("transport_type", v)}
               options={[
                 { value: "tcp", label: "TCP" },
                 { value: "ws", label: "WebSocket" },
