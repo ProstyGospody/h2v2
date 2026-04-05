@@ -84,10 +84,10 @@ html.dark {
   --shell-highlight: rgba(228, 234, 255, 0.08);
   --shell-shadow: rgba(0, 0, 0, 0.32);
 
-  --panel-subtle: rgba(25, 31, 49, 0.22);
-  --panel-base: rgba(25, 31, 49, 0.36);
-  --panel-strong: rgba(30, 37, 58, 0.54);
-  --panel-hover: rgba(36, 44, 68, 0.72);
+  --panel-subtle: rgba(14, 18, 30, 0.40);
+  --panel-base: rgba(14, 18, 30, 0.62);
+  --panel-strong: rgba(20, 26, 42, 0.72);
+  --panel-hover: rgba(28, 35, 54, 0.82);
 
   --txt-display: #FFFFFF;
   --txt-heading: #F2F6FF;
