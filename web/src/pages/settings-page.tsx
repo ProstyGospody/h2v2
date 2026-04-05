@@ -220,7 +220,7 @@ function SectionHeader({
 }
 
 // ---------------------------------------------------------------------------
-// Tabs (sidebar + mobile horizontal)
+// Horizontal tabs
 // ---------------------------------------------------------------------------
 
 type Tab = "server" | "vless" | "hy2" | "preview";
@@ -231,7 +231,7 @@ type TabDef = {
   icon: ReactNode;
 };
 
-function SideNav({
+function TabsNav({
   active,
   onChange,
   tabs,
@@ -241,70 +241,34 @@ function SideNav({
   tabs: TabDef[];
 }) {
   return (
-    <nav className="hidden md:block w-[220px] shrink-0">
-      <div className="sticky top-4 space-y-1.5">
-        {tabs.map((t) => {
-          const selected = active === t.key;
-          return (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => onChange(t.key)}
+    <nav className="flex items-center gap-1.5 overflow-x-auto">
+      {tabs.map((t) => {
+        const selected = active === t.key;
+        return (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => onChange(t.key)}
+            className={cn(
+              "group relative flex h-11 shrink-0 items-center gap-2.5 rounded-2xl px-4 transition-[background-color,color,box-shadow] duration-200",
+              selected
+                ? "bg-surface-3/70 text-txt-primary shadow-[inset_0_1px_0_var(--shell-highlight),0_2px_8px_var(--shell-shadow)]"
+                : "text-txt-secondary hover:bg-surface-3/45 hover:text-txt-primary",
+            )}
+          >
+            <span
               className={cn(
-                "group relative flex h-12 w-full items-center gap-3 rounded-2xl px-4 transition-[transform,background-color,color,box-shadow] duration-200 will-change-transform hover:translate-x-0.5",
-                selected
-                  ? "bg-surface-3/70 text-txt-primary shadow-[inset_0_1px_0_var(--shell-highlight),0_2px_8px_var(--shell-shadow)]"
-                  : "text-txt-secondary hover:bg-surface-3/45 hover:text-txt-primary",
+                "shrink-0 transition-colors duration-200",
+                selected ? "text-accent-secondary" : "text-txt-tertiary group-hover:text-txt-primary",
               )}
             >
-              {selected && (
-                <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-gradient-to-b from-accent to-accent-secondary" />
-              )}
-              <span
-                className={cn(
-                  "shrink-0 transition-colors duration-200",
-                  selected ? "text-accent-secondary" : "text-txt-tertiary group-hover:text-txt-primary",
-                )}
-              >
-                {t.icon}
-              </span>
-              <span className="text-[14px] font-semibold whitespace-nowrap">{t.label}</span>
-            </button>
-          );
-        })}
-      </div>
+              {t.icon}
+            </span>
+            <span className="text-[14px] font-semibold whitespace-nowrap">{t.label}</span>
+          </button>
+        );
+      })}
     </nav>
-  );
-}
-
-function MobileTabsBar({
-  active,
-  onChange,
-  tabs,
-}: {
-  active: Tab;
-  onChange: (t: Tab) => void;
-  tabs: TabDef[];
-}) {
-  return (
-    <div className="md:hidden flex items-center gap-1 overflow-x-auto rounded-xl bg-surface-2 p-1">
-      {tabs.map((t) => (
-        <button
-          key={t.key}
-          type="button"
-          onClick={() => onChange(t.key)}
-          className={cn(
-            "flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors",
-            active === t.key
-              ? "bg-surface-3/70 text-txt-primary"
-              : "text-txt-secondary hover:text-txt-primary",
-          )}
-        >
-          <span className="opacity-80">{t.icon}</span>
-          {t.label}
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -941,21 +905,18 @@ export default function SettingsPage() {
           Nothing configured.
         </div>
       ) : (
-        <div className="flex flex-col gap-6 md:flex-row md:items-start">
-          <SideNav active={tab} onChange={setTab} tabs={tabs} />
-          <MobileTabsBar active={tab} onChange={setTab} tabs={tabs} />
+        <div className="space-y-5">
+          <TabsNav active={tab} onChange={setTab} tabs={tabs} />
 
-          <div className="min-w-0 flex-1 md:max-w-[760px]">
-            <div className="panel-card">
-              {tab === "server" && server ? <ServerForm server={server} onSaved={invalidate} /> : null}
-              {tab === "vless" && vlessInbound ? (
-                <VLESSForm inbound={vlessInbound} onSaved={invalidate} />
-              ) : null}
-              {tab === "hy2" && hy2Inbound ? (
-                <HY2Form inbound={hy2Inbound} onSaved={invalidate} />
-              ) : null}
-              {tab === "preview" && server ? <ConfigPreview server={server} /> : null}
-            </div>
+          <div className="panel-card">
+            {tab === "server" && server ? <ServerForm server={server} onSaved={invalidate} /> : null}
+            {tab === "vless" && vlessInbound ? (
+              <VLESSForm inbound={vlessInbound} onSaved={invalidate} />
+            ) : null}
+            {tab === "hy2" && hy2Inbound ? (
+              <HY2Form inbound={hy2Inbound} onSaved={invalidate} />
+            ) : null}
+            {tab === "preview" && server ? <ConfigPreview server={server} /> : null}
           </div>
         </div>
       )}
