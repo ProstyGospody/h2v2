@@ -378,7 +378,7 @@ export default function UsersPage() {
       if (!window.confirm(previewMsg)) return;
 
       const n = await deleteClientsBulk(selectedIds);
-      toast.notify(`${n} user(s) deleted — apply config to push to runtime`);
+      toast.notify(`${n} ${n === 1 ? "user" : "users"} deleted`);
       clearSelection();
       await qc.invalidateQueries({ queryKey: ["clients"] });
     } catch (err) {
