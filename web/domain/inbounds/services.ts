@@ -148,6 +148,15 @@ export async function listInbounds(serverID?: string): Promise<Inbound[]> {
   return arr(res?.items).map(mapInbound);
 }
 
+export async function generateRealityKeypair(): Promise<{ private_key: string; public_key: string }> {
+  const res = await apiFetch<{ private_key: string; public_key: string }>("/api/v1/utils/reality-keypair", {
+    method: "POST",
+    body: JSON.stringify({}),
+    timeoutMs: TIMEOUT,
+  });
+  return { private_key: res?.private_key ?? "", public_key: res?.public_key ?? "" };
+}
+
 export async function updateInbound(
   id: string,
   patch: Partial<{

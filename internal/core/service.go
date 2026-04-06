@@ -207,6 +207,11 @@ func deriveRealityPublicKey(privateKey string) (string, error) {
 	return encodeRealityKey(derived), nil
 }
 
+// GenerateRealityKeyPair generates a new X25519 keypair and returns (privateKey, publicKey) as base64url strings.
+func GenerateRealityKeyPair() (string, string, error) {
+	return generateRealityKeyPair()
+}
+
 // generateRealityKeyPair generates a new X25519 keypair and returns (privateKey, publicKey) as base64url strings.
 func generateRealityKeyPair() (string, string, error) {
 	privateKey := make([]byte, 32)

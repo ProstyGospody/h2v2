@@ -238,6 +238,18 @@ func buildCoreAccessPayload(items []core.UserAccess, protocolByInboundID map[str
 	}
 	return result
 }
+func (h *Handler) GenerateRealityKeypair(w http.ResponseWriter, r *http.Request) {
+	priv, pub, err := core.GenerateRealityKeyPair()
+	if err != nil {
+		h.renderError(w, http.StatusInternalServerError, "keygen_failed", "failed to generate keypair", nil)
+		return
+	}
+	render.JSON(w, http.StatusOK, map[string]any{
+		"private_key": priv,
+		"public_key":  pub,
+	})
+}
+
 func (h *Handler) CoreDefaults(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, http.StatusOK, map[string]any{
 		"hy2_port":      h.cfg.HY2Port,

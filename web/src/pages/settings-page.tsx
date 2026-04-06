@@ -26,6 +26,7 @@ import {
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
 import {
+  generateRealityKeypair,
   listInbounds,
   listServers,
   previewServerConfig,
@@ -122,12 +123,16 @@ function CopyField({
   label,
   value,
   onChange,
+  onGenerate,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  onGenerate?: () => void | Promise<void>;
 }) {
   const [copied, setCopied] = useState(false);
+  const [generating, setGenerating] = useState(false);
+
   async function copy() {
     if (!value) return;
     try {
@@ -136,6 +141,17 @@ function CopyField({
       setTimeout(() => setCopied(false), 1500);
     } catch {}
   }
+
+  async function generate() {
+    if (!onGenerate) return;
+    setGenerating(true);
+    try {
+      await onGenerate();
+    } finally {
+      setGenerating(false);
+    }
+  }
+
   return (
     <div>
       <label className="mb-2 block text-[15px] font-medium text-txt-secondary">{label}</label>
@@ -145,9 +161,20 @@ function CopyField({
           onChange={(e) => onChange(e.target.value)}
           className="w-full rounded-lg border-0 bg-[var(--control-bg)] px-4 py-2.5 font-mono text-[14px] text-txt-primary shadow-[inset_0_0_0_1px_var(--control-border)] outline-none transition-colors placeholder:text-txt-tertiary focus:bg-[var(--control-bg-hover)] focus:shadow-[inset_0_0_0_1px_var(--accent),0_0_0_3px_var(--accent-soft)]"
         />
+        {onGenerate && (
+          <button
+            type="button"
+            onClick={() => void generate()}
+            disabled={generating}
+            className="inline-grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-surface-3/40 text-txt-muted transition-colors hover:bg-surface-3/70 hover:text-txt-primary disabled:opacity-40"
+            aria-label="Regenerate"
+          >
+            <RefreshCw size={14} className={generating ? "animate-spin" : ""} />
+          </button>
+        )}
         <button
           type="button"
-          onClick={copy}
+          onClick={() => void copy()}
           disabled={!value}
           className="inline-grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-surface-3/40 text-txt-muted transition-colors hover:bg-surface-3/70 hover:text-txt-primary disabled:opacity-40 disabled:hover:bg-surface-3/40"
           aria-label="Copy"
@@ -459,17 +486,32 @@ function VLESSForm({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void
                 label="Short ID"
                 value={form.reality_short_id}
                 onChange={(v) => set("reality_short_id", v)}
+                onGenerate={() => {
+                  const bytes = new Uint8Array(8);
+                  crypto.getRandomValues(bytes);
+                  set("reality_short_id", Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join(""));
+                }}
               />
             </div>
             <CopyField
               label="Private key"
               value={form.reality_private_key}
               onChange={(v) => set("reality_private_key", v)}
+              onGenerate={async () => {
+                const kp = await generateRealityKeypair();
+                set("reality_private_key", kp.private_key);
+                set("reality_public_key", kp.public_key);
+              }}
             />
             <CopyField
               label="Public key"
               value={form.reality_public_key}
               onChange={(v) => set("reality_public_key", v)}
+              onGenerate={async () => {
+                const kp = await generateRealityKeypair();
+                set("reality_private_key", kp.private_key);
+                set("reality_public_key", kp.public_key);
+              }}
             />
           </FieldGroup>
         ) : (
@@ -674,10 +716,13 @@ function HY2Form({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }
                 { value: "salamander", label: "salamander" },
               ]}
             />
-            <Input
+            <CopyField
               label="Password"
               value={form.obfs_password}
-              onChange={(e) => set("obfs_password", e.target.value)}
+              onChange={(v) => set("obfs_password", v)}
+              onGenerate={() => {
+                set("obfs_password", crypto.randomUUID().replace(/-/g, ""));
+              }}
             />
           </div>
         </FieldGroup>
