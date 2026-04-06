@@ -13,7 +13,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ClientArtifactsDialog } from "@/components/dialogs/client-artifacts-dialog";
-import { ConfirmPopover } from "@/components/dialogs/confirm-popover";
 import { ClientFormDialog } from "@/components/forms/client-form-dialog";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PageHeader } from "@/components/ui/page-header";
@@ -24,6 +23,7 @@ import {
   deleteClientsBulk,
   getClientArtifacts,
   listClients,
+  previewClientsBulkDelete,
   setClientEnabled,
   setClientsEnabledBulk,
   updateClient,
@@ -344,25 +344,47 @@ export default function UsersPage() {
 
   // Bulk
   const selectedIds = useMemo(() => Array.from(selected), [selected]);
+  const [bulkDeleteBusy, setBulkDeleteBusy] = useState(false);
+
   async function bulkEnable(enabled: boolean) {
     if (selectedIds.length === 0) return;
     try {
       const n = await setClientsEnabledBulk(selectedIds, enabled);
       toast.notify(`${n} ${enabled ? "enabled" : "disabled"}`);
+      clearSelection();
       await qc.invalidateQueries({ queryKey: ["clients"] });
     } catch (err) {
       toast.notify(getAPIErrorMessage(err, "Bulk failed"), "error");
     }
   }
+
   async function bulkDelete() {
-    if (selectedIds.length === 0) return;
+    if (selectedIds.length === 0 || bulkDeleteBusy) return;
+    setBulkDeleteBusy(true);
     try {
+      // Show preview impact before deleting.
+      let previewMsg = `Delete ${selectedIds.length} user(s)?`;
+      try {
+        const preview = await previewClientsBulkDelete(selectedIds);
+        const parts: string[] = [`${preview.user_count} user(s)`];
+        if (preview.access_count > 0) parts.push(`${preview.access_count} access entrie(s)`);
+        if (preview.affected_inbound_ids.length > 0)
+          parts.push(`${preview.affected_inbound_ids.length} inbound(s) affected`);
+        if (preview.restart_required) parts.push("runtime restart required after apply");
+        previewMsg = `Delete: ${parts.join(", ")}?`;
+      } catch {
+        // Preview failed — fall back to generic message, still allow delete.
+      }
+      if (!window.confirm(previewMsg)) return;
+
       const n = await deleteClientsBulk(selectedIds);
-      toast.notify(`${n} deleted`);
+      toast.notify(`${n} user(s) deleted — apply config to push to runtime`);
       clearSelection();
       await qc.invalidateQueries({ queryKey: ["clients"] });
     } catch (err) {
       toast.notify(getAPIErrorMessage(err, "Bulk delete failed"), "error");
+    } finally {
+      setBulkDeleteBusy(false);
     }
   }
 
@@ -612,22 +634,20 @@ export default function UsersPage() {
               {selected.size}
             </span>
             <div className="mx-1 h-4 w-px bg-border/40" />
-            <Button size="sm" onClick={() => bulkEnable(true)}>
+            <Button size="sm" onClick={() => void bulkEnable(true)}>
               <Power size={13} /> Enable
             </Button>
-            <Button size="sm" onClick={() => bulkEnable(false)}>
+            <Button size="sm" onClick={() => void bulkEnable(false)}>
               <PowerOff size={13} /> Disable
             </Button>
-            <ConfirmPopover
-              title="Delete users"
-              description={`Delete ${selected.size} selected?`}
-              confirmText="Delete"
-              onConfirm={bulkDelete}
+            <Button
+              size="sm"
+              variant="danger"
+              disabled={bulkDeleteBusy}
+              onClick={() => void bulkDelete()}
             >
-              <Button size="sm" variant="danger">
-                <Trash2 size={13} /> Delete
-              </Button>
-            </ConfirmPopover>
+              <Trash2 size={13} /> {bulkDeleteBusy ? "Deleting…" : "Delete"}
+            </Button>
             <div className="mx-1 h-4 w-px bg-border/40" />
             <button
               type="button"

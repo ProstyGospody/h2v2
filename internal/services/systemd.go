@@ -10,14 +10,23 @@ import (
 	"time"
 )
 
+// ServiceCapabilities describes which control actions a service supports.
+type ServiceCapabilities struct {
+	// SupportsReload indicates the service has an ExecReload directive and
+	// handles SIGHUP / systemctl reload gracefully. Most simple daemons
+	// (including sing-box) do NOT set this; use Restart instead.
+	SupportsReload bool
+}
+
 type ServiceManager struct {
-	SystemctlPath    string
-	SudoPath         string
-	JournalctlPath   string
-	ManagedServices  map[string]struct{}
-	UseSudo          bool
-	CommandTimeout   time.Duration
-	MaxLogLinesLimit int
+	SystemctlPath        string
+	SudoPath             string
+	JournalctlPath       string
+	ManagedServices      map[string]struct{}
+	serviceCapabilities  map[string]ServiceCapabilities
+	UseSudo              bool
+	CommandTimeout       time.Duration
+	MaxLogLinesLimit     int
 }
 
 type ServiceDetails struct {
@@ -43,14 +52,32 @@ func NewServiceManager(systemctlPath string, sudoPath string, journalctlPath str
 		managed[svc] = struct{}{}
 	}
 	return &ServiceManager{
-		SystemctlPath:    systemctlPath,
-		SudoPath:         sudoPath,
-		JournalctlPath:   journalctlPath,
-		ManagedServices:  managed,
-		UseSudo:          true,
-		CommandTimeout:   commandTimeout,
-		MaxLogLinesLimit: 200,
+		SystemctlPath:       systemctlPath,
+		SudoPath:            sudoPath,
+		JournalctlPath:      journalctlPath,
+		ManagedServices:     managed,
+		serviceCapabilities: make(map[string]ServiceCapabilities),
+		UseSudo:             true,
+		CommandTimeout:      commandTimeout,
+		MaxLogLinesLimit:    200,
 	}
+}
+
+// Capabilities returns the declared capabilities for a service.
+// The default (no entry) is conservative: no reload support.
+func (m *ServiceManager) Capabilities(service string) ServiceCapabilities {
+	if caps, ok := m.serviceCapabilities[service]; ok {
+		return caps
+	}
+	return ServiceCapabilities{SupportsReload: false}
+}
+
+// SetCapabilities configures the capabilities for a named service.
+func (m *ServiceManager) SetCapabilities(service string, caps ServiceCapabilities) {
+	if m.serviceCapabilities == nil {
+		m.serviceCapabilities = make(map[string]ServiceCapabilities)
+	}
+	m.serviceCapabilities[service] = caps
 }
 
 func (m *ServiceManager) isAllowed(service string) bool {

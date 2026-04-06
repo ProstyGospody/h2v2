@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -37,6 +38,31 @@ const (
 	defaultSingBoxConfig   = "/etc/h2v2/sing-box/config.json"
 	defaultSingBoxService  = "sing-box"
 )
+
+// ApplyError carries a machine-readable stage name alongside the underlying
+// error so that HTTP handlers can return per-stage diagnostics to the UI.
+type ApplyError struct {
+	Stage string // e.g. "config_validation_failed", "runtime_restart_failed"
+	Cause error
+}
+
+func (e *ApplyError) Error() string {
+	if e.Cause != nil {
+		return e.Stage + ": " + e.Cause.Error()
+	}
+	return e.Stage
+}
+
+func (e *ApplyError) Unwrap() error { return e.Cause }
+
+// IsApplyError reports whether err is an *ApplyError and returns it.
+func IsApplyError(err error) (*ApplyError, bool) {
+	var ae *ApplyError
+	if errors.As(err, &ae) {
+		return ae, true
+	}
+	return nil, false
+}
 
 type Service struct {
 	cfg            config.Config
@@ -1351,6 +1377,11 @@ func (s *Service) ValidateServerConfig(ctx context.Context, serverID string, rev
 	return revision, nil
 }
 
+// ApplyServerConfig writes the rendered config to disk and restarts/reloads
+// the sing-box service. The service action is capability-aware: reload is only
+// attempted when the service declares SupportsReload; otherwise restart is used
+// directly. On any service-action failure the revision is marked apply_failed
+// while the previous current revision remains unchanged.
 func (s *Service) ApplyServerConfig(ctx context.Context, serverID string, revisionID string) (ConfigRevision, error) {
 	server, err := s.store.GetServer(ctx, serverID)
 	if err != nil {
@@ -1367,16 +1398,18 @@ func (s *Service) ApplyServerConfig(ctx context.Context, serverID string, revisi
 	}
 	payload := []byte(revision.RenderedJSON)
 	if err := s.checkConfig(ctx, server, payload); err != nil {
-		return ConfigRevision{}, err
+		_ = s.store.MarkConfigRevisionApplyFailed(ctx, revision.ID, "config_validation_failed: "+err.Error())
+		return ConfigRevision{}, &ApplyError{Stage: "config_validation_failed", Cause: err}
 	}
 	if err := fsutil.WriteFileAtomic(server.SingBoxConfigPath, payload, 0o660); err != nil {
-		return ConfigRevision{}, err
+		_ = s.store.MarkConfigRevisionApplyFailed(ctx, revision.ID, "write_failed: "+err.Error())
+		return ConfigRevision{}, &ApplyError{Stage: "write_failed", Cause: err}
 	}
 	if s.serviceManager != nil {
-		if err := s.serviceManager.Reload(ctx, server.SingBoxServiceName); err != nil {
-			if restartErr := s.serviceManager.Restart(ctx, server.SingBoxServiceName); restartErr != nil {
-				return ConfigRevision{}, fmt.Errorf("reload failed: %w; restart failed: %v", err, restartErr)
-			}
+		svcErr := s.applyServiceAction(ctx, server.SingBoxServiceName)
+		if svcErr != nil {
+			_ = s.store.MarkConfigRevisionApplyFailed(ctx, revision.ID, svcErr.Error())
+			return ConfigRevision{}, svcErr
 		}
 	}
 	if err := s.store.MarkConfigRevisionApplied(ctx, revision.ID); err != nil {
@@ -1385,8 +1418,80 @@ func (s *Service) ApplyServerConfig(ctx context.Context, serverID string, revisi
 	return s.store.GetConfigRevision(ctx, revision.ID)
 }
 
+// applyServiceAction restarts (or reloads) the named service using capability
+// flags. sing-box does not declare ExecReload, so it is always restarted.
+func (s *Service) applyServiceAction(ctx context.Context, serviceName string) error {
+	caps := s.serviceManager.Capabilities(serviceName)
+	if caps.SupportsReload {
+		if err := s.serviceManager.Reload(ctx, serviceName); err == nil {
+			return nil
+		}
+		// Reload supported but failed — fall through to restart.
+		s.logger.Warn("service reload failed, attempting restart", "service", serviceName)
+	}
+	if err := s.serviceManager.Restart(ctx, serviceName); err != nil {
+		return &ApplyError{Stage: "runtime_restart_failed", Cause: err}
+	}
+	return nil
+}
+
 func (s *Service) ListServerConfigRevisions(ctx context.Context, serverID string, limit int) ([]ConfigRevision, error) {
 	return s.store.ListConfigRevisions(ctx, serverID, limit)
+}
+
+// BulkPreviewUsers returns the impact of deleting the given user IDs without
+// modifying any state. The result can be shown to the operator before confirm.
+func (s *Service) BulkPreviewUsers(ctx context.Context, ids []string) (BulkPreviewResult, error) {
+	if len(ids) == 0 {
+		return BulkPreviewResult{}, nil
+	}
+	usersByID, err := s.store.ListUsersByIDs(ctx, ids)
+	if err != nil {
+		return BulkPreviewResult{}, err
+	}
+	// Collect access entries for each user.
+	inboundSeen := make(map[string]struct{})
+	accessCount := 0
+	subCount := 0
+	for id := range usersByID {
+		accesses, err := s.store.ListUserAccess(ctx, id)
+		if err != nil {
+			return BulkPreviewResult{}, err
+		}
+		accessCount += len(accesses)
+		for _, a := range accesses {
+			inboundSeen[a.InboundID] = struct{}{}
+		}
+		if _, subErr := s.store.GetSubscriptionByUser(ctx, id); subErr == nil {
+			subCount++
+		}
+	}
+	affectedIDs := make([]string, 0, len(inboundSeen))
+	for id := range inboundSeen {
+		affectedIDs = append(affectedIDs, id)
+	}
+	runtimeChange := len(affectedIDs) > 0
+	return BulkPreviewResult{
+		UserCount:             len(usersByID),
+		AccessCount:           accessCount,
+		AffectedInboundIDs:    affectedIDs,
+		AffectedSubscriptions: subCount,
+		RuntimeChangeExpected: runtimeChange,
+		RestartRequired:       runtimeChange,
+	}, nil
+}
+
+// BulkDeleteUsers deletes users and their associated data from the database
+// without triggering a runtime apply. The caller is responsible for rendering
+// and applying a new config revision when ready.
+func (s *Service) BulkDeleteUsers(ctx context.Context, ids []string) (int, error) {
+	return s.store.BulkDeleteUsers(ctx, ids)
+}
+
+// BulkSetUsersEnabled enables or disables the given users without triggering
+// a runtime apply.
+func (s *Service) BulkSetUsersEnabled(ctx context.Context, ids []string, enabled bool) (int, error) {
+	return s.store.BulkSetUsersEnabled(ctx, ids, enabled)
 }
 
 func (s *Service) RollbackServerConfig(ctx context.Context, serverID string, revisionID string) (ConfigRevision, error) {

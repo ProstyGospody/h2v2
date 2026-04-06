@@ -189,6 +189,10 @@ func (h *Handler) applyCoreServerConfigs(ctx context.Context, service *core.Serv
 			return err
 		}
 		if _, err := service.ApplyServerConfig(ctx, serverID, rendered.Revision.ID); err != nil {
+			// Wrap apply errors so the caller gets the stage in the message.
+			if ae, ok := core.IsApplyError(err); ok {
+				return fmt.Errorf("apply failed at stage %q: %w", ae.Stage, ae.Cause)
+			}
 			return err
 		}
 	}
@@ -771,6 +775,81 @@ func (h *Handler) DeleteCoreUser(w http.ResponseWriter, r *http.Request) {
 	}
 	render.JSON(w, http.StatusOK, map[string]any{"ok": true})
 }
+// BulkPreviewCoreUsers returns the impact of deleting the given user IDs
+// without modifying any state. Used to populate a confirm dialog.
+func (h *Handler) BulkPreviewCoreUsers(w http.ResponseWriter, r *http.Request) {
+	service := h.ensureCoreService(w)
+	if service == nil {
+		return
+	}
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := render.DecodeJSON(r, &req); err != nil {
+		h.renderError(w, http.StatusBadRequest, "validation", "invalid request body", nil)
+		return
+	}
+	result, err := service.BulkPreviewUsers(r.Context(), req.IDs)
+	if err != nil {
+		h.renderError(w, http.StatusInternalServerError, "runtime", err.Error(), nil)
+		return
+	}
+	render.JSON(w, http.StatusOK, result)
+}
+
+// BulkDeleteCoreUsers deletes users by IDs without triggering a runtime apply.
+// After this call the operator should call render+apply to push changes.
+func (h *Handler) BulkDeleteCoreUsers(w http.ResponseWriter, r *http.Request) {
+	service := h.ensureCoreService(w)
+	if service == nil {
+		return
+	}
+	var req struct {
+		IDs []string `json:"ids"`
+	}
+	if err := render.DecodeJSON(r, &req); err != nil {
+		h.renderError(w, http.StatusBadRequest, "validation", "invalid request body", nil)
+		return
+	}
+	if len(req.IDs) == 0 {
+		h.renderError(w, http.StatusBadRequest, "validation", "ids must not be empty", nil)
+		return
+	}
+	deleted, err := service.BulkDeleteUsers(r.Context(), req.IDs)
+	if err != nil {
+		h.renderError(w, http.StatusInternalServerError, "runtime", err.Error(), nil)
+		return
+	}
+	render.JSON(w, http.StatusOK, map[string]any{"ok": true, "deleted": deleted})
+}
+
+// BulkSetCoreUsersEnabled enables or disables users by IDs without triggering
+// a runtime apply.
+func (h *Handler) BulkSetCoreUsersEnabled(w http.ResponseWriter, r *http.Request) {
+	service := h.ensureCoreService(w)
+	if service == nil {
+		return
+	}
+	var req struct {
+		IDs     []string `json:"ids"`
+		Enabled bool     `json:"enabled"`
+	}
+	if err := render.DecodeJSON(r, &req); err != nil {
+		h.renderError(w, http.StatusBadRequest, "validation", "invalid request body", nil)
+		return
+	}
+	if len(req.IDs) == 0 {
+		h.renderError(w, http.StatusBadRequest, "validation", "ids must not be empty", nil)
+		return
+	}
+	updated, err := service.BulkSetUsersEnabled(r.Context(), req.IDs, req.Enabled)
+	if err != nil {
+		h.renderError(w, http.StatusInternalServerError, "runtime", err.Error(), nil)
+		return
+	}
+	render.JSON(w, http.StatusOK, map[string]any{"ok": true, "updated": updated})
+}
+
 func (h *Handler) ListCoreUserAccess(w http.ResponseWriter, r *http.Request) {
 	service := h.ensureCoreService(w)
 	if service == nil {
@@ -1030,7 +1109,14 @@ func (h *Handler) ApplyCoreServerConfig(w http.ResponseWriter, r *http.Request) 
 	revisionID := strings.TrimSpace(r.URL.Query().Get("revision_id"))
 	revision, err := service.ApplyServerConfig(r.Context(), chi.URLParam(r, "id"), revisionID)
 	if err != nil {
-		h.renderError(w, http.StatusBadGateway, "service", err.Error(), nil)
+		details := map[string]any{"error": err.Error()}
+		if ae, ok := core.IsApplyError(err); ok {
+			details["stage"] = ae.Stage
+			if ae.Cause != nil {
+				details["cause"] = ae.Cause.Error()
+			}
+		}
+		h.renderError(w, http.StatusBadGateway, "apply_failed", err.Error(), details)
 		return
 	}
 	render.JSON(w, http.StatusOK, map[string]any{"ok": true, "revision": revision})

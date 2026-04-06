@@ -155,22 +155,40 @@ export async function setClientEnabled(clientID: string, enabled: boolean): Prom
   });
 }
 
+export interface BulkPreviewResult {
+  user_count: number;
+  access_count: number;
+  affected_inbound_ids: string[];
+  affected_subscriptions: number;
+  runtime_change_expected: boolean;
+  restart_required: boolean;
+}
+
+export async function previewClientsBulkDelete(ids: string[]): Promise<BulkPreviewResult> {
+  const res = await apiFetch<BulkPreviewResult>("/api/v1/users/bulk/preview", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+    timeoutMs: TIMEOUT,
+  });
+  return res as BulkPreviewResult;
+}
+
 export async function deleteClientsBulk(ids: string[]): Promise<number> {
-  let deleted = 0;
-  for (const id of ids) {
-    await apiFetch(`/api/v1/users/${id}`, { method: "DELETE", body: JSON.stringify({}), timeoutMs: TIMEOUT });
-    deleted++;
-  }
-  return deleted;
+  const res = await apiFetch<{ deleted: number }>("/api/v1/users/bulk/delete", {
+    method: "POST",
+    body: JSON.stringify({ ids }),
+    timeoutMs: TIMEOUT,
+  });
+  return (res as { deleted: number }).deleted ?? 0;
 }
 
 export async function setClientsEnabledBulk(ids: string[], enabled: boolean): Promise<number> {
-  let updated = 0;
-  for (const id of ids) {
-    await apiFetch(`/api/v1/users/${id}`, { method: "PATCH", body: JSON.stringify({ enabled }), timeoutMs: TIMEOUT });
-    updated++;
-  }
-  return updated;
+  const res = await apiFetch<{ updated: number }>("/api/v1/users/bulk/enable-disable", {
+    method: "POST",
+    body: JSON.stringify({ ids, enabled }),
+    timeoutMs: TIMEOUT,
+  });
+  return (res as { updated: number }).updated ?? 0;
 }
 
 // QR helpers — value= passes the URI to render server-side; kind=subscription uses the

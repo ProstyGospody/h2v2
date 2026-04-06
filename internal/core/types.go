@@ -323,6 +323,12 @@ type IssuedSubscriptionToken struct {
 	Token          SubscriptionToken `json:"token"`
 }
 
+// ApplyStatus values for ConfigRevision.ApplyStatus.
+const (
+	ApplyStatusSucceeded = "succeeded"
+	ApplyStatusFailed    = "failed"
+)
+
 type ConfigRevision struct {
 	ID                     string     `json:"id"`
 	ServerID               string     `json:"server_id"`
@@ -333,12 +339,25 @@ type ConfigRevision struct {
 	CheckError             *string    `json:"check_error,omitempty"`
 	AppliedAt              *time.Time `json:"applied_at,omitempty"`
 	RollbackFromRevisionID *string    `json:"rollback_from_revision_id,omitempty"`
+	// Apply outcome tracking — set after an Apply attempt.
+	ApplyStatus *string `json:"apply_status,omitempty"`
+	ApplyError  *string `json:"apply_error,omitempty"`
 	// Extended revision metadata.
-	SchemaVersion   int    `json:"schema_version"`
-	RendererVersion string `json:"renderer_version,omitempty"`
-	CreatedBy       string `json:"created_by,omitempty"`
-	IsCurrent       bool   `json:"is_current"`
+	SchemaVersion   int       `json:"schema_version"`
+	RendererVersion string    `json:"renderer_version,omitempty"`
+	CreatedBy       string    `json:"created_by,omitempty"`
+	IsCurrent       bool      `json:"is_current"`
 	CreatedAt       time.Time `json:"created_at"`
+}
+
+// BulkPreviewResult summarises the domain impact of a bulk user deletion.
+type BulkPreviewResult struct {
+	UserCount              int      `json:"user_count"`
+	AccessCount            int      `json:"access_count"`
+	AffectedInboundIDs     []string `json:"affected_inbound_ids"`
+	AffectedSubscriptions  int      `json:"affected_subscriptions"`
+	RuntimeChangeExpected  bool     `json:"runtime_change_expected"`
+	RestartRequired        bool     `json:"restart_required"`
 }
 
 type UserArtifacts struct {

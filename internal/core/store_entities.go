@@ -955,7 +955,7 @@ func (s *Store) CreateConfigRevisionEx(ctx context.Context, serverID string, ren
 	return s.GetConfigRevision(ctx, revisionID)
 }
 
-const configRevisionSelectCols = `id, server_id, revision_no, config_hash, rendered_json, check_ok, check_error, applied_at_ns, rollback_from_revision_id, COALESCE(schema_version,0), COALESCE(renderer_version,''), COALESCE(created_by,''), COALESCE(is_current,0), created_at_ns`
+const configRevisionSelectCols = `id, server_id, revision_no, config_hash, rendered_json, check_ok, check_error, applied_at_ns, rollback_from_revision_id, COALESCE(schema_version,0), COALESCE(renderer_version,''), COALESCE(created_by,''), COALESCE(is_current,0), created_at_ns, apply_status, apply_error`
 
 func (s *Store) GetConfigRevision(ctx context.Context, revisionID string) (ConfigRevision, error) {
 	row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT `+configRevisionSelectCols+` FROM core_config_revisions WHERE id = ? LIMIT 1`, normalizeString(revisionID))
@@ -1027,7 +1027,7 @@ func (s *Store) MarkConfigRevisionApplied(ctx context.Context, revisionID string
 		return err
 	}
 	// Mark the target revision as applied and current.
-	result, err := tx.ExecContext(resolveCtx(ctx), `UPDATE core_config_revisions SET applied_at_ns = ?, is_current = 1 WHERE id = ?`, nowNano(), normalizeString(revisionID))
+	result, err := tx.ExecContext(resolveCtx(ctx), `UPDATE core_config_revisions SET applied_at_ns = ?, is_current = 1, apply_status = 'succeeded', apply_error = NULL WHERE id = ?`, nowNano(), normalizeString(revisionID))
 	if err != nil {
 		return err
 	}
@@ -1039,6 +1039,88 @@ func (s *Store) MarkConfigRevisionApplied(ctx context.Context, revisionID string
 		return ErrNotFound
 	}
 	return tx.Commit()
+}
+
+// MarkConfigRevisionApplyFailed records that an apply attempt failed without
+// changing is_current (the previous applied revision remains current).
+func (s *Store) MarkConfigRevisionApplyFailed(ctx context.Context, revisionID string, applyErr string) error {
+	result, err := s.db.ExecContext(
+		resolveCtx(ctx),
+		`UPDATE core_config_revisions SET apply_status = 'failed', apply_error = ? WHERE id = ?`,
+		strings.TrimSpace(applyErr),
+		normalizeString(revisionID),
+	)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// BulkDeleteUsers deletes multiple users by ID in a single transaction and
+// returns the count of rows actually deleted. It does NOT trigger a config
+// render or runtime apply — the caller is responsible for that.
+func (s *Store) BulkDeleteUsers(ctx context.Context, ids []string) (int, error) {
+	clean := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if t := normalizeString(id); t != "" {
+			clean = append(clean, t)
+		}
+	}
+	if len(clean) == 0 {
+		return 0, nil
+	}
+	tx, err := s.db.BeginTx(resolveCtx(ctx), nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	total := 0
+	for _, id := range clean {
+		res, err := tx.ExecContext(resolveCtx(ctx), `DELETE FROM core_users WHERE id = ?`, id)
+		if err != nil {
+			return 0, err
+		}
+		n, _ := res.RowsAffected()
+		total += int(n)
+	}
+	return total, tx.Commit()
+}
+
+// BulkSetUsersEnabled enables or disables multiple users by ID without
+// triggering a runtime apply. Returns the count of rows updated.
+func (s *Store) BulkSetUsersEnabled(ctx context.Context, ids []string, enabled bool) (int, error) {
+	clean := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if t := normalizeString(id); t != "" {
+			clean = append(clean, t)
+		}
+	}
+	if len(clean) == 0 {
+		return 0, nil
+	}
+	flag := boolToInt(enabled)
+	tx, err := s.db.BeginTx(resolveCtx(ctx), nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	total := 0
+	for _, id := range clean {
+		res, err := tx.ExecContext(resolveCtx(ctx), `UPDATE core_users SET enabled = ?, updated_at_ns = ? WHERE id = ?`, flag, nowNano(), id)
+		if err != nil {
+			return 0, err
+		}
+		n, _ := res.RowsAffected()
+		total += int(n)
+	}
+	return total, tx.Commit()
 }
 
 func (s *Store) ListUsersByIDs(ctx context.Context, ids []string) (map[string]User, error) {
@@ -1470,6 +1552,8 @@ func scanConfigRevision(row interface{ Scan(dest ...any) error }) (ConfigRevisio
 		rollbackFrom sql.NullString
 		isCurrent    int64
 		createdAt    int64
+		applyStatus  sql.NullString
+		applyError   sql.NullString
 	)
 	if err := row.Scan(
 		&item.ID,
@@ -1486,6 +1570,8 @@ func scanConfigRevision(row interface{ Scan(dest ...any) error }) (ConfigRevisio
 		&item.CreatedBy,
 		&isCurrent,
 		&createdAt,
+		&applyStatus,
+		&applyError,
 	); err != nil {
 		return ConfigRevision{}, parseUnique(err)
 	}
@@ -1495,6 +1581,8 @@ func scanConfigRevision(row interface{ Scan(dest ...any) error }) (ConfigRevisio
 	item.RollbackFromRevisionID = optionalString(rollbackFrom)
 	item.IsCurrent = intToBool(isCurrent)
 	item.CreatedAt = fromUnixNano(createdAt)
+	item.ApplyStatus = optionalString(applyStatus)
+	item.ApplyError = optionalString(applyError)
 	return item, nil
 }
 

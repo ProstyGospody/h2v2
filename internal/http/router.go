@@ -87,6 +87,9 @@ func NewRouter(
 
 				v1.Get("/users", h.ListCoreUsers)
 				v1.Post("/users/provision", h.ProvisionCoreUser)
+				v1.Post("/users/bulk/preview", h.BulkPreviewCoreUsers)
+				v1.Post("/users/bulk/delete", h.BulkDeleteCoreUsers)
+				v1.Post("/users/bulk/enable-disable", h.BulkSetCoreUsersEnabled)
 				v1.Post("/users", h.CreateCoreUser)
 				v1.Get("/users/{id}", h.GetCoreUser)
 				v1.Patch("/users/{id}", h.UpdateCoreUser)

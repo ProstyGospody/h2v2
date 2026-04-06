@@ -463,6 +463,11 @@ func (s *Store) runMigrations(ctx context.Context) error {
 			`ALTER TABLE core_inbounds ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0`,
 			`ALTER TABLE core_inbounds ADD COLUMN log_profile_id TEXT`,
 		}},
+		// v11: Config revisions — track apply outcome (apply_status, apply_error).
+		{version: 11, stmts: []string{
+			`ALTER TABLE core_config_revisions ADD COLUMN apply_status TEXT`,
+			`ALTER TABLE core_config_revisions ADD COLUMN apply_error TEXT`,
+		}},
 	}
 	for _, m := range migrations {
 		var count int
