@@ -419,10 +419,10 @@ function VLESSForm({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void
             />
             <SelectField
               label="Flow"
-              value={form.flow}
-              onValueChange={(v) => set("flow", v)}
+              value={form.flow || "__none__"}
+              onValueChange={(v) => set("flow", v === "__none__" ? "" : v)}
               options={[
-                { value: "", label: "None" },
+                { value: "__none__", label: "None" },
                 { value: "xtls-rprx-vision", label: "xtls-rprx-vision" },
               ]}
             />
@@ -661,15 +661,16 @@ function HY2Form({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }
           <div className="grid gap-4 sm:grid-cols-2">
             <SelectField
               label="Type"
-              value={form.obfs_type}
+              value={form.obfs_type || "__none__"}
               onValueChange={(v) => {
-                set("obfs_type", v);
-                if (v === "salamander" && !form.obfs_password) {
+                const val = v === "__none__" ? "" : v;
+                set("obfs_type", val);
+                if (val === "salamander" && !form.obfs_password) {
                   set("obfs_password", crypto.randomUUID().replace(/-/g, ""));
                 }
               }}
               options={[
-                { value: "", label: "None" },
+                { value: "__none__", label: "None" },
                 { value: "salamander", label: "salamander" },
               ]}
             />
