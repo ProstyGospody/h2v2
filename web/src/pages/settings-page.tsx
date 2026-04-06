@@ -417,10 +417,14 @@ function VLESSForm({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void
               value={form.listen_port}
               onChange={(e) => set("listen_port", e.target.value)}
             />
-            <Input
+            <SelectField
               label="Flow"
               value={form.flow}
-              onChange={(e) => set("flow", e.target.value)}
+              onValueChange={(v) => set("flow", v)}
+              options={[
+                { value: "", label: "None" },
+                { value: "xtls-rprx-vision", label: "xtls-rprx-vision" },
+              ]}
             />
           </div>
           <InlineToggle
@@ -655,11 +659,19 @@ function HY2Form({ inbound, onSaved }: { inbound: Inbound; onSaved: () => void }
 
         <FieldGroup title="Obfuscation">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Input
+            <SelectField
               label="Type"
-              placeholder="salamander"
               value={form.obfs_type}
-              onChange={(e) => set("obfs_type", e.target.value)}
+              onValueChange={(v) => {
+                set("obfs_type", v);
+                if (v === "salamander" && !form.obfs_password) {
+                  set("obfs_password", crypto.randomUUID().replace(/-/g, ""));
+                }
+              }}
+              options={[
+                { value: "", label: "None" },
+                { value: "salamander", label: "salamander" },
+              ]}
             />
             <Input
               label="Password"
