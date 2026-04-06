@@ -58,7 +58,7 @@ const SidebarNavLink = memo(function SidebarNavLink({ item, compact, selected, o
   );
 
   if (compact) {
-    return <Tooltip content={item.label}>{content}</Tooltip>;
+    return <Tooltip content={item.label} side="right">{content}</Tooltip>;
   }
   return content;
 });
@@ -144,7 +144,7 @@ const SidebarContent = memo(function SidebarContent({
         )}
 
         {!mobile && (
-          <Tooltip content={compact ? (collapsed ? "Expand sidebar" : "Collapse sidebar") : undefined}>
+          <Tooltip content={compact ? (collapsed ? "Expand sidebar" : "Collapse sidebar") : undefined} side="right">
             <button
               type="button"
               onClick={onToggleCollapsed}
@@ -160,7 +160,7 @@ const SidebarContent = memo(function SidebarContent({
           </Tooltip>
         )}
 
-        <Tooltip content={compact ? "Toggle theme" : undefined}>
+        <Tooltip content={compact ? "Toggle theme" : undefined} side="right">
           <button
             type="button"
             aria-label="Toggle theme"
@@ -175,7 +175,7 @@ const SidebarContent = memo(function SidebarContent({
           </button>
         </Tooltip>
 
-        <Tooltip content={compact ? "Sign out" : undefined}>
+        <Tooltip content={compact ? "Sign out" : undefined} side="right">
           <button
             type="button"
             aria-label="Sign out"
