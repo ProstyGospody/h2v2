@@ -1454,7 +1454,7 @@ func (s *Service) BulkPreviewUsers(ctx context.Context, ids []string) (BulkPrevi
 	accessCount := 0
 	subCount := 0
 	for id := range usersByID {
-		accesses, err := s.store.ListUserAccess(ctx, id)
+		accesses, err := s.store.ListUserAccessByUser(ctx, id)
 		if err != nil {
 			return BulkPreviewResult{}, err
 		}
