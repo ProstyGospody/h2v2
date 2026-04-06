@@ -50,11 +50,11 @@ export function StateBlock({
           <Icon size={20} strokeWidth={1.8} className={tone === "loading" ? "animate-spin" : undefined} />
         </div>
       )}
-      <p className={cn("text-[14px] font-medium", tone === "error" ? "text-status-danger" : "text-txt-secondary")}>
+      <p className={cn("text-[16px] font-medium", tone === "error" ? "text-status-danger" : "text-txt-secondary")}>
         {title}
       </p>
       {description ? (
-        <p className="max-w-[320px] text-center text-[13px] text-txt-muted">{description}</p>
+        <p className="max-w-[320px] text-center text-[15px] text-txt-muted">{description}</p>
       ) : null}
       {actionLabel && onAction ? (
         <Button size="sm" variant={tone === "error" ? "danger" : "ghost"} onClick={onAction}>

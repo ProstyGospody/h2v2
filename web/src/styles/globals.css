@@ -173,16 +173,16 @@ html.dark {
   --radius-badge: 8px;
   --radius-pill: 24px;
 
-  --text-metric: 34px;
+  --text-metric: 36px;
   --text-metric--line-height: 1;
   --text-metric--font-weight: 700;
   --text-metric--letter-spacing: -1px;
 
-  --text-metric-unit: 15px;
+  --text-metric-unit: 17px;
   --text-metric-unit--line-height: 1;
   --text-metric-unit--font-weight: 500;
 
-  --text-section-label: 11px;
+  --text-section-label: 13px;
   --text-section-label--line-height: 1;
   --text-section-label--font-weight: 600;
   --text-section-label--letter-spacing: 0.6px;
@@ -224,7 +224,7 @@ html.dark {
     background-color: var(--surface-0);
     background-image: var(--canvas-gradient);
     background-attachment: fixed;
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1.6;
     overflow-x: hidden;
   }

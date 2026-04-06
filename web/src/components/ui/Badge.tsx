@@ -18,7 +18,7 @@ export function Badge({ variant = "default", className, children, ...props }: Ba
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-lg border px-2.5 py-1 text-[12px] font-semibold uppercase tracking-wide",
+        "inline-flex items-center rounded-lg border px-2.5 py-1 text-[14px] font-semibold uppercase tracking-wide",
         variant === "default" && "border-border bg-surface-3/50 text-txt-secondary",
         variant === "success" && "border-status-success/20 bg-status-success/10 text-status-success",
         variant === "warning" && "border-status-warning/20 bg-status-warning/10 text-status-warning",

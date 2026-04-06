@@ -24,14 +24,14 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="grid h-16 w-16 place-items-center rounded-2xl bg-status-danger/10">
             <AlertTriangle size={28} strokeWidth={1.6} className="text-status-danger" />
           </div>
-          <h2 className="text-[18px] font-bold text-txt-primary">Something went wrong</h2>
+          <h2 className="text-[20px] font-bold text-txt-primary">Something went wrong</h2>
           {this.state.error.message ? (
-            <p className="max-w-[520px] break-words text-[12px] text-txt-secondary">{this.state.error.message}</p>
+            <p className="max-w-[520px] break-words text-[14px] text-txt-secondary">{this.state.error.message}</p>
           ) : null}
           <button
             type="button"
             onClick={() => this.setState({ error: null })}
-            className="inline-flex items-center gap-2 rounded-xl bg-accent/15 px-5 py-2.5 text-[14px] font-semibold text-accent transition-colors hover:bg-accent/25"
+            className="inline-flex items-center gap-2 rounded-xl bg-accent/15 px-5 py-2.5 text-[16px] font-semibold text-accent transition-colors hover:bg-accent/25"
           >
             <RotateCcw size={16} strokeWidth={1.8} />
             Retry

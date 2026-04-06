@@ -20,8 +20,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       aria-busy={loading || undefined}
       className={cn(
         "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus",
-        size === "sm" && "px-3.5 py-2 text-[13px]",
-        size === "md" && "px-5 py-2.5 text-[14px]",
+        size === "sm" && "px-3.5 py-2 text-[15px]",
+        size === "md" && "px-5 py-2.5 text-[16px]",
         variant === "primary" &&
           "border-0 bg-gradient-to-br from-accent to-accent-secondary text-white hover:brightness-105 active:brightness-95",
         variant === "ghost" &&

@@ -70,13 +70,13 @@ export function ClientFormDialog({
     >
       <form id={formID} className="space-y-5" onSubmit={submit}>
         {error && (
-          <div className="rounded-xl bg-status-danger/8 px-5 py-3.5 text-[14px] text-status-danger">{error}</div>
+          <div className="rounded-xl bg-status-danger/8 px-5 py-3.5 text-[16px] text-status-danger">{error}</div>
         )}
 
         {validationWarnings.length > 0 && (
           <div className="space-y-1">
             {validationWarnings.map((w) => (
-              <div key={w} className="rounded-xl bg-status-warning/8 px-5 py-2.5 text-[13px] text-status-warning">{w}</div>
+              <div key={w} className="rounded-xl bg-status-warning/8 px-5 py-2.5 text-[15px] text-status-warning">{w}</div>
             ))}
           </div>
         )}

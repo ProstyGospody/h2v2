@@ -53,7 +53,7 @@ const SidebarNavLink = memo(function SidebarNavLink({ item, compact, selected, o
         {item.icon}
       </span>
 
-      {!compact && <span className="text-[14px] font-semibold whitespace-nowrap">{item.label}</span>}
+      {!compact && <span className="text-[16px] font-semibold whitespace-nowrap">{item.label}</span>}
     </button>
   );
 
@@ -98,7 +98,7 @@ const SidebarContent = memo(function SidebarContent({
 
           {!compact && (
             <div className="min-w-0 flex-1 pl-3">
-              <p className="truncate text-[17px] font-bold text-txt-primary">H2V2</p>
+              <p className="truncate text-[19px] font-bold text-txt-primary">H2V2</p>
             </div>
           )}
         </div>
@@ -132,13 +132,13 @@ const SidebarContent = memo(function SidebarContent({
 
         {!compact && (
           <div className="flex items-center gap-3 rounded-xl border border-border/30 bg-surface-3/30 px-3 py-3 transition-colors duration-200 hover:bg-surface-3/50">
-            <div className="relative grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent/20 to-accent-secondary/20 text-[14px] font-bold text-txt-primary">
+            <div className="relative grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-accent/20 to-accent-secondary/20 text-[16px] font-bold text-txt-primary">
               <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-surface-0 bg-status-success" />
               A
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold text-txt">Admin</p>
-              <p className="truncate text-[12px] text-txt-muted">root@h2v2</p>
+              <p className="text-[15px] font-semibold text-txt">Admin</p>
+              <p className="truncate text-[14px] text-txt-muted">root@h2v2</p>
             </div>
           </div>
         )}
@@ -149,7 +149,7 @@ const SidebarContent = memo(function SidebarContent({
               type="button"
               onClick={onToggleCollapsed}
               className={cn(
-                "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-all duration-200 hover:bg-surface-3/40 hover:text-txt-primary",
+                "flex w-full items-center rounded-xl text-[15px] font-medium text-txt-muted transition-all duration-200 hover:bg-surface-3/40 hover:text-txt-primary",
                 compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
               )}
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -166,7 +166,7 @@ const SidebarContent = memo(function SidebarContent({
             aria-label="Toggle theme"
             onClick={onToggleTheme}
             className={cn(
-              "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-all duration-200 hover:bg-surface-3/40 hover:text-txt-primary",
+              "flex w-full items-center rounded-xl text-[15px] font-medium text-txt-muted transition-all duration-200 hover:bg-surface-3/40 hover:text-txt-primary",
               compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
             )}
           >
@@ -181,7 +181,7 @@ const SidebarContent = memo(function SidebarContent({
             aria-label="Sign out"
             onClick={onLogout}
             className={cn(
-              "flex w-full items-center rounded-xl text-[13px] font-medium text-txt-muted transition-all duration-200 hover:bg-status-danger/8 hover:text-status-danger",
+              "flex w-full items-center rounded-xl text-[15px] font-medium text-txt-muted transition-all duration-200 hover:bg-status-danger/8 hover:text-status-danger",
               compact ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
             )}
           >

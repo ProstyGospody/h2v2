@@ -88,7 +88,7 @@ function FieldGroup({
   return (
     <div className="space-y-4">
       {title ? (
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-txt-muted">
+        <h3 className="text-[13px] font-semibold uppercase tracking-wider text-txt-muted">
           {title}
         </h3>
       ) : null}
@@ -112,7 +112,7 @@ function InlineToggle({
 }) {
   return (
     <label className="flex cursor-pointer items-center justify-between gap-4 rounded-lg px-1 py-2">
-      <span className="text-[14px] font-medium text-txt-primary">{label}</span>
+      <span className="text-[16px] font-medium text-txt-primary">{label}</span>
       <Toggle checked={checked} onCheckedChange={onCheckedChange} />
     </label>
   );
@@ -138,12 +138,12 @@ function CopyField({
   }
   return (
     <div>
-      <label className="mb-2 block text-[13px] font-medium text-txt-secondary">{label}</label>
+      <label className="mb-2 block text-[15px] font-medium text-txt-secondary">{label}</label>
       <div className="flex gap-2">
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-lg border-0 bg-[var(--control-bg)] px-4 py-2.5 font-mono text-[12px] text-txt-primary shadow-[inset_0_0_0_1px_var(--control-border)] outline-none transition-colors placeholder:text-txt-tertiary focus:bg-[var(--control-bg-hover)] focus:shadow-[inset_0_0_0_1px_var(--accent),0_0_0_3px_var(--accent-soft)]"
+          className="w-full rounded-lg border-0 bg-[var(--control-bg)] px-4 py-2.5 font-mono text-[14px] text-txt-primary shadow-[inset_0_0_0_1px_var(--control-border)] outline-none transition-colors placeholder:text-txt-tertiary focus:bg-[var(--control-bg-hover)] focus:shadow-[inset_0_0_0_1px_var(--accent),0_0_0_3px_var(--accent-soft)]"
         />
         <button
           type="button"
@@ -176,7 +176,7 @@ function SaveBar({
       <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-surface-2/95 px-3 py-2 shadow-[0_18px_42px_-16px_var(--dialog-shadow)] backdrop-blur-xl ring-1 ring-border/40">
         <div className="flex items-center gap-2 px-2">
           <span className="h-1.5 w-1.5 rounded-full bg-status-warning animate-pulse" />
-          <span className="text-[13px] font-medium text-txt-secondary">Unsaved changes</span>
+          <span className="text-[15px] font-medium text-txt-secondary">Unsaved changes</span>
         </div>
         <div className="mx-1 h-4 w-px bg-border/40" />
         <Button size="sm" onClick={onReset} disabled={busy}>
@@ -203,7 +203,7 @@ function SectionHeader({
       <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface-3/55 text-txt-secondary">
         {icon}
       </div>
-      <h2 className="text-[15px] font-semibold text-txt-primary">{title}</h2>
+      <h2 className="text-[17px] font-semibold text-txt-primary">{title}</h2>
     </div>
   );
 }
@@ -249,7 +249,7 @@ function TabsNav({
             >
               {t.icon}
             </span>
-            <span className="text-[14px] font-semibold whitespace-nowrap">{t.label}</span>
+            <span className="text-[16px] font-semibold whitespace-nowrap">{t.label}</span>
           </button>
         );
       })}
@@ -750,17 +750,17 @@ function ConfigPreview({ server }: { server: ServerType }) {
         {result ? (
           <>
             {result.check_warning ? (
-              <div className="flex items-start gap-2 rounded-lg bg-status-warning/10 px-3 py-2.5 text-[13px] text-status-warning">
+              <div className="flex items-start gap-2 rounded-lg bg-status-warning/10 px-3 py-2.5 text-[15px] text-status-warning">
                 <AlertTriangle size={15} className="mt-0.5 shrink-0" />
                 <span className="break-all">{result.check_warning}</span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 rounded-lg bg-status-success/10 px-3 py-2.5 text-[13px] text-status-success">
+              <div className="flex items-center gap-2 rounded-lg bg-status-success/10 px-3 py-2.5 text-[15px] text-status-success">
                 <CheckCircle2 size={15} className="shrink-0" />
                 <span>Valid</span>
               </div>
             )}
-            <pre className="max-h-[560px] overflow-auto rounded-xl bg-surface-0 p-4 font-mono text-[12px] leading-relaxed text-txt-secondary ring-1 ring-border/30">
+            <pre className="max-h-[560px] overflow-auto rounded-xl bg-surface-0 p-4 font-mono text-[14px] leading-relaxed text-txt-secondary ring-1 ring-border/30">
               {pretty}
             </pre>
           </>
@@ -817,13 +817,13 @@ export default function SettingsPage() {
       <PageHeader title="Settings" />
 
       {loading ? (
-        <div className="flex items-center gap-2 py-8 text-[14px] text-txt-secondary">
+        <div className="flex items-center gap-2 py-8 text-[16px] text-txt-secondary">
           <Loader2 size={18} className="animate-spin" /> Loading
         </div>
       ) : error ? (
         <ErrorBanner message="Failed to load settings." />
       ) : tabs.length === 0 ? (
-        <div className="rounded-2xl bg-surface-2 py-12 text-center text-[14px] text-txt-muted">
+        <div className="rounded-2xl bg-surface-2 py-12 text-center text-[16px] text-txt-muted">
           Nothing configured.
         </div>
       ) : (

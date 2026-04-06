@@ -57,8 +57,8 @@ export function Dialog({
                 >
                   {(title || description || !hideClose) && (
                     <div className="mb-5 pr-8">
-                      {title ? <DialogPrimitive.Title className="text-[18px] font-bold text-txt-primary">{title}</DialogPrimitive.Title> : null}
-                      {description ? <DialogPrimitive.Description className="mt-2 text-[14px] leading-relaxed text-txt-secondary">{description}</DialogPrimitive.Description> : null}
+                      {title ? <DialogPrimitive.Title className="text-[20px] font-bold text-txt-primary">{title}</DialogPrimitive.Title> : null}
+                      {description ? <DialogPrimitive.Description className="mt-2 text-[16px] leading-relaxed text-txt-secondary">{description}</DialogPrimitive.Description> : null}
                     </div>
                   )}
 

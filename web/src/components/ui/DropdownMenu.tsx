@@ -66,7 +66,7 @@ export const DropdownMenuItem = forwardRef<HTMLDivElement, ItemProps>(
     <DropdownMenuPrimitive.Item
       ref={ref}
       className={cn(
-        "relative flex cursor-pointer select-none items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium outline-none transition-colors",
+        "relative flex cursor-pointer select-none items-center gap-2.5 rounded-lg px-2.5 py-2 text-[15px] font-medium outline-none transition-colors",
         "data-[highlighted]:bg-surface-3/70 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         danger
           ? "text-status-danger data-[highlighted]:bg-status-danger/12"
@@ -78,7 +78,7 @@ export const DropdownMenuItem = forwardRef<HTMLDivElement, ItemProps>(
       {icon ? <span className="grid h-4 w-4 place-items-center text-txt-muted">{icon}</span> : null}
       <span className="flex-1 truncate">{children}</span>
       {shortcut ? (
-        <span className="text-[11px] tracking-wide text-txt-muted">{shortcut}</span>
+        <span className="text-[13px] tracking-wide text-txt-muted">{shortcut}</span>
       ) : null}
     </DropdownMenuPrimitive.Item>
   ),

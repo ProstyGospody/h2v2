@@ -34,7 +34,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
       <div className="flex min-h-screen items-center justify-center bg-surface-0">
         <div className="flex flex-col items-center gap-2">
           <Loader2 size={20} strokeWidth={1.4} className="animate-spin text-txt-secondary" />
-          <p className="text-[12px] text-txt-secondary">Checking session...</p>
+          <p className="text-[14px] text-txt-secondary">Checking session...</p>
         </div>
       </div>
     );

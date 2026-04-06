@@ -208,7 +208,7 @@ export default function DashboardPage() {
       />
 
       {warningMessages.length > 0 && (
-        <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[14px] text-status-warning">
+        <div className="rounded-xl border border-status-warning/20 bg-status-warning/8 px-5 py-3.5 text-[16px] text-status-warning">
           {warningMessages.join(" | ")}
         </div>
       )}

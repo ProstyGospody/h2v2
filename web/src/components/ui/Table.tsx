@@ -26,9 +26,9 @@ export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowEle
 }
 
 export function TableHead({ className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
-  return <th className={cn("align-middle px-4 py-3 text-left text-[12px] font-semibold uppercase tracking-wide text-txt-muted", className)} {...props} />;
+  return <th className={cn("align-middle px-4 py-3 text-left text-[14px] font-semibold uppercase tracking-wide text-txt-muted", className)} {...props} />;
 }
 
 export function TableCell({ className, ...props }: TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn("align-middle border-t border-border/30 px-4 py-3 text-[13px] text-txt", className)} {...props} />;
+  return <td className={cn("align-middle border-t border-border/30 px-4 py-3 text-[15px] text-txt", className)} {...props} />;
 }

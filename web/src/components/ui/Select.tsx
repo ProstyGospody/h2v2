@@ -14,7 +14,7 @@ const SelectTrigger = forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex h-10 w-full items-center justify-between rounded-lg border-0 bg-[var(--control-bg)] px-4 text-left text-[14px] font-medium text-txt-primary shadow-[inset_0_0_0_1px_var(--control-border)] outline-none transition-colors placeholder:text-txt-tertiary focus:bg-[var(--control-bg-hover)] focus:shadow-[inset_0_0_0_1px_var(--accent),0_0_0_3px_var(--accent-soft)] data-[placeholder]:text-txt-tertiary",
+      "inline-flex h-10 w-full items-center justify-between rounded-lg border-0 bg-[var(--control-bg)] px-4 text-left text-[16px] font-medium text-txt-primary shadow-[inset_0_0_0_1px_var(--control-border)] outline-none transition-colors placeholder:text-txt-tertiary focus:bg-[var(--control-bg-hover)] focus:shadow-[inset_0_0_0_1px_var(--accent),0_0_0_3px_var(--accent-soft)] data-[placeholder]:text-txt-tertiary",
       className,
     )}
     {...props}
@@ -57,7 +57,7 @@ const SelectItem = forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "flex cursor-pointer select-none items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-[14px] text-txt-primary outline-none transition-colors hover:bg-surface-3/60 data-[state=checked]:font-semibold",
+      "flex cursor-pointer select-none items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-[16px] text-txt-primary outline-none transition-colors hover:bg-surface-3/60 data-[state=checked]:font-semibold",
       className,
     )}
     {...props}

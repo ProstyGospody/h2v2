@@ -84,11 +84,11 @@ export function ClientArtifactsDialog({
       }
     >
       {loading ? (
-        <div className="flex min-h-[240px] items-center justify-center gap-2 text-[13px] text-txt-secondary">
+        <div className="flex min-h-[240px] items-center justify-center gap-2 text-[15px] text-txt-secondary">
           <Loader2 size={16} className="animate-spin" /> Loading
         </div>
       ) : panels.length === 0 ? (
-        <div className="flex min-h-[180px] items-center justify-center text-[13px] text-txt-muted">
+        <div className="flex min-h-[180px] items-center justify-center text-[15px] text-txt-muted">
           No access configured.
         </div>
       ) : (
@@ -96,13 +96,13 @@ export function ClientArtifactsDialog({
           {panels.map((p) => (
             <section key={p.label}>
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-[13px] font-semibold uppercase tracking-wider text-txt-muted">
+                <h3 className="text-[15px] font-semibold uppercase tracking-wider text-txt-muted">
                   {p.label}
                 </h3>
                 <button
                   type="button"
                   onClick={() => copy(p.value, p.label)}
-                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium text-txt-secondary transition-colors hover:bg-surface-3/50 hover:text-txt-primary"
+                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[14px] font-medium text-txt-secondary transition-colors hover:bg-surface-3/50 hover:text-txt-primary"
                 >
                   {copied === p.label ? <Check size={12} /> : <Copy size={12} />}
                   {copied === p.label ? "Copied" : "Copy"}
@@ -121,7 +121,7 @@ export function ClientArtifactsDialog({
                   value={p.value}
                   onFocus={(e) => e.currentTarget.select()}
                   rows={6}
-                  className="h-[148px] w-full resize-none overflow-auto rounded-lg bg-surface-1/60 p-3 font-mono text-[11px] leading-relaxed text-txt-secondary outline-none"
+                  className="h-[148px] w-full resize-none overflow-auto rounded-lg bg-surface-1/60 p-3 font-mono text-[13px] leading-relaxed text-txt-secondary outline-none"
                 />
               </div>
             </section>
@@ -129,7 +129,7 @@ export function ClientArtifactsDialog({
 
           {artifacts && artifacts.all_uris.length > panels.length ? (
             <details className="group">
-              <summary className="cursor-pointer list-none text-[12px] font-semibold uppercase tracking-wider text-txt-muted hover:text-txt-secondary">
+              <summary className="cursor-pointer list-none text-[14px] font-semibold uppercase tracking-wider text-txt-muted hover:text-txt-secondary">
                 All URIs ({artifacts.all_uris.length})
               </summary>
               <div className="mt-3 space-y-1">
@@ -138,7 +138,7 @@ export function ClientArtifactsDialog({
                     key={i}
                     className="group/row flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-surface-2/40"
                   >
-                    <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-txt-secondary">
+                    <code className="min-w-0 flex-1 truncate font-mono text-[13px] text-txt-secondary">
                       {uri}
                     </code>
                     <button

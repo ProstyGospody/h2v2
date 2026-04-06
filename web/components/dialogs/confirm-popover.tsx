@@ -49,8 +49,8 @@ export function ConfirmPopover({
               <AlertTriangle size={16} strokeWidth={1.6} className="text-status-warning" />
             </div>
             <div>
-              <p className="text-[13px] font-semibold text-txt-primary">{title}</p>
-              <p className="mt-1 text-[12px] leading-relaxed text-txt-secondary">{description}</p>
+              <p className="text-[15px] font-semibold text-txt-primary">{title}</p>
+              <p className="mt-1 text-[14px] leading-relaxed text-txt-secondary">{description}</p>
             </div>
           </div>
           <div className="mt-3 flex items-center justify-end gap-2">

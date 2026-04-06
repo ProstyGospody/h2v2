@@ -16,7 +16,7 @@ export function SectionTitle({
       <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-surface-3/55 text-txt-secondary">
         {icon}
       </div>
-      <h3 className="text-[15px] font-semibold text-txt-primary">{title}</h3>
+      <h3 className="text-[17px] font-semibold text-txt-primary">{title}</h3>
     </div>
   );
 }

@@ -93,7 +93,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               role={toast.variant === "error" ? "alert" : "status"}
               aria-live={toast.variant === "error" ? "assertive" : "polite"}
               className={cn(
-                "flex w-full items-center gap-3 rounded-xl bg-surface-2/95 px-5 py-3.5 text-[14px] text-txt shadow-[0_20px_46px_-28px_var(--dialog-shadow)] backdrop-blur-lg sm:max-w-[380px]",
+                "flex w-full items-center gap-3 rounded-xl bg-surface-2/95 px-5 py-3.5 text-[16px] text-txt shadow-[0_20px_46px_-28px_var(--dialog-shadow)] backdrop-blur-lg sm:max-w-[380px]",
                 toast.variant === "success" && "border-status-success/20",
                 toast.variant === "error" && "border-status-danger/20",
               )}

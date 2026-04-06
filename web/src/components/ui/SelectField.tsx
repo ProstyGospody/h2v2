@@ -19,7 +19,7 @@ export function SelectField({
 
   return (
     <div>
-      <label id={labelId} className="mb-2 block text-[13px] font-medium text-txt-secondary">{label}</label>
+      <label id={labelId} className="mb-2 block text-[15px] font-medium text-txt-secondary">{label}</label>
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger aria-labelledby={labelId} className={triggerClassName}>
           <SelectValue />

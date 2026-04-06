@@ -22,7 +22,7 @@ function SectionHeader({ icon, title, children }: { icon: ReactNode; title: stri
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-2.5">
         <div className="grid h-8 w-8 place-items-center rounded-lg bg-surface-3/50 text-txt-tertiary">{icon}</div>
-        <h3 className="text-[16px] font-bold text-txt-primary">{title}</h3>
+        <h3 className="text-[18px] font-bold text-txt-primary">{title}</h3>
       </div>
       {children}
     </div>
@@ -91,7 +91,7 @@ function DashboardTrafficComponent({
   return (
     <div className="space-y-4">
       <SectionHeader icon={<TrendingUp size={18} strokeWidth={1.6} />} title="Traffic Consumption">
-        <div className="inline-flex w-full rounded-xl bg-surface-3/50 p-1 text-[13px] sm:w-auto">
+        <div className="inline-flex w-full rounded-xl bg-surface-3/50 p-1 text-[15px] sm:w-auto">
           {WINDOW_TABS.map((window) => (
             <button
               key={window.value}
@@ -116,8 +116,8 @@ function DashboardTrafficComponent({
       />
 
       <div className="panel-card p-4 sm:p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-end gap-3 text-[13px]">
-          <span className="rounded-lg bg-surface-3/35 px-2.5 py-1 text-[12px] font-medium text-txt-secondary">
+        <div className="mb-4 flex flex-wrap items-center justify-end gap-3 text-[15px]">
+          <span className="rounded-lg bg-surface-3/35 px-2.5 py-1 text-[14px] font-medium text-txt-secondary">
             Total: {formatBytes(trafficTotal)}
           </span>
         </div>

@@ -88,7 +88,7 @@ export function DateField({
   return (
     <div>
       {label ? (
-        <label id={labelId} htmlFor={fieldId} className="mb-2 block text-[13px] font-medium text-txt-secondary">
+        <label id={labelId} htmlFor={fieldId} className="mb-2 block text-[15px] font-medium text-txt-secondary">
           {label}
         </label>
       ) : null}
@@ -99,7 +99,7 @@ export function DateField({
             type="button"
             aria-labelledby={label ? labelId : undefined}
             className={cn(
-              "flex w-full items-center justify-between rounded-lg border-0 bg-[var(--control-bg)] px-4 py-2.5 text-left text-[14px] font-medium shadow-[inset_0_0_0_1px_var(--control-border)] transition-colors",
+              "flex w-full items-center justify-between rounded-lg border-0 bg-[var(--control-bg)] px-4 py-2.5 text-left text-[16px] font-medium shadow-[inset_0_0_0_1px_var(--control-border)] transition-colors",
               "text-txt-primary hover:bg-[var(--control-bg-hover)] focus-visible:outline-none focus-visible:shadow-[inset_0_0_0_1px_var(--accent),0_0_0_3px_var(--accent-soft)]",
               className,
             )}
@@ -123,7 +123,7 @@ export function DateField({
               >
                 <ChevronLeft size={15} strokeWidth={1.9} />
               </button>
-              <p className="text-[13px] font-semibold text-txt-primary">{MONTH_LABEL.format(viewDate)}</p>
+              <p className="text-[15px] font-semibold text-txt-primary">{MONTH_LABEL.format(viewDate)}</p>
               <button
                 type="button"
                 onClick={() => setViewDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
@@ -136,7 +136,7 @@ export function DateField({
 
             <div className="grid grid-cols-7 gap-1">
               {WEEK_DAYS.map((day) => (
-                <span key={day} className="grid h-7 place-items-center text-[11px] font-semibold text-txt-muted">{day}</span>
+                <span key={day} className="grid h-7 place-items-center text-[13px] font-semibold text-txt-muted">{day}</span>
               ))}
               {days.map((day) => {
                 const inCurrentMonth = day.getMonth() === viewDate.getMonth();
@@ -152,7 +152,7 @@ export function DateField({
                     disabled={disabled}
                     onClick={() => selectDate(dayValue)}
                     className={cn(
-                      "grid h-8 w-8 place-items-center rounded-lg text-[12px] font-medium transition-colors",
+                      "grid h-8 w-8 place-items-center rounded-lg text-[14px] font-medium transition-colors",
                       !inCurrentMonth && "text-txt-muted/60",
                       inCurrentMonth && "text-txt-secondary",
                       isToday && !isSelected && "shadow-[inset_0_0_0_1px_var(--border-focus)]",
@@ -175,14 +175,14 @@ export function DateField({
                   setOpen(false);
                 }}
                 disabled={!value}
-                className="rounded-lg px-2 py-1 text-[12px] font-medium text-txt-secondary transition-colors hover:bg-surface-3/60 hover:text-txt-primary disabled:pointer-events-none disabled:opacity-45"
+                className="rounded-lg px-2 py-1 text-[14px] font-medium text-txt-secondary transition-colors hover:bg-surface-3/60 hover:text-txt-primary disabled:pointer-events-none disabled:opacity-45"
               >
                 Clear
               </button>
               <button
                 type="button"
                 onClick={() => selectDate(today)}
-                className="rounded-lg px-2 py-1 text-[12px] font-medium text-accent transition-colors hover:bg-accent/10"
+                className="rounded-lg px-2 py-1 text-[14px] font-medium text-accent transition-colors hover:bg-accent/10"
               >
                 Today
               </button>

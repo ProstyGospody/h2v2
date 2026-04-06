@@ -75,7 +75,7 @@ export default function LoginPage() {
           transition={reduceMotion ? { duration: 0 } : { duration: 0.2 }}
         >
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-accent/20 border-t-accent-light" />
-          <p className="text-[14px] text-txt-secondary">Loading...</p>
+          <p className="text-[16px] text-txt-secondary">Loading...</p>
         </motion.div>
       </div>
     );
@@ -86,7 +86,7 @@ export default function LoginPage() {
       <button
         type="button"
         onClick={toggleTheme}
-        className="absolute right-5 top-5 inline-flex items-center gap-2 rounded-xl border border-border/80 bg-surface-2/70 px-3 py-2 text-[12px] font-semibold text-txt-secondary backdrop-blur-xl transition-colors hover:text-txt-primary"
+        className="absolute right-5 top-5 inline-flex items-center gap-2 rounded-xl border border-border/80 bg-surface-2/70 px-3 py-2 text-[14px] font-semibold text-txt-secondary backdrop-blur-xl transition-colors hover:text-txt-primary"
         aria-label="Toggle theme"
       >
         {theme === "dark" ? <Sun size={14} strokeWidth={1.8} /> : <Moon size={14} strokeWidth={1.8} />}
@@ -113,7 +113,7 @@ export default function LoginPage() {
                 </div>
               </motion.div>
               <div>
-                <h1 className="text-[24px] font-bold text-txt-primary">Welcome back</h1>
+                <h1 className="text-[26px] font-bold text-txt-primary">Welcome back</h1>
               </div>
             </div>
 
@@ -136,7 +136,7 @@ export default function LoginPage() {
                 <div className="relative">
                   <Mail size={18} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-muted" />
                   <input type="email" required autoComplete="username" placeholder="Admin email" {...register("email", { required: true })}
-                    className="w-full rounded-xl border border-border bg-surface-0/50 py-3.5 pl-12 pr-4 text-[15px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent-secondary/40 focus:bg-surface-0/80 focus:shadow-[0_0_0_3px_var(--accent-soft)]" />
+                    className="w-full rounded-xl border border-border bg-surface-0/50 py-3.5 pl-12 pr-4 text-[17px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent-secondary/40 focus:bg-surface-0/80 focus:shadow-[0_0_0_3px_var(--accent-soft)]" />
                 </div>
                 <div className="relative">
                   <Lock size={18} strokeWidth={1.6} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-txt-muted" />
@@ -146,7 +146,7 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     placeholder="Password"
                     {...register("password", { required: true })}
-                    className="w-full rounded-xl border border-border bg-surface-0/50 py-3.5 pl-12 pr-11 text-[15px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent-secondary/40 focus:bg-surface-0/80 focus:shadow-[0_0_0_3px_var(--accent-soft)]"
+                    className="w-full rounded-xl border border-border bg-surface-0/50 py-3.5 pl-12 pr-11 text-[17px] text-txt outline-none transition-all placeholder:text-txt-muted focus:border-accent-secondary/40 focus:bg-surface-0/80 focus:shadow-[0_0_0_3px_var(--accent-soft)]"
                   />
                   <button
                     type="button"
@@ -158,7 +158,7 @@ export default function LoginPage() {
                   </button>
                 </div>
               </div>
-              <Button type="submit" variant="primary" className="w-full justify-center rounded-xl py-3.5 text-[15px]" disabled={isSubmitting}>
+              <Button type="submit" variant="primary" className="w-full justify-center rounded-xl py-3.5 text-[17px]" disabled={isSubmitting}>
                 {isSubmitting ? <><Loader2 size={18} strokeWidth={1.8} className="animate-spin" />Signing in...</> : "Sign in"}
               </Button>
             </form>

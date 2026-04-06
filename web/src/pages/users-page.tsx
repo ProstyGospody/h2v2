@@ -85,11 +85,11 @@ function TrafficBar({ client }: { client: Client }) {
   const warn = pct >= 70;
 
   if (!limited) {
-    return <span className="text-[13px] text-txt-secondary tabular-nums">{formatBytes(used)}</span>;
+    return <span className="text-[15px] text-txt-secondary tabular-nums">{formatBytes(used)}</span>;
   }
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      <div className="flex items-baseline gap-1 text-[12px] tabular-nums">
+      <div className="flex items-baseline gap-1 text-[14px] tabular-nums">
         <span
           className={cn(
             "font-medium",
@@ -115,12 +115,12 @@ function TrafficBar({ client }: { client: Client }) {
 
 function ExpireLabel({ expireAt }: { expireAt: string | null }) {
   const state = expireState(expireAt);
-  if (state === "none") return <span className="text-[13px] text-txt-muted">—</span>;
+  if (state === "none") return <span className="text-[15px] text-txt-muted">—</span>;
   const text = formatDateTime(expireAt, { includeSeconds: false });
   return (
     <span
       className={cn(
-        "text-[13px] tabular-nums",
+        "text-[15px] tabular-nums",
         state === "expired" && "text-status-danger",
         state === "soon" && "text-status-warning",
         state === "ok" && "text-txt-secondary",
@@ -155,7 +155,7 @@ function StatusSegment({
           type="button"
           onClick={() => onChange(o.key)}
           className={cn(
-            "rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors",
+            "rounded-md px-2.5 py-1.5 text-[14px] font-medium transition-colors",
             value === o.key
               ? "bg-surface-3/70 text-txt-primary"
               : "text-txt-secondary hover:text-txt-primary",
@@ -429,7 +429,7 @@ export default function UsersPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search"
-            className="w-full rounded-lg bg-surface-2/50 py-2 pl-9 pr-8 text-[13px] font-medium text-txt-primary outline-none transition-colors placeholder:text-txt-tertiary focus:bg-surface-2/80"
+            className="w-full rounded-lg bg-surface-2/50 py-2 pl-9 pr-8 text-[15px] font-medium text-txt-primary outline-none transition-colors placeholder:text-txt-tertiary focus:bg-surface-2/80"
           />
           {search ? (
             <button
@@ -458,7 +458,7 @@ export default function UsersPage() {
         <div className="overflow-x-auto">
           <div className="min-w-[760px]">
             {/* Header */}
-            <div className="flex items-center gap-4 px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-txt-muted">
+            <div className="flex items-center gap-4 px-5 py-3 text-[13px] font-semibold uppercase tracking-wider text-txt-muted">
               <div className="w-5">
                 <Checkbox
                   checked={allOnPageSelected ? true : someOnPageSelected ? "indeterminate" : false}
@@ -489,7 +489,7 @@ export default function UsersPage() {
               </div>
             ) : visible.length === 0 ? (
               <div className="flex flex-col items-center gap-3 px-5 py-16 text-center text-txt-muted">
-                <p className="text-[14px]">
+                <p className="text-[16px]">
                   {search || status !== "all" ? "Nothing matches." : "No users yet."}
                 </p>
                 {!search && status === "all" ? (
@@ -521,7 +521,7 @@ export default function UsersPage() {
                         <button
                           type="button"
                           onClick={() => openArtifacts(c)}
-                          className="truncate text-left text-[14px] font-semibold text-txt-primary hover:text-accent-light"
+                          className="truncate text-left text-[16px] font-semibold text-txt-primary hover:text-accent-light"
                         >
                           {c.username}
                         </button>
@@ -598,7 +598,7 @@ export default function UsersPage() {
         </div>
 
         {pageCount > 1 && !isLoading ? (
-          <div className="flex items-center justify-between px-5 py-3 text-[12px] text-txt-secondary">
+          <div className="flex items-center justify-between px-5 py-3 text-[14px] text-txt-secondary">
             <span className="tabular-nums">
               {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of{" "}
               {filtered.length}
@@ -630,7 +630,7 @@ export default function UsersPage() {
       {selected.size > 0 ? (
         <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
           <div className="pointer-events-auto flex items-center gap-1 rounded-xl bg-surface-2/95 px-3 py-2 shadow-[0_18px_42px_-16px_var(--dialog-shadow)] backdrop-blur-xl">
-            <span className="px-2 text-[13px] font-semibold text-txt-primary tabular-nums">
+            <span className="px-2 text-[15px] font-semibold text-txt-primary tabular-nums">
               {selected.size}
             </span>
             <div className="mx-1 h-4 w-px bg-border/40" />

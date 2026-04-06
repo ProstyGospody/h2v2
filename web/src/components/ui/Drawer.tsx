@@ -71,12 +71,12 @@ export function Drawer({
                   <div className="flex items-start justify-between gap-3 border-b border-border/40 px-6 py-5">
                     <div className="min-w-0 flex-1">
                       {title ? (
-                        <DialogPrimitive.Title className="truncate text-[17px] font-bold text-txt-primary">
+                        <DialogPrimitive.Title className="truncate text-[19px] font-bold text-txt-primary">
                           {title}
                         </DialogPrimitive.Title>
                       ) : null}
                       {description ? (
-                        <DialogPrimitive.Description className="mt-1 text-[13px] leading-relaxed text-txt-secondary">
+                        <DialogPrimitive.Description className="mt-1 text-[15px] leading-relaxed text-txt-secondary">
                           {description}
                         </DialogPrimitive.Description>
                       ) : null}

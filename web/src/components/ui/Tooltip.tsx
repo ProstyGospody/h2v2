@@ -27,7 +27,7 @@ export function Tooltip({ content, side = "top", sideOffset = 6, delayDuration, 
           side={side}
           sideOffset={sideOffset}
           className={cn(
-            "tooltip-content z-50 max-w-[280px] rounded-lg bg-surface-2/95 px-3 py-2 text-[12px] font-medium text-txt shadow-[0_8px_24px_-8px_var(--dialog-shadow)] backdrop-blur-lg",
+            "tooltip-content z-50 max-w-[280px] rounded-lg bg-surface-2/95 px-3 py-2 text-[14px] font-medium text-txt shadow-[0_8px_24px_-8px_var(--dialog-shadow)] backdrop-blur-lg",
             className,
           )}
         >
