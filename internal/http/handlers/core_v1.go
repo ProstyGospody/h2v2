@@ -586,6 +586,10 @@ func (h *Handler) ListCoreUsers(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to list users", nil)
 		return
 	}
+	runtimeUsageByUser, _ := service.ListUserRuntimeTraffic(r.Context())
+	for index := range items {
+		items[index] = core.ApplyRuntimeTrafficUsage(items[index], runtimeUsageByUser)
+	}
 	includeAccess := true
 	rawInclude := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("include_access")))
 	if rawInclude == "0" || rawInclude == "false" || rawInclude == "no" {
@@ -729,6 +733,7 @@ func (h *Handler) GetCoreUser(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to load user", nil)
 		return
 	}
+	item = service.OverlayRuntimeTraffic(r.Context(), item)
 	render.JSON(w, http.StatusOK, item)
 }
 

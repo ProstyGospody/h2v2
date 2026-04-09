@@ -31,6 +31,8 @@ type liveSystemMetrics struct {
 	UptimeSeconds     int64     `json:"uptime_seconds"`
 	NetworkRxBps      float64   `json:"network_rx_bps"`
 	NetworkTxBps      float64   `json:"network_tx_bps"`
+	NetworkRxBytes    int64     `json:"network_rx_bytes"`
+	NetworkTxBytes    int64     `json:"network_tx_bytes"`
 	TCPSockets        int64     `json:"tcp_sockets"`
 	UDPSockets        int64     `json:"udp_sockets"`
 	TCPPackets        int64     `json:"tcp_packets"`
@@ -74,7 +76,7 @@ func (h *Handler) GetSystemLive(w http.ResponseWriter, r *http.Request) {
 	generatedAt := time.Now().UTC()
 	errors := make([]string, 0, 3)
 
-	snapshot, networkRx, networkTx, source, err := h.collectSystemMetrics(ctx)
+	snapshot, networkRx, networkTx, networkRxBytes, networkTxBytes, source, err := h.collectSystemMetrics(ctx)
 	if err != nil {
 		h.logger.Warn("failed to collect live system metrics", "error", err)
 		errors = append(errors, "system metrics unavailable")
@@ -116,6 +118,8 @@ func (h *Handler) GetSystemLive(w http.ResponseWriter, r *http.Request) {
 			UptimeSeconds:     snapshot.UptimeSeconds,
 			NetworkRxBps:      networkRx,
 			NetworkTxBps:      networkTx,
+			NetworkRxBytes:    networkRxBytes,
+			NetworkTxBytes:    networkTxBytes,
 			TCPSockets:        tcpSockets,
 			UDPSockets:        udpSockets,
 			TCPPackets:        tcpPackets,
@@ -160,28 +164,28 @@ func (h *Handler) GetSystemHistory(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handler) collectSystemMetrics(ctx context.Context) (services.SystemMetrics, float64, float64, string, error) {
+func (h *Handler) collectSystemMetrics(ctx context.Context) (services.SystemMetrics, float64, float64, int64, int64, string, error) {
 	if h.systemMetrics == nil {
-		return services.SystemMetrics{}, 0, 0, "unavailable", fmt.Errorf("system metrics collector is not configured")
+		return services.SystemMetrics{}, 0, 0, 0, 0, "unavailable", fmt.Errorf("system metrics collector is not configured")
 	}
 
 	snapshot, err := h.systemMetrics.Snapshot(ctx)
 	if err != nil {
-		return services.SystemMetrics{}, 0, 0, "procfs", err
+		return services.SystemMetrics{}, 0, 0, 0, 0, "procfs", err
 	}
 
-	networkRx, networkTx, rateErr := h.collectProcNetworkRates()
+	networkRx, networkTx, networkRxBytes, networkTxBytes, rateErr := h.collectProcNetworkMetrics()
 	if rateErr != nil {
 		h.logger.Debug("procfs network rate failed", "error", rateErr)
-		return snapshot, 0, 0, "procfs", nil
+		return snapshot, 0, 0, networkRxBytes, networkTxBytes, "procfs", nil
 	}
-	return snapshot, networkRx, networkTx, "procfs", nil
+	return snapshot, networkRx, networkTx, networkRxBytes, networkTxBytes, "procfs", nil
 }
 
-func (h *Handler) collectProcNetworkRates() (float64, float64, error) {
+func (h *Handler) collectProcNetworkMetrics() (float64, float64, int64, int64, error) {
 	snapshot, err := services.ReadNetworkTrafficSnapshot()
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, 0, err
 	}
 
 	collectedAt := snapshot.CollectedAt.UTC()
@@ -200,12 +204,12 @@ func (h *Handler) collectProcNetworkRates() (float64, float64, error) {
 	}
 
 	if prev.collectedAt.IsZero() || !collectedAt.After(prev.collectedAt) {
-		return 0, 0, nil
+		return 0, 0, snapshot.RxBytes, snapshot.TxBytes, nil
 	}
 
 	seconds := collectedAt.Sub(prev.collectedAt).Seconds()
 	if seconds <= 0 {
-		return 0, 0, nil
+		return 0, 0, snapshot.RxBytes, snapshot.TxBytes, nil
 	}
 
 	rxDelta := snapshot.RxBytes - prev.rxBytes
@@ -217,7 +221,7 @@ func (h *Handler) collectProcNetworkRates() (float64, float64, error) {
 		txDelta = 0
 	}
 
-	return float64(rxDelta) / seconds, float64(txDelta) / seconds, nil
+	return float64(rxDelta) / seconds, float64(txDelta) / seconds, snapshot.RxBytes, snapshot.TxBytes, nil
 }
 
 func (h *Handler) collectProtocolPacketMetrics() (int64, int64, time.Time, string, error) {
@@ -295,9 +299,18 @@ func (h *Handler) collectRuntimeOverview(ctx context.Context) (liveRuntimeOvervi
 		IsStale:                      false,
 	}
 
+	runtimeUsageByUser, usageErr := h.coreService.ListUserRuntimeTraffic(ctx)
+	if usageErr == nil && len(runtimeUsageByUser) > 0 {
+		resp.Source = "v2ray_api"
+	}
 	for _, user := range users {
 		if user.Enabled {
 			resp.EnabledUsers++
+		}
+		if usage, ok := runtimeUsageByUser[strings.TrimSpace(user.Username)]; ok {
+			resp.TotalTxBytes += usage.UploadBytes
+			resp.TotalRxBytes += usage.DownloadBytes
+			continue
 		}
 		resp.TotalTxBytes += user.TrafficUsedUpBytes
 		resp.TotalRxBytes += user.TrafficUsedDownBytes
@@ -524,7 +537,7 @@ func (h *Handler) collectSystemTrendPoint(parent context.Context) {
 	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
 	defer cancel()
 
-	snapshot, networkRx, networkTx, _, err := h.collectSystemMetrics(ctx)
+	snapshot, networkRx, networkTx, _, _, _, err := h.collectSystemMetrics(ctx)
 	if err != nil {
 		h.logger.Debug("system trend collection failed", "error", err)
 		return

@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -69,6 +70,9 @@ type Service struct {
 	logger         *slog.Logger
 	store          *Store
 	serviceManager *services.ServiceManager
+	runtimeUsageMu sync.Mutex
+	runtimeUsageAt time.Time
+	runtimeUsage   map[string]services.UserTrafficUsage
 }
 
 func NewService(cfg config.Config, logger *slog.Logger, serviceManager *services.ServiceManager) (*Service, error) {
@@ -776,6 +780,7 @@ func (s *Service) BuildUserArtifacts(ctx context.Context, userID string) (UserAr
 	if err != nil {
 		return UserArtifacts{}, err
 	}
+	user = s.overlayRuntimeTraffic(ctx, user)
 	subscription, err := s.EnsureSubscriptionForUser(ctx, user.ID)
 	if err != nil {
 		return UserArtifacts{}, err
@@ -855,6 +860,7 @@ func (s *Service) RenderSubscriptionContentByToken(ctx context.Context, plainTok
 	if !tokenCtx.Subscription.Enabled || !tokenCtx.User.Enabled {
 		return SubscriptionContent{}, ErrNotFound
 	}
+	tokenCtx.User = s.overlayRuntimeTraffic(ctx, tokenCtx.User)
 	kind = strings.ToLower(strings.TrimSpace(kind))
 	if kind == "" {
 		kind = "profile"
@@ -1655,8 +1661,10 @@ func (s *Service) buildServerConfigJSON(ctx context.Context, server Server) ([]b
 	if err != nil {
 		return nil, err
 	}
+	runtimeUsageByUser, _ := s.ListUserRuntimeTraffic(ctx)
 
 	renderedInbounds := make([]map[string]any, 0, len(inbounds))
+	statsUsers := make([]string, 0)
 	for _, inbound := range inbounds {
 		// Resolve profile references into inline settings before rendering.
 		if err := s.resolveInboundProfiles(ctx, &inbound); err != nil {
@@ -1674,6 +1682,7 @@ func (s *Service) buildServerConfigJSON(ctx context.Context, server Server) ([]b
 			if !ok {
 				continue
 			}
+			user = applyRuntimeTrafficUsage(user, runtimeUsageByUser)
 			if !s.checkUserActive(user, access) {
 				continue
 			}
@@ -1695,6 +1704,7 @@ func (s *Service) buildServerConfigJSON(ctx context.Context, server Server) ([]b
 					entry["flow"] = flow
 				}
 				userEntries = append(userEntries, entry)
+				statsUsers = append(statsUsers, user.Username)
 			case InboundProtocolHysteria2:
 				password := strings.TrimSpace(access.Hysteria2Password)
 				if password == "" {
@@ -1703,6 +1713,7 @@ func (s *Service) buildServerConfigJSON(ctx context.Context, server Server) ([]b
 				}
 				entry := map[string]any{"name": user.Username, "password": password}
 				userEntries = append(userEntries, entry)
+				statsUsers = append(statsUsers, user.Username)
 			}
 		}
 		if len(userEntries) == 0 {
@@ -1734,6 +1745,9 @@ func (s *Service) buildServerConfigJSON(ctx context.Context, server Server) ([]b
 	// Attach DNS section if any active DNS profile exists.
 	if dnsSection := s.buildDNSSection(ctx, server.ID); dnsSection != nil {
 		payload["dns"] = dnsSection
+	}
+	if experimentalSection := s.buildExperimentalSection(ctx, server, statsUsers); experimentalSection != nil {
+		payload["experimental"] = experimentalSection
 	}
 
 	return json.MarshalIndent(payload, "", "  ")
