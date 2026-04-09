@@ -72,6 +72,7 @@ type Service struct {
 	serviceManager *services.ServiceManager
 	capabilityMu   sync.Mutex
 	capabilityTTL  time.Duration
+	clashAPIChecks map[string]capabilityCheck
 	v2rayAPIChecks map[string]capabilityCheck
 }
 
@@ -91,6 +92,7 @@ func NewService(cfg config.Config, logger *slog.Logger, serviceManager *services
 		store:          store,
 		serviceManager: serviceManager,
 		capabilityTTL:  10 * time.Minute,
+		clashAPIChecks: make(map[string]capabilityCheck),
 		v2rayAPIChecks: make(map[string]capabilityCheck),
 	}, nil
 }

@@ -302,6 +302,16 @@ func (h *Handler) collectRuntimeOverview(ctx context.Context) (liveRuntimeOvervi
 		resp.TotalTxBytes += user.TrafficUsedUpBytes
 		resp.TotalRxBytes += user.TrafficUsedDownBytes
 	}
+
+	if totals, err := h.coreService.RuntimeTrafficTotals(ctx); err == nil {
+		resp.TotalTxBytes = totals.TotalTxBytes
+		resp.TotalRxBytes = totals.TotalRxBytes
+		resp.OnlineCount = totals.ConnectionCount
+		resp.Source = totals.Source
+		return resp, ""
+	} else if resp.TotalTxBytes == 0 && resp.TotalRxBytes == 0 {
+		return resp, "runtime traffic unavailable"
+	}
 	return resp, ""
 }
 

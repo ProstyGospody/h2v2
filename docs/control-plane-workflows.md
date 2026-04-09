@@ -32,9 +32,11 @@
 
 ## Runtime Traffic
 
-- Traffic accounting uses sing-box `experimental.v2ray_api.stats.users`.
-- The backend enables runtime stats only when the installed sing-box binary accepts `V2Ray API`.
-- Builds without `with_v2ray_api` keep stored traffic counters unchanged until a supported binary is installed and applied.
+- Dashboard traffic uses sing-box `experimental.clash_api`.
+- User traffic accounting uses sing-box `experimental.v2ray_api.stats.users`.
+- The backend enables each runtime channel only when the installed sing-box binary accepts that API.
+- Builds without `with_clash_api` keep dashboard runtime totals unavailable.
+- Builds without `with_v2ray_api` keep stored user traffic counters unchanged until a supported binary is installed and applied.
 
 ## Changelog
 
