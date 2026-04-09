@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -69,6 +70,14 @@ type Service struct {
 	logger         *slog.Logger
 	store          *Store
 	serviceManager *services.ServiceManager
+	capabilityMu   sync.Mutex
+	capabilityTTL  time.Duration
+	v2rayAPIChecks map[string]capabilityCheck
+}
+
+type capabilityCheck struct {
+	CheckedAt time.Time
+	Supported bool
 }
 
 func NewService(cfg config.Config, logger *slog.Logger, serviceManager *services.ServiceManager) (*Service, error) {
@@ -81,6 +90,8 @@ func NewService(cfg config.Config, logger *slog.Logger, serviceManager *services
 		logger:         logger,
 		store:          store,
 		serviceManager: serviceManager,
+		capabilityTTL:  10 * time.Minute,
+		v2rayAPIChecks: make(map[string]capabilityCheck),
 	}, nil
 }
 
@@ -344,10 +355,15 @@ func (s *Service) GetServer(ctx context.Context, id string) (Server, error) {
 }
 
 func (s *Service) UpsertServer(ctx context.Context, server Server) (Server, error) {
+	current, currentErr := s.store.GetServer(ctx, server.ID)
 	saved, err := s.store.UpsertServer(ctx, s.defaultServer(server))
 	if err != nil {
 		return Server{}, err
 	}
+	if currentErr == nil {
+		s.invalidateServerCapabilities(current)
+	}
+	s.invalidateServerCapabilities(saved)
 	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, saved.ID, "server_updated")
 	return saved, nil
 }
@@ -1738,7 +1754,7 @@ func (s *Service) buildServerConfigJSON(ctx context.Context, server Server) ([]b
 	if dnsSection := s.buildDNSSection(ctx, server.ID); dnsSection != nil {
 		payload["dns"] = dnsSection
 	}
-	if experimentalSection := s.buildExperimentalSection(server, statsUsers); experimentalSection != nil {
+	if experimentalSection := s.buildExperimentalSection(ctx, server, statsUsers); experimentalSection != nil {
 		payload["experimental"] = experimentalSection
 	}
 
