@@ -256,6 +256,19 @@ func (s *Store) ensureSchema(ctx context.Context) error {
 			hit_at_ns INTEGER NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_core_subscription_rate_hits ON core_subscription_rate_hits(key, hit_at_ns);`,
+		`CREATE TABLE IF NOT EXISTS core_runtime_usage_snapshots (
+			server_id TEXT NOT NULL,
+			user_id TEXT NOT NULL,
+			service_instance_id TEXT,
+			runtime_up_bytes INTEGER NOT NULL DEFAULT 0,
+			runtime_down_bytes INTEGER NOT NULL DEFAULT 0,
+			collected_at_ns INTEGER NOT NULL,
+			updated_at_ns INTEGER NOT NULL,
+			PRIMARY KEY(server_id, user_id),
+			FOREIGN KEY(server_id) REFERENCES core_servers(id) ON DELETE CASCADE,
+			FOREIGN KEY(user_id) REFERENCES core_users(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_core_runtime_usage_snapshots_server ON core_runtime_usage_snapshots(server_id, updated_at_ns DESC);`,
 	}
 	for _, stmt := range statements {
 		if _, err := s.db.ExecContext(resolveCtx(ctx), stmt); err != nil {
@@ -503,6 +516,21 @@ func (s *Store) runMigrations(ctx context.Context) error {
 			`ALTER TABLE core_subscriptions ADD COLUMN last_artifact_refresh_reason TEXT`,
 			`ALTER TABLE core_subscription_tokens ADD COLUMN token_plaintext_enc TEXT`,
 			`ALTER TABLE core_subscription_tokens ADD COLUMN is_primary INTEGER NOT NULL DEFAULT 0`,
+		}},
+		{version: 14, stmts: []string{
+			`CREATE TABLE IF NOT EXISTS core_runtime_usage_snapshots (
+				server_id TEXT NOT NULL,
+				user_id TEXT NOT NULL,
+				service_instance_id TEXT,
+				runtime_up_bytes INTEGER NOT NULL DEFAULT 0,
+				runtime_down_bytes INTEGER NOT NULL DEFAULT 0,
+				collected_at_ns INTEGER NOT NULL,
+				updated_at_ns INTEGER NOT NULL,
+				PRIMARY KEY(server_id, user_id),
+				FOREIGN KEY(server_id) REFERENCES core_servers(id) ON DELETE CASCADE,
+				FOREIGN KEY(user_id) REFERENCES core_users(id) ON DELETE CASCADE
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_core_runtime_usage_snapshots_server ON core_runtime_usage_snapshots(server_id, updated_at_ns DESC)`,
 		}},
 	}
 	for _, m := range migrations {

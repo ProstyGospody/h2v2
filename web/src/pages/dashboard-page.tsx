@@ -119,9 +119,7 @@ export default function DashboardPage() {
   const networkRx = Math.max(0, live?.system.network_rx_bps ?? 0);
   const networkTx = Math.max(0, live?.system.network_tx_bps ?? 0);
   const uptime = formatUptime(live?.system.uptime_seconds ?? 0);
-  const runtimeTotalTraffic = Math.max(0, (live?.runtime.total_rx_bytes ?? 0) + (live?.runtime.total_tx_bytes ?? 0));
-  const systemTotalTraffic = Math.max(0, (live?.system.network_rx_bytes ?? 0) + (live?.system.network_tx_bytes ?? 0));
-  const totalTraffic = runtimeTotalTraffic > 0 ? runtimeTotalTraffic : systemTotalTraffic;
+  const totalTraffic = Math.max(0, (live?.runtime.total_rx_bytes ?? 0) + (live?.runtime.total_tx_bytes ?? 0));
   const tcpConnections = Math.max(0, Math.round(live?.system.tcp_sockets ?? 0));
   const udpConnections = Math.max(0, Math.round(live?.system.udp_sockets ?? 0));
 

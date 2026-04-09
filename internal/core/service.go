@@ -17,7 +17,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -70,9 +69,6 @@ type Service struct {
 	logger         *slog.Logger
 	store          *Store
 	serviceManager *services.ServiceManager
-	runtimeUsageMu sync.Mutex
-	runtimeUsageAt time.Time
-	runtimeUsage   map[string]services.UserTrafficUsage
 }
 
 func NewService(cfg config.Config, logger *slog.Logger, serviceManager *services.ServiceManager) (*Service, error) {
@@ -780,7 +776,6 @@ func (s *Service) BuildUserArtifacts(ctx context.Context, userID string) (UserAr
 	if err != nil {
 		return UserArtifacts{}, err
 	}
-	user = s.overlayRuntimeTraffic(ctx, user)
 	subscription, err := s.EnsureSubscriptionForUser(ctx, user.ID)
 	if err != nil {
 		return UserArtifacts{}, err
@@ -860,7 +855,6 @@ func (s *Service) RenderSubscriptionContentByToken(ctx context.Context, plainTok
 	if !tokenCtx.Subscription.Enabled || !tokenCtx.User.Enabled {
 		return SubscriptionContent{}, ErrNotFound
 	}
-	tokenCtx.User = s.overlayRuntimeTraffic(ctx, tokenCtx.User)
 	kind = strings.ToLower(strings.TrimSpace(kind))
 	if kind == "" {
 		kind = "profile"
@@ -1661,7 +1655,6 @@ func (s *Service) buildServerConfigJSON(ctx context.Context, server Server) ([]b
 	if err != nil {
 		return nil, err
 	}
-	runtimeUsageByUser, _ := s.ListUserRuntimeTraffic(ctx)
 
 	renderedInbounds := make([]map[string]any, 0, len(inbounds))
 	statsUsers := make([]string, 0)
@@ -1682,7 +1675,6 @@ func (s *Service) buildServerConfigJSON(ctx context.Context, server Server) ([]b
 			if !ok {
 				continue
 			}
-			user = applyRuntimeTrafficUsage(user, runtimeUsageByUser)
 			if !s.checkUserActive(user, access) {
 				continue
 			}
@@ -1746,7 +1738,7 @@ func (s *Service) buildServerConfigJSON(ctx context.Context, server Server) ([]b
 	if dnsSection := s.buildDNSSection(ctx, server.ID); dnsSection != nil {
 		payload["dns"] = dnsSection
 	}
-	if experimentalSection := s.buildExperimentalSection(ctx, server, statsUsers); experimentalSection != nil {
+	if experimentalSection := s.buildExperimentalSection(server, statsUsers); experimentalSection != nil {
 		payload["experimental"] = experimentalSection
 	}
 

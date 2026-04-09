@@ -58,6 +58,7 @@ func New(
 	rateLimiter *middleware.LoginRateLimiter,
 	serviceManager *services.ServiceManager,
 	systemMetrics *services.SystemMetricsCollector,
+	coreService *core.Service,
 ) *Handler {
 	return &Handler{
 		cfg:            cfg,
@@ -66,17 +67,8 @@ func New(
 		rateLimiter:    rateLimiter,
 		serviceManager: serviceManager,
 		systemMetrics:  systemMetrics,
-		coreService:    buildCoreService(cfg, logger, serviceManager),
+		coreService:    coreService,
 	}
-}
-
-func buildCoreService(cfg config.Config, logger *slog.Logger, serviceManager *services.ServiceManager) *core.Service {
-	service, err := core.NewService(cfg, logger, serviceManager)
-	if err != nil {
-		logger.Warn("core service init failed", "error", err)
-		return nil
-	}
-	return service
 }
 
 func (h *Handler) Close() error {

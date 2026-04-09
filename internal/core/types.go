@@ -10,7 +10,7 @@ const (
 )
 
 // currentSchemaVersion is bumped with every structural migration.
-const currentSchemaVersion = 13
+const currentSchemaVersion = 14
 
 // rendererVersion is bumped when the config renderer output changes significantly.
 const rendererVersion = "2.0.0"

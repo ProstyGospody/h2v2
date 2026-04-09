@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"h2v2/internal/config"
+	"h2v2/internal/core"
 	"h2v2/internal/repository"
 	"h2v2/internal/services"
 )
@@ -15,6 +16,7 @@ type Jobs struct {
 	cfg            config.Config
 	repo           repository.Repository
 	serviceManager *services.ServiceManager
+	coreService    *core.Service
 }
 
 func NewJobs(
@@ -22,17 +24,29 @@ func NewJobs(
 	cfg config.Config,
 	repo repository.Repository,
 	serviceManager *services.ServiceManager,
+	coreService *core.Service,
 ) *Jobs {
 	return &Jobs{
 		logger:         logger,
 		cfg:            cfg,
 		repo:           repo,
 		serviceManager: serviceManager,
+		coreService:    coreService,
 	}
 }
 
 func (j *Jobs) Start(ctx context.Context) {
+	if j.coreService != nil {
+		go j.runTicker(ctx, "runtime-usage-poll", j.cfg.RuntimePollInterval, true, j.pollRuntimeUsage)
+	}
 	go j.runTicker(ctx, "services-poll", j.cfg.ServicePollInterval, true, j.pollServices)
+}
+
+func (j *Jobs) pollRuntimeUsage(ctx context.Context) error {
+	if j.coreService == nil {
+		return nil
+	}
+	return j.coreService.SyncRuntimeUsage(ctx)
 }
 
 func (j *Jobs) runTicker(ctx context.Context, name string, interval time.Duration, runImmediately bool, fn func(context.Context) error) {

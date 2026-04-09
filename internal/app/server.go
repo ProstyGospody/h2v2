@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"h2v2/internal/config"
+	"h2v2/internal/core"
 	httpserver "h2v2/internal/http"
 	"h2v2/internal/http/handlers"
 	"h2v2/internal/http/middleware"
@@ -30,8 +31,12 @@ func NewServer(cfg config.Config, logger *slog.Logger, repo repository.Repositor
 	rateLimiter := middleware.NewLoginRateLimiter(cfg.RateLimitWindow, cfg.RateLimitBurst)
 	serviceManager := services.NewServiceManager(cfg.SystemctlPath, cfg.SudoPath, cfg.JournalctlPath, cfg.ManagedServices, cfg.ServiceCommandTimeout)
 	systemMetrics := services.NewSystemMetricsCollector()
+	coreService, err := core.NewService(cfg, logger, serviceManager)
+	if err != nil {
+		logger.Warn("core service init failed", "error", err)
+	}
 
-	h := handlers.New(cfg, logger, repo, rateLimiter, serviceManager, systemMetrics)
+	h := handlers.New(cfg, logger, repo, rateLimiter, serviceManager, systemMetrics, coreService)
 	router := httpserver.NewRouter(cfg, logger, repo, h)
 
 	httpSrv := &http.Server{
@@ -43,7 +48,7 @@ func NewServer(cfg config.Config, logger *slog.Logger, repo repository.Repositor
 		IdleTimeout:       60 * time.Second,
 	}
 
-	jobs := scheduler.NewJobs(logger, cfg, repo, serviceManager)
+	jobs := scheduler.NewJobs(logger, cfg, repo, serviceManager, coreService)
 	return &Server{
 		cfg:        cfg,
 		logger:     logger,
