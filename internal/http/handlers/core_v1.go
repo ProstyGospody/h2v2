@@ -209,6 +209,43 @@ func (h *Handler) buildInboundProtocolMap(ctx context.Context, service *core.Ser
 	return protocolByInboundID, serverByInboundID, nil
 }
 
+func buildUserTrafficStatus(
+	accessItems []core.UserAccess,
+	serverByInboundID map[string]string,
+	capabilityByServerID map[string]bool,
+) string {
+	serverIDs := make(map[string]struct{})
+	for _, item := range accessItems {
+		serverID := strings.TrimSpace(serverByInboundID[strings.TrimSpace(item.InboundID)])
+		if serverID == "" {
+			continue
+		}
+		serverIDs[serverID] = struct{}{}
+	}
+	if len(serverIDs) == 0 {
+		return "available"
+	}
+
+	supported := 0
+	unsupported := 0
+	for serverID := range serverIDs {
+		if capabilityByServerID[serverID] {
+			supported++
+		} else {
+			unsupported++
+		}
+	}
+
+	switch {
+	case supported == 0:
+		return "unavailable"
+	case unsupported == 0:
+		return "available"
+	default:
+		return "partial"
+	}
+}
+
 func buildCoreAccessPayload(items []core.UserAccess, protocolByInboundID map[string]core.InboundProtocol) []map[string]any {
 	result := make([]map[string]any, 0, len(items))
 	for _, item := range items {
@@ -596,9 +633,14 @@ func (h *Handler) ListCoreUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	protocolByInboundID, _, err := h.buildInboundProtocolMap(r.Context(), service)
+	protocolByInboundID, serverByInboundID, err := h.buildInboundProtocolMap(r.Context(), service)
 	if err != nil {
 		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to load inbounds", nil)
+		return
+	}
+	capabilityByServerID, err := service.UserTrafficCapabilityMap(r.Context())
+	if err != nil {
+		h.renderError(w, http.StatusInternalServerError, "runtime", "failed to load traffic capabilities", nil)
 		return
 	}
 
@@ -623,12 +665,13 @@ func (h *Handler) ListCoreUsers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		payload = append(payload, map[string]any{
-			"user":                    user,
-			"access":                  buildCoreAccessPayload(accessItems, protocolByInboundID),
-			"has_subscription":        hasSubscription,
-			"artifacts_need_refresh":  artifactsNeedRefresh,
-			"last_artifact_rendered_at": lastArtifactRenderedAt,
+			"user":                         user,
+			"access":                       buildCoreAccessPayload(accessItems, protocolByInboundID),
+			"has_subscription":             hasSubscription,
+			"artifacts_need_refresh":       artifactsNeedRefresh,
+			"last_artifact_rendered_at":    lastArtifactRenderedAt,
 			"last_artifact_refresh_reason": lastArtifactRefreshReason,
+			"traffic_status":               buildUserTrafficStatus(accessItems, serverByInboundID, capabilityByServerID),
 		})
 	}
 	render.JSON(w, http.StatusOK, map[string]any{"items": payload})

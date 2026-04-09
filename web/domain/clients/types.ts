@@ -25,6 +25,7 @@ export type Client = {
   id: string;
   username: string;
   enabled: boolean;
+  traffic_status?: "available" | "partial" | "unavailable";
   has_subscription?: boolean;
   artifacts_need_refresh?: boolean;
   last_artifact_rendered_at?: string | null;

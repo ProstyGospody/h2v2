@@ -188,8 +188,17 @@ function TrafficBar({ client }: { client: Client }) {
   const danger = pct >= 90;
   const warn = pct >= 70;
 
+  if (client.traffic_status === "unavailable") {
+    return <span className="text-[15px] text-txt-muted">Unavailable</span>;
+  }
+
   if (!limited) {
-    return <span className="text-[15px] text-txt-secondary tabular-nums">{formatBytes(used)}</span>;
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-[15px] text-txt-secondary tabular-nums">{formatBytes(used)}</span>
+        {client.traffic_status === "partial" ? <Badge variant="warning">Partial</Badge> : null}
+      </div>
+    );
   }
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
@@ -203,6 +212,7 @@ function TrafficBar({ client }: { client: Client }) {
           {formatBytes(used)}
         </span>
         <span className="text-txt-muted">/ {formatBytes(client.traffic_limit_bytes)}</span>
+        {client.traffic_status === "partial" ? <Badge variant="warning">Partial</Badge> : null}
       </div>
       <div className="h-1 w-full overflow-hidden rounded-full bg-surface-3/60">
         <div

@@ -28,6 +28,20 @@ type RuntimeTrafficTotals struct {
 	Source          string
 }
 
+func (s *Service) UserTrafficCapabilityMap(ctx context.Context) (map[string]bool, error) {
+	servers, err := s.store.ListServers(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]bool, len(servers))
+	for _, server := range servers {
+		server = s.defaultServer(server)
+		result[server.ID] = s.supportsV2RayAPI(ctx, server)
+	}
+	return result, nil
+}
+
 func (s *Service) SyncRuntimeUsage(ctx context.Context) error {
 	servers, err := s.store.ListServers(ctx)
 	if err != nil {

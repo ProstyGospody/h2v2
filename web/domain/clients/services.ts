@@ -74,6 +74,10 @@ function mapClient(raw: unknown, accessItems: ClientAccess[]): Client {
     id: str(r?.id),
     username: str(r?.username),
     enabled: bool(r?.enabled, false),
+    traffic_status:
+      r?.traffic_status === "partial" || r?.traffic_status === "unavailable" || r?.traffic_status === "available"
+        ? r.traffic_status
+        : "available",
     has_subscription: bool(r?.has_subscription),
     artifacts_need_refresh: bool(r?.artifacts_need_refresh),
     last_artifact_rendered_at:
@@ -95,6 +99,7 @@ function mapEntry(raw: unknown): Client {
   const entry = rec(raw);
   const userRaw = {
     ...(rec(entry?.user) ?? rec(raw) ?? {}),
+    traffic_status: entry?.traffic_status,
     has_subscription: entry?.has_subscription,
     artifacts_need_refresh: entry?.artifacts_need_refresh,
     last_artifact_rendered_at: entry?.last_artifact_rendered_at,
