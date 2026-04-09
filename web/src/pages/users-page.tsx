@@ -74,6 +74,10 @@ import { formatBytes, formatDateTime } from "@/utils/format";
 const PAGE_SIZE = 30;
 const EXPIRE_SOON_DAYS = 7;
 const SECONDS_PER_DAY = 86_400;
+const EMPTY_CLIENTS: Client[] = [];
+const EMPTY_INBOUNDS: Inbound[] = [];
+const EMPTY_SERVERS: ServerType[] = [];
+const EMPTY_CLIENT_PROFILES: ClientProfile[] = [];
 
 type StatusFilter = "active" | "all" | "disabled";
 type ExpirationFilter = "active" | "all" | "expired";
@@ -542,8 +546,8 @@ function MutationDialog({
   const canPreview = !!currentPatch && !previewBusy && !applyBusy;
   const canApply = !!currentPatch && previewKey === currentKey && !previewBusy && !applyBusy;
 
-  const actionOptions: { label: string; value: DialogAction }[] = [
-    { label: "Action", value: "" },
+  const actionOptions: { label: string; value: string }[] = [
+    { label: "Action", value: "__none__" },
     { label: "Enable", value: "enable" },
     { label: "Disable", value: "disable" },
     { label: "Extend expiration", value: "extend" },
@@ -631,8 +635,8 @@ function MutationDialog({
 
         <SelectField
           label="Action"
-          value={action}
-          onValueChange={(value) => setAction(value as DialogAction)}
+          value={action || "__none__"}
+          onValueChange={(value) => setAction(value === "__none__" ? "" : (value as DialogAction))}
           options={actionOptions}
         />
 
@@ -661,10 +665,10 @@ function MutationDialog({
         {action === "client-profile" ? (
           <SelectField
             label="Client profile"
-            value={clientProfileID}
-            onValueChange={setClientProfileID}
+            value={clientProfileID || "__none__"}
+            onValueChange={(value) => setClientProfileID(value === "__none__" ? "" : value)}
             options={[
-              { label: "Select profile", value: "" },
+              { label: "Select profile", value: "__none__" },
               ...clientProfiles.map((item) => ({ label: item.name, value: item.id })),
             ]}
           />
@@ -673,10 +677,10 @@ function MutationDialog({
         {action === "change-inbound" ? (
           <SelectField
             label="Inbound"
-            value={inboundID}
-            onValueChange={setInboundID}
+            value={inboundID || "__none__"}
+            onValueChange={(value) => setInboundID(value === "__none__" ? "" : value)}
             options={[
-              { label: "Select inbound", value: "" },
+              { label: "Select inbound", value: "__none__" },
               ...inbounds.map((item) => ({ label: item.name, value: item.id })),
             ]}
           />
@@ -723,10 +727,10 @@ export default function UsersPage() {
     queryFn: () => listClientProfiles(),
   });
 
-  const clients = usersQuery.data ?? [];
-  const inbounds = inboundsQuery.data ?? [];
-  const servers = serversQuery.data ?? [];
-  const clientProfiles = clientProfilesQuery.data ?? [];
+  const clients = usersQuery.data ?? EMPTY_CLIENTS;
+  const inbounds = inboundsQuery.data ?? EMPTY_INBOUNDS;
+  const servers = serversQuery.data ?? EMPTY_SERVERS;
+  const clientProfiles = clientProfilesQuery.data ?? EMPTY_CLIENT_PROFILES;
 
   const inboundByID = useMemo(() => new Map(inbounds.map((item) => [item.id, item])), [inbounds]);
   const serverByID = useMemo(() => new Map(servers.map((item) => [item.id, item])), [servers]);
@@ -770,7 +774,7 @@ export default function UsersPage() {
 
   const refreshAllDrafts = useCallback(async () => {
     if (servers.length === 0) {
-      setDrafts([]);
+      setDrafts((prev) => (prev.length === 0 ? prev : []));
       return;
     }
     try {

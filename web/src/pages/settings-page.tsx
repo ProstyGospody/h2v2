@@ -87,7 +87,7 @@ import type {
   TLSProfile,
   TransportProfile,
 } from "@/types/common";
-import { Button, Input, SelectField, Toggle, cn } from "@/src/components/ui";
+import { Badge, Button, Input, SelectField, Toggle, cn } from "@/src/components/ui";
 import { useToast } from "@/src/components/ui/Toast";
 
 function useDirtyForm<T>(initial: T) {
