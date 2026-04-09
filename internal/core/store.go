@@ -211,6 +211,11 @@ func (s *Store) ensureSchema(ctx context.Context) error {
 			user_id TEXT NOT NULL UNIQUE,
 			profile_name TEXT NOT NULL,
 			enabled INTEGER NOT NULL,
+			primary_token_id TEXT,
+			artifact_version INTEGER NOT NULL DEFAULT 1,
+			artifacts_need_refresh INTEGER NOT NULL DEFAULT 1,
+			last_artifact_rendered_at_ns INTEGER,
+			last_artifact_refresh_reason TEXT,
 			created_at_ns INTEGER NOT NULL,
 			updated_at_ns INTEGER NOT NULL,
 			FOREIGN KEY(user_id) REFERENCES core_users(id) ON DELETE CASCADE
@@ -221,6 +226,8 @@ func (s *Store) ensureSchema(ctx context.Context) error {
 			token_prefix TEXT NOT NULL,
 			token_hash TEXT NOT NULL UNIQUE,
 			token_salt TEXT NOT NULL,
+			token_plaintext_enc TEXT,
+			is_primary INTEGER NOT NULL DEFAULT 0,
 			revoked_at_ns INTEGER,
 			expires_at_ns INTEGER,
 			last_used_at_ns INTEGER,
@@ -468,6 +475,35 @@ func (s *Store) runMigrations(ctx context.Context) error {
 			`ALTER TABLE core_config_revisions ADD COLUMN apply_status TEXT`,
 			`ALTER TABLE core_config_revisions ADD COLUMN apply_error TEXT`,
 		}},
+		// v12: TLS profiles and inbound TLS profile references.
+		{version: 12, stmts: []string{
+			`CREATE TABLE IF NOT EXISTS core_tls_profiles (
+				id TEXT PRIMARY KEY,
+				server_id TEXT NOT NULL,
+				name TEXT NOT NULL,
+				enabled INTEGER NOT NULL DEFAULT 1,
+				server_name TEXT,
+				alpn_json TEXT,
+				certificate_path TEXT,
+				key_path TEXT,
+				allow_insecure INTEGER NOT NULL DEFAULT 0,
+				created_at_ns INTEGER NOT NULL,
+				updated_at_ns INTEGER NOT NULL,
+				FOREIGN KEY(server_id) REFERENCES core_servers(id) ON DELETE CASCADE
+			)`,
+			`ALTER TABLE core_inbound_vless_settings ADD COLUMN tls_profile_id TEXT`,
+			`ALTER TABLE core_inbound_hysteria2_settings ADD COLUMN tls_profile_id TEXT`,
+		}},
+		// v13: Stable primary subscription tokens and artifact refresh state.
+		{version: 13, stmts: []string{
+			`ALTER TABLE core_subscriptions ADD COLUMN primary_token_id TEXT`,
+			`ALTER TABLE core_subscriptions ADD COLUMN artifact_version INTEGER NOT NULL DEFAULT 1`,
+			`ALTER TABLE core_subscriptions ADD COLUMN artifacts_need_refresh INTEGER NOT NULL DEFAULT 1`,
+			`ALTER TABLE core_subscriptions ADD COLUMN last_artifact_rendered_at_ns INTEGER`,
+			`ALTER TABLE core_subscriptions ADD COLUMN last_artifact_refresh_reason TEXT`,
+			`ALTER TABLE core_subscription_tokens ADD COLUMN token_plaintext_enc TEXT`,
+			`ALTER TABLE core_subscription_tokens ADD COLUMN is_primary INTEGER NOT NULL DEFAULT 0`,
+		}},
 	}
 	for _, m := range migrations {
 		var count int
@@ -696,3 +732,6 @@ func joinCSV(values []string) string {
 	}
 	return strings.Join(normalized, ",")
 }
+
+
+

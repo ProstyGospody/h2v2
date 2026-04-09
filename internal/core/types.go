@@ -1,4 +1,4 @@
-package core
+﻿package core
 
 import "time"
 
@@ -10,7 +10,7 @@ const (
 )
 
 // currentSchemaVersion is bumped with every structural migration.
-const currentSchemaVersion = 10
+const currentSchemaVersion = 13
 
 // rendererVersion is bumped when the config renderer output changes significantly.
 const rendererVersion = "2.0.0"
@@ -47,9 +47,10 @@ type VLESSInboundSettings struct {
 	MultiplexEnabled           bool     `json:"multiplex_enabled"`
 	MultiplexProtocol          string   `json:"multiplex_protocol,omitempty"`
 	MultiplexMaxConnections    int      `json:"multiplex_max_connections,omitempty"`
-	MultiplexMinStreams         int      `json:"multiplex_min_streams,omitempty"`
-	MultiplexMaxStreams         int      `json:"multiplex_max_streams,omitempty"`
+	MultiplexMinStreams        int      `json:"multiplex_min_streams,omitempty"`
+	MultiplexMaxStreams        int      `json:"multiplex_max_streams,omitempty"`
 	// Profile references (take precedence over inline settings when set).
+	TLSProfileID       string `json:"tls_profile_id,omitempty"`
 	RealityProfileID   string `json:"reality_profile_id,omitempty"`
 	TransportProfileID string `json:"transport_profile_id,omitempty"`
 	MultiplexProfileID string `json:"multiplex_profile_id,omitempty"`
@@ -80,6 +81,7 @@ type Hysteria2InboundSettings struct {
 	// BandwidthProfileMode is a user-facing preset: "auto", "poor", "fast".
 	BandwidthProfileMode string `json:"bandwidth_profile_mode,omitempty"`
 	// Profile references.
+	TLSProfileID        string `json:"tls_profile_id,omitempty"`
 	MasqueradeProfileID string `json:"masquerade_profile_id,omitempty"`
 }
 
@@ -244,6 +246,20 @@ type HY2MasqueradeProfile struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+type TLSProfile struct {
+	ID              string    `json:"id"`
+	ServerID        string    `json:"server_id"`
+	Name            string    `json:"name"`
+	Enabled         bool      `json:"enabled"`
+	ServerName      string    `json:"server_name,omitempty"`
+	ALPN            []string  `json:"alpn,omitempty"`
+	CertificatePath string    `json:"certificate_path,omitempty"`
+	KeyPath         string    `json:"key_path,omitempty"`
+	AllowInsecure   bool      `json:"allow_insecure"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
 // ---------- User-facing connection profiles ----------
 
 // ClientProfile defines a user-facing connection mode that abstracts low-level
@@ -299,18 +315,24 @@ type UserAccess struct {
 }
 
 type Subscription struct {
-	ID          string    `json:"id"`
-	UserID      string    `json:"user_id"`
-	ProfileName string    `json:"profile_name"`
-	Enabled     bool      `json:"enabled"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID                        string     `json:"id"`
+	UserID                    string     `json:"user_id"`
+	ProfileName               string     `json:"profile_name"`
+	Enabled                   bool       `json:"enabled"`
+	PrimaryTokenID            string     `json:"primary_token_id,omitempty"`
+	ArtifactVersion           int        `json:"artifact_version"`
+	ArtifactsNeedRefresh      bool       `json:"artifacts_need_refresh"`
+	LastArtifactRenderedAt    *time.Time `json:"last_artifact_rendered_at,omitempty"`
+	LastArtifactRefreshReason *string    `json:"last_artifact_refresh_reason,omitempty"`
+	CreatedAt                 time.Time  `json:"created_at"`
+	UpdatedAt                 time.Time  `json:"updated_at"`
 }
 
 type SubscriptionToken struct {
 	ID             string     `json:"id"`
 	SubscriptionID string     `json:"subscription_id"`
 	TokenPrefix    string     `json:"token_prefix"`
+	IsPrimary      bool       `json:"is_primary"`
 	RevokedAt      *time.Time `json:"revoked_at,omitempty"`
 	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
 	LastUsedAt     *time.Time `json:"last_used_at,omitempty"`
@@ -339,7 +361,7 @@ type ConfigRevision struct {
 	CheckError             *string    `json:"check_error,omitempty"`
 	AppliedAt              *time.Time `json:"applied_at,omitempty"`
 	RollbackFromRevisionID *string    `json:"rollback_from_revision_id,omitempty"`
-	// Apply outcome tracking — set after an Apply attempt.
+	// Apply outcome tracking вЂ” set after an Apply attempt.
 	ApplyStatus *string `json:"apply_status,omitempty"`
 	ApplyError  *string `json:"apply_error,omitempty"`
 	// Extended revision metadata.
@@ -352,32 +374,88 @@ type ConfigRevision struct {
 
 // BulkPreviewResult summarises the domain impact of a bulk user deletion.
 type BulkPreviewResult struct {
-	UserCount              int      `json:"user_count"`
-	AccessCount            int      `json:"access_count"`
-	AffectedInboundIDs     []string `json:"affected_inbound_ids"`
-	AffectedSubscriptions  int      `json:"affected_subscriptions"`
-	RuntimeChangeExpected  bool     `json:"runtime_change_expected"`
-	RestartRequired        bool     `json:"restart_required"`
+	UserCount               int      `json:"user_count"`
+	AccessCount             int      `json:"access_count"`
+	AffectedInboundIDs      []string `json:"affected_inbound_ids"`
+	AffectedInboundCount    int      `json:"affected_inbounds"`
+	AffectedSubscriptions   int      `json:"affected_subscriptions"`
+	AffectedArtifacts       int      `json:"affected_artifacts"`
+	RuntimeChangeExpected   bool     `json:"runtime_change_expected"`
+	ArtifactRefreshExpected bool     `json:"artifact_refresh_expected"`
+	RestartRequired         bool     `json:"restart_required"`
 }
 
 type UserArtifacts struct {
-	UserID                    string   `json:"user_id"`
-	SubscriptionID            string   `json:"subscription_id"`
-	SubscriptionImportURL     string   `json:"subscription_import_url"`
-	SubscriptionProfileURL    string   `json:"subscription_profile_url"`
-	SubscriptionURIsURL       string   `json:"subscription_uris_url"`
-	SubscriptionQRURL         string   `json:"subscription_qr_url"`
-	SubscriptionClashURL      string   `json:"subscription_clash_url"`
-	SubscriptionBase64URL     string   `json:"subscription_base64_url"`
-	VLESSURIs                 []string `json:"vless_uris"`
-	Hysteria2URIs             []string `json:"hysteria2_uris"`
-	AllURIs                   []string `json:"all_uris"`
-	SingBoxProfileJSON        string   `json:"singbox_profile_json"`
+	UserID                    string     `json:"user_id"`
+	SubscriptionID            string     `json:"subscription_id"`
+	PrimaryTokenPrefix        string     `json:"primary_token_prefix,omitempty"`
+	ArtifactVersion           int        `json:"artifact_version"`
+	ArtifactsNeedRefresh      bool       `json:"artifacts_need_refresh"`
+	LastArtifactRenderedAt    *time.Time `json:"last_artifact_rendered_at,omitempty"`
+	LastArtifactRefreshReason *string    `json:"last_artifact_refresh_reason,omitempty"`
+	SubscriptionImportURL     string     `json:"subscription_import_url"`
+	SubscriptionProfileURL    string     `json:"subscription_profile_url"`
+	SubscriptionURIsURL       string     `json:"subscription_uris_url"`
+	SubscriptionQRURL         string     `json:"subscription_qr_url"`
+	SubscriptionClashURL      string     `json:"subscription_clash_url"`
+	SubscriptionBase64URL     string     `json:"subscription_base64_url"`
+	VLESSURIs                 []string   `json:"vless_uris"`
+	Hysteria2URIs             []string   `json:"hysteria2_uris"`
+	AllURIs                   []string   `json:"all_uris"`
+	SingBoxProfileJSON        string     `json:"singbox_profile_json"`
 }
 
 type RenderResult struct {
 	Server   Server         `json:"server"`
 	Revision ConfigRevision `json:"revision"`
+}
+
+type ChangeImpact struct {
+	AffectedUsers           int      `json:"affected_users"`
+	AffectedAccess          int      `json:"affected_access"`
+	AffectedInbounds        int      `json:"affected_inbounds"`
+	AffectedSubscriptions   int      `json:"affected_subscriptions"`
+	AffectedArtifacts       int      `json:"affected_artifacts"`
+	RequiresRuntimeApply    bool     `json:"requires_runtime_apply"`
+	RequiresArtifactRefresh bool     `json:"requires_artifact_refresh"`
+	ServerIDs               []string `json:"server_ids,omitempty"`
+	InboundIDs              []string `json:"inbound_ids,omitempty"`
+}
+
+type DraftRevisionState struct {
+	ServerID          string  `json:"server_id"`
+	CurrentRevisionID string  `json:"current_revision_id,omitempty"`
+	CurrentRevisionNo int     `json:"current_revision_no,omitempty"`
+	DraftRevisionID   string  `json:"draft_revision_id,omitempty"`
+	DraftRevisionNo   int     `json:"draft_revision_no,omitempty"`
+	PendingChanges    bool    `json:"pending_changes"`
+	CheckOK           bool    `json:"check_ok"`
+	CheckError        *string `json:"check_error,omitempty"`
+	ApplyStatus       *string `json:"apply_status,omitempty"`
+	ApplyError        *string `json:"apply_error,omitempty"`
+}
+
+type PolicyUsage struct {
+	Kind                  string `json:"kind"`
+	ID                    string `json:"id"`
+	UsedByUsers           int    `json:"used_by_users"`
+	UsedByAccess          int    `json:"used_by_access"`
+	UsedByInbounds        int    `json:"used_by_inbounds"`
+	UsedByRouteRules      int    `json:"used_by_route_rules"`
+	UsedByOutbounds       int    `json:"used_by_outbounds"`
+	AffectedSubscriptions int    `json:"affected_subscriptions"`
+	AffectedArtifacts     int    `json:"affected_artifacts"`
+	RequiresRuntimeApply  bool   `json:"requires_runtime_apply"`
+	UnsafeDelete          bool   `json:"unsafe_delete"`
+}
+
+type BulkMutationResult struct {
+	Updated     int                  `json:"updated"`
+	Deleted     int                  `json:"deleted"`
+	Rotated     int                  `json:"rotated"`
+	Regenerated int                  `json:"regenerated"`
+	Impact      ChangeImpact         `json:"impact"`
+	Drafts      []DraftRevisionState `json:"drafts,omitempty"`
 }
 
 type SubscriptionContent struct {
@@ -394,3 +472,11 @@ type TokenContext struct {
 	Subscription Subscription      `json:"subscription"`
 	User         User              `json:"user"`
 }
+
+
+
+
+
+
+
+

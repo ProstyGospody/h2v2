@@ -184,15 +184,7 @@ func (h *Handler) applyCoreServerConfigs(ctx context.Context, service *core.Serv
 		}
 	}
 	for _, serverID := range ids {
-		rendered, err := service.RenderServerConfig(ctx, serverID, nil)
-		if err != nil {
-			return err
-		}
-		if _, err := service.ApplyServerConfig(ctx, serverID, rendered.Revision.ID); err != nil {
-			// Wrap apply errors so the caller gets the stage in the message.
-			if ae, ok := core.IsApplyError(err); ok {
-				return fmt.Errorf("apply failed at stage %q: %w", ae.Stage, ae.Cause)
-			}
+		if _, err := service.RenderServerConfig(ctx, serverID, nil); err != nil {
 			return err
 		}
 	}
@@ -232,6 +224,12 @@ func buildCoreAccessPayload(items []core.UserAccess, protocolByInboundID map[str
 			"hysteria2_password":           item.Hysteria2Password,
 			"traffic_limit_bytes_override": item.TrafficLimitBytesOverride,
 			"expire_at_override":           item.ExpireAtOverride,
+			"display_name":                 item.DisplayName,
+			"description":                  item.Description,
+			"credential_status":            item.CredentialStatus,
+			"last_seen_at":                 item.LastSeenAt,
+			"last_client_ip":               item.LastClientIP,
+			"client_profile_id":            item.ClientProfileID,
 			"created_at":                   item.CreatedAt,
 			"updated_at":                   item.UpdatedAt,
 		})
@@ -611,9 +609,26 @@ func (h *Handler) ListCoreUsers(w http.ResponseWriter, r *http.Request) {
 			h.renderError(w, http.StatusInternalServerError, "runtime", "failed to list access", nil)
 			return
 		}
+		hasSubscription := false
+		artifactsNeedRefresh := false
+		var lastArtifactRenderedAt *time.Time
+		var lastArtifactRefreshReason *string
+		if subscription, subErr := service.Store().GetSubscriptionStateByUser(r.Context(), user.ID); subErr == nil {
+			hasSubscription = true
+			artifactsNeedRefresh = subscription.ArtifactsNeedRefresh
+			lastArtifactRenderedAt = subscription.LastArtifactRenderedAt
+			lastArtifactRefreshReason = subscription.LastArtifactRefreshReason
+		} else if !core.IsNotFound(subErr) {
+			h.renderError(w, http.StatusInternalServerError, "runtime", "failed to load subscriptions", nil)
+			return
+		}
 		payload = append(payload, map[string]any{
-			"user":   user,
-			"access": buildCoreAccessPayload(accessItems, protocolByInboundID),
+			"user":                    user,
+			"access":                  buildCoreAccessPayload(accessItems, protocolByInboundID),
+			"has_subscription":        hasSubscription,
+			"artifacts_need_refresh":  artifactsNeedRefresh,
+			"last_artifact_rendered_at": lastArtifactRenderedAt,
+			"last_artifact_refresh_reason": lastArtifactRefreshReason,
 		})
 	}
 	render.JSON(w, http.StatusOK, map[string]any{"items": payload})
@@ -1358,3 +1373,4 @@ func (h *Handler) CoreUserProfileJSON(w http.ResponseWriter, r *http.Request) {
 	}
 	render.JSON(w, http.StatusOK, payload)
 }
+

@@ -69,3 +69,7 @@ Daily backup + rotation:
 ```bash
 bash /opt/h2v2/current/scripts/sqlite-backup-rotate.sh --env-file /opt/h2v2/.env.generated --keep-days 14
 ```
+
+## Control plane workflows
+
+- UI bulk, draft, apply, and profile/policy workflows: `docs/control-plane-workflows.md`

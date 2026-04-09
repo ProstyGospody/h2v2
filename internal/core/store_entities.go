@@ -284,8 +284,8 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 				reality_enabled, reality_public_key, reality_private_key_enc, reality_short_id, reality_handshake_server, reality_handshake_server_port,
 				flow, transport_type, transport_host, transport_path,
 				multiplex_enabled, multiplex_protocol, multiplex_max_connections, multiplex_min_streams, multiplex_max_streams,
-				reality_profile_id, transport_profile_id, multiplex_profile_id, packet_encoding_default
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				tls_profile_id, reality_profile_id, transport_profile_id, multiplex_profile_id, packet_encoding_default
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(inbound_id) DO UPDATE SET
 				tls_enabled = excluded.tls_enabled,
 				tls_server_name = excluded.tls_server_name,
@@ -307,6 +307,7 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 				multiplex_max_connections = excluded.multiplex_max_connections,
 				multiplex_min_streams = excluded.multiplex_min_streams,
 				multiplex_max_streams = excluded.multiplex_max_streams,
+				tls_profile_id = excluded.tls_profile_id,
 				reality_profile_id = excluded.reality_profile_id,
 				transport_profile_id = excluded.transport_profile_id,
 				multiplex_profile_id = excluded.multiplex_profile_id,
@@ -332,6 +333,7 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 			inbound.VLESS.MultiplexMaxConnections,
 			inbound.VLESS.MultiplexMinStreams,
 			inbound.VLESS.MultiplexMaxStreams,
+			nullIfEmpty(inbound.VLESS.TLSProfileID),
 			nullIfEmpty(inbound.VLESS.RealityProfileID),
 			nullIfEmpty(inbound.VLESS.TransportProfileID),
 			nullIfEmpty(inbound.VLESS.MultiplexProfileID),
@@ -352,8 +354,8 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 			`INSERT INTO core_inbound_hysteria2_settings(
 				inbound_id, tls_enabled, tls_server_name, tls_certificate_path, tls_key_path,
 				allow_insecure, up_mbps, down_mbps, ignore_client_bandwidth, obfs_type, obfs_password_enc, masquerade_json, bbr_profile, brutal_debug,
-				masquerade_profile_id, server_ports, hop_interval, network, tls_alpn_csv, bandwidth_profile_mode
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				tls_profile_id, masquerade_profile_id, server_ports, hop_interval, network, tls_alpn_csv, bandwidth_profile_mode
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT(inbound_id) DO UPDATE SET
 				tls_enabled = excluded.tls_enabled,
 				tls_server_name = excluded.tls_server_name,
@@ -368,6 +370,7 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 				masquerade_json = excluded.masquerade_json,
 				bbr_profile = excluded.bbr_profile,
 				brutal_debug = excluded.brutal_debug,
+				tls_profile_id = excluded.tls_profile_id,
 				masquerade_profile_id = excluded.masquerade_profile_id,
 				server_ports = excluded.server_ports,
 				hop_interval = excluded.hop_interval,
@@ -388,6 +391,7 @@ func (s *Store) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, er
 			nullIfEmpty(inbound.Hysteria2.MasqueradeJSON),
 			nullIfEmpty(inbound.Hysteria2.BBRProfile),
 			boolToInt(inbound.Hysteria2.BrutalDebug),
+			nullIfEmpty(inbound.Hysteria2.TLSProfileID),
 			nullIfEmpty(inbound.Hysteria2.MasqueradeProfileID),
 			nullIfEmpty(inbound.Hysteria2.ServerPorts),
 			nullableIntVal(inbound.Hysteria2.HopInterval),
@@ -1200,7 +1204,7 @@ func (s *Store) populateInboundSettings(ctx context.Context, inbound *Inbound) e
 	}
 	switch inbound.Protocol {
 	case InboundProtocolVLESS:
-		row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT tls_enabled, tls_server_name, tls_alpn_csv, tls_certificate_path, tls_key_path, reality_enabled, reality_public_key, reality_private_key_enc, reality_short_id, reality_handshake_server, reality_handshake_server_port, flow, transport_type, transport_host, transport_path, multiplex_enabled, multiplex_protocol, multiplex_max_connections, multiplex_min_streams, multiplex_max_streams, COALESCE(reality_profile_id,''), COALESCE(transport_profile_id,''), COALESCE(multiplex_profile_id,''), COALESCE(packet_encoding_default,'') FROM core_inbound_vless_settings WHERE inbound_id = ? LIMIT 1`, inbound.ID)
+		row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT tls_enabled, tls_server_name, tls_alpn_csv, tls_certificate_path, tls_key_path, reality_enabled, reality_public_key, reality_private_key_enc, reality_short_id, reality_handshake_server, reality_handshake_server_port, flow, transport_type, transport_host, transport_path, multiplex_enabled, multiplex_protocol, multiplex_max_connections, multiplex_min_streams, multiplex_max_streams, COALESCE(tls_profile_id,'') , COALESCE(reality_profile_id,''), COALESCE(transport_profile_id,''), COALESCE(multiplex_profile_id,''), COALESCE(packet_encoding_default,'') FROM core_inbound_vless_settings WHERE inbound_id = ? LIMIT 1`, inbound.ID)
 		var (
 			item             VLESSInboundSettings
 			tlsServerName    sql.NullString
@@ -1245,6 +1249,7 @@ func (s *Store) populateInboundSettings(ctx context.Context, inbound *Inbound) e
 			&muxMaxConn,
 			&muxMinStreams,
 			&muxMaxStreams,
+			&item.TLSProfileID,
 			&item.RealityProfileID,
 			&item.TransportProfileID,
 			&item.MultiplexProfileID,
@@ -1282,7 +1287,7 @@ func (s *Store) populateInboundSettings(ctx context.Context, inbound *Inbound) e
 		inbound.VLESS = &item
 		inbound.Hysteria2 = nil
 	case InboundProtocolHysteria2:
-		row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT tls_enabled, tls_server_name, tls_certificate_path, tls_key_path, COALESCE(allow_insecure, 0), up_mbps, down_mbps, ignore_client_bandwidth, obfs_type, obfs_password_enc, masquerade_json, bbr_profile, brutal_debug, COALESCE(masquerade_profile_id,''), COALESCE(server_ports,''), COALESCE(hop_interval,0), COALESCE(network,''), COALESCE(tls_alpn_csv,''), COALESCE(bandwidth_profile_mode,'') FROM core_inbound_hysteria2_settings WHERE inbound_id = ? LIMIT 1`, inbound.ID)
+		row := s.db.QueryRowContext(resolveCtx(ctx), `SELECT tls_enabled, tls_server_name, tls_certificate_path, tls_key_path, COALESCE(allow_insecure, 0), up_mbps, down_mbps, ignore_client_bandwidth, obfs_type, obfs_password_enc, masquerade_json, bbr_profile, brutal_debug, COALESCE(tls_profile_id,'') , COALESCE(masquerade_profile_id,''), COALESCE(server_ports,''), COALESCE(hop_interval,0), COALESCE(network,''), COALESCE(tls_alpn_csv,''), COALESCE(bandwidth_profile_mode,'') FROM core_inbound_hysteria2_settings WHERE inbound_id = ? LIMIT 1`, inbound.ID)
 		var (
 			item          Hysteria2InboundSettings
 			tlsEnabled    int64
@@ -1314,6 +1319,7 @@ func (s *Store) populateInboundSettings(ctx context.Context, inbound *Inbound) e
 			&masquerade,
 			&bbrProfile,
 			&brutalDebug,
+			&item.TLSProfileID,
 			&item.MasqueradeProfileID,
 			&item.ServerPorts,
 			&item.HopInterval,
@@ -1707,3 +1713,5 @@ func formatTrafficUserInfo(user User) string {
 		"; total=" + strconv.FormatInt(user.TrafficLimitBytes, 10) +
 		"; expire=" + strconv.FormatInt(expireUnix, 10)
 }
+
+

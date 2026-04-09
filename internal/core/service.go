@@ -344,7 +344,12 @@ func (s *Service) GetServer(ctx context.Context, id string) (Server, error) {
 }
 
 func (s *Service) UpsertServer(ctx context.Context, server Server) (Server, error) {
-	return s.store.UpsertServer(ctx, s.defaultServer(server))
+	saved, err := s.store.UpsertServer(ctx, s.defaultServer(server))
+	if err != nil {
+		return Server{}, err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, saved.ID, "server_updated")
+	return saved, nil
 }
 
 func (s *Service) DeleteServer(ctx context.Context, id string) error {
@@ -366,7 +371,12 @@ func (s *Service) UpsertInbound(ctx context.Context, inbound Inbound) (Inbound, 
 			return Inbound{}, err
 		}
 	}
-	return s.store.UpsertInbound(ctx, inbound)
+	saved, err := s.store.UpsertInbound(ctx, inbound)
+	if err != nil {
+		return Inbound{}, err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, saved.ServerID, "inbound_updated")
+	return saved, nil
 }
 
 // applyInboundDefaults fills missing fields with stable working defaults so
@@ -445,7 +455,15 @@ func (s *Service) applyInboundDefaults(inbound *Inbound) {
 }
 
 func (s *Service) DeleteInbound(ctx context.Context, id string) error {
-	return s.store.DeleteInbound(ctx, id)
+	inbound, err := s.store.GetInbound(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteInbound(ctx, id); err != nil {
+		return err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, inbound.ServerID, "inbound_deleted")
+	return nil
 }
 
 func (s *Service) ListUsers(ctx context.Context) ([]User, error) {
@@ -457,7 +475,12 @@ func (s *Service) GetUser(ctx context.Context, id string) (User, error) {
 }
 
 func (s *Service) UpsertUser(ctx context.Context, user User) (User, error) {
-	return s.store.UpsertUser(ctx, user)
+	saved, err := s.store.UpsertUser(ctx, user)
+	if err != nil {
+		return User{}, err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByUserIDs(ctx, []string{saved.ID}, "user_updated")
+	return saved, nil
 }
 
 func (s *Service) DeleteUser(ctx context.Context, id string) error {
@@ -493,7 +516,6 @@ func (s *Service) UpsertUserAccess(ctx context.Context, access UserAccess) (User
 		}
 	} else {
 		if strings.TrimSpace(access.Hysteria2Password) == "" {
-			// Preserve existing password to avoid breaking server-client sync.
 			existing, getErr := s.store.GetUserAccessByPair(ctx, access.UserID, access.InboundID)
 			if getErr == nil && strings.TrimSpace(existing.Hysteria2Password) != "" {
 				access.Hysteria2Password = existing.Hysteria2Password
@@ -504,11 +526,24 @@ func (s *Service) UpsertUserAccess(ctx context.Context, access UserAccess) (User
 		access.VLESSUUID = ""
 		access.VLESSFlowOverride = ""
 	}
-	return s.store.UpsertUserAccess(ctx, access)
+	saved, err := s.store.UpsertUserAccess(ctx, access)
+	if err != nil {
+		return UserAccess{}, err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByUserIDs(ctx, []string{saved.UserID}, "access_updated")
+	return saved, nil
 }
 
 func (s *Service) DeleteUserAccess(ctx context.Context, id string) error {
-	return s.store.DeleteUserAccess(ctx, id)
+	access, err := s.store.GetUserAccess(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteUserAccess(ctx, id); err != nil {
+		return err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByUserIDs(ctx, []string{access.UserID}, "access_deleted")
+	return nil
 }
 
 // EnsureDefaultInbounds makes sure a server record exists and that both a
@@ -658,18 +693,21 @@ func (s *Service) EnsureSubscriptionForUser(ctx context.Context, userID string) 
 	if _, err := s.store.GetUser(ctx, userID); err != nil {
 		return Subscription{}, err
 	}
-	return s.store.EnsureSubscriptionForUser(ctx, userID, "default")
+	if _, err := s.store.EnsureSubscriptionForUser(ctx, userID, "default"); err != nil {
+		return Subscription{}, err
+	}
+	return s.store.GetSubscriptionStateByUser(ctx, userID)
 }
 
 func (s *Service) ListSubscriptionTokensByUser(ctx context.Context, userID string) (Subscription, []SubscriptionToken, error) {
 	if _, err := s.store.GetUser(ctx, userID); err != nil {
 		return Subscription{}, nil, err
 	}
-	subscription, err := s.store.EnsureSubscriptionForUser(ctx, userID, "default")
+	subscription, err := s.EnsureSubscriptionForUser(ctx, userID)
 	if err != nil {
 		return Subscription{}, nil, err
 	}
-	tokens, err := s.store.ListSubscriptionTokens(ctx, subscription.ID)
+	tokens, err := s.store.ListSubscriptionTokensState(ctx, subscription.ID)
 	if err != nil {
 		return Subscription{}, nil, err
 	}
@@ -680,11 +718,21 @@ func (s *Service) RotateSubscriptionTokenByUser(ctx context.Context, userID stri
 	if _, err := s.store.GetUser(ctx, userID); err != nil {
 		return Subscription{}, IssuedSubscriptionToken{}, err
 	}
-	subscription, err := s.store.EnsureSubscriptionForUser(ctx, userID, "default")
+	subscription, err := s.EnsureSubscriptionForUser(ctx, userID)
 	if err != nil {
 		return Subscription{}, IssuedSubscriptionToken{}, err
 	}
-	token, err := s.store.RotateSubscriptionToken(ctx, subscription.ID, expiresAt)
+	if err := s.store.RevokeSubscriptionTokens(ctx, subscription.ID); err != nil {
+		return Subscription{}, IssuedSubscriptionToken{}, err
+	}
+	token, err := s.issueManagedSubscriptionToken(ctx, subscription.ID, expiresAt, true)
+	if err != nil {
+		return Subscription{}, IssuedSubscriptionToken{}, err
+	}
+	if err := s.store.MarkSubscriptionArtifactsDirty(ctx, subscription.ID, "token_rotated"); err != nil && !IsNotFound(err) {
+		return Subscription{}, IssuedSubscriptionToken{}, err
+	}
+	subscription, err = s.store.GetSubscriptionState(ctx, subscription.ID)
 	if err != nil {
 		return Subscription{}, IssuedSubscriptionToken{}, err
 	}
@@ -695,11 +743,15 @@ func (s *Service) IssueAdditionalSubscriptionTokenByUser(ctx context.Context, us
 	if _, err := s.store.GetUser(ctx, userID); err != nil {
 		return Subscription{}, IssuedSubscriptionToken{}, err
 	}
-	subscription, err := s.store.EnsureSubscriptionForUser(ctx, userID, "default")
+	subscription, err := s.EnsureSubscriptionForUser(ctx, userID)
 	if err != nil {
 		return Subscription{}, IssuedSubscriptionToken{}, err
 	}
-	token, err := s.store.IssueSubscriptionToken(ctx, subscription.ID, expiresAt)
+	token, err := s.issueManagedSubscriptionToken(ctx, subscription.ID, expiresAt, false)
+	if err != nil {
+		return Subscription{}, IssuedSubscriptionToken{}, err
+	}
+	subscription, err = s.store.GetSubscriptionState(ctx, subscription.ID)
 	if err != nil {
 		return Subscription{}, IssuedSubscriptionToken{}, err
 	}
@@ -724,15 +776,15 @@ func (s *Service) BuildUserArtifacts(ctx context.Context, userID string) (UserAr
 	if err != nil {
 		return UserArtifacts{}, err
 	}
-	subscription, err := s.store.EnsureSubscriptionForUser(ctx, user.ID, "default")
+	subscription, err := s.EnsureSubscriptionForUser(ctx, user.ID)
 	if err != nil {
 		return UserArtifacts{}, err
 	}
-	issued, err := s.store.IssueSubscriptionToken(ctx, subscription.ID, nil)
+	primaryToken, err := s.ensurePrimarySubscriptionToken(ctx, subscription)
 	if err != nil {
 		return UserArtifacts{}, err
 	}
-	plainToken := issued.PlaintextToken
+	plainToken := primaryToken.PlaintextToken
 
 	uris, outbounds, err := s.buildUserURIsAndOutbounds(ctx, user)
 	if err != nil {
@@ -760,9 +812,21 @@ func (s *Service) BuildUserArtifacts(ctx context.Context, userID string) (UserAr
 		}
 	}
 
+	if err := s.store.MarkSubscriptionArtifactsRendered(ctx, subscription.ID); err == nil {
+		now := time.Now().UTC()
+		subscription.ArtifactsNeedRefresh = false
+		subscription.LastArtifactRenderedAt = &now
+		subscription.LastArtifactRefreshReason = nil
+	}
+
 	return UserArtifacts{
 		UserID:                    user.ID,
 		SubscriptionID:            subscription.ID,
+		PrimaryTokenPrefix:        primaryToken.Token.TokenPrefix,
+		ArtifactVersion:           subscription.ArtifactVersion,
+		ArtifactsNeedRefresh:      subscription.ArtifactsNeedRefresh,
+		LastArtifactRenderedAt:    subscription.LastArtifactRenderedAt,
+		LastArtifactRefreshReason: subscription.LastArtifactRefreshReason,
 		SubscriptionImportURL:     importURL,
 		SubscriptionProfileURL:    profileURL,
 		SubscriptionURIsURL:       urisURL,
@@ -784,7 +848,7 @@ func (s *Service) RenderSubscriptionContentByToken(ctx context.Context, plainTok
 	} else if !allowed {
 		return SubscriptionContent{}, ErrRateLimited
 	}
-	tokenCtx, err := s.store.ResolveSubscriptionToken(ctx, plainToken, clientIP)
+	tokenCtx, err := s.store.ResolveSubscriptionTokenState(ctx, plainToken, clientIP)
 	if err != nil {
 		return SubscriptionContent{}, err
 	}
@@ -806,8 +870,8 @@ func (s *Service) RenderSubscriptionContentByToken(ctx context.Context, plainTok
 
 	var (
 		contentType string
-		fileName string
-		body []byte
+		fileName    string
+		body        []byte
 	)
 	switch kind {
 	case "uris":
@@ -841,25 +905,30 @@ func (s *Service) RenderSubscriptionContentByToken(ctx context.Context, plainTok
 		}
 	}
 	hash := sha256.Sum256(body)
-	etag := "\"" + hex.EncodeToString(hash[:]) + "\""
-	if strings.TrimSpace(ifNoneMatch) == etag {
-		return SubscriptionContent{StatusCode: 304, ETag: etag, Headers: map[string]string{
-			"Cache-Control": "private, max-age=60",
-		}}, nil
+	version := tokenCtx.Subscription.ArtifactVersion
+	if version <= 0 {
+		version = 1
 	}
+	etag := fmt.Sprintf("\"v%d-%s-%s\"", version, kind, hex.EncodeToString(hash[:]))
+	headers := map[string]string{
+		"Cache-Control":             "private, max-age=60",
+		"Profile-Title":             tokenCtx.User.Username,
+		"Profile-Update-Interval":   "60",
+		"Subscription-Userinfo":     formatTrafficUserInfo(tokenCtx.User),
+		"X-Subscription-Import-URL": importURL,
+		"X-Artifact-Version":        fmt.Sprintf("%d", version),
+	}
+	if strings.TrimSpace(ifNoneMatch) == etag {
+		return SubscriptionContent{StatusCode: 304, ETag: etag, Headers: headers}, nil
+	}
+	_ = s.store.MarkSubscriptionArtifactsRendered(ctx, tokenCtx.Subscription.ID)
 	return SubscriptionContent{
 		StatusCode:  200,
 		ContentType: contentType,
 		FileName:    fileName,
 		ETag:        etag,
 		Body:        body,
-		Headers: map[string]string{
-			"Cache-Control":            "private, max-age=60",
-			"Profile-Title":            tokenCtx.User.Username,
-			"Profile-Update-Interval":  "60",
-			"Subscription-Userinfo":    formatTrafficUserInfo(tokenCtx.User),
-			"X-Subscription-Import-URL": importURL,
-		},
+		Headers:     headers,
 	}, nil
 }
 
@@ -880,6 +949,11 @@ func (s *Service) buildUserURIsAndOutbounds(ctx context.Context, user User) ([]s
 			continue
 		}
 		if !inbound.Enabled {
+			continue
+		}
+		access, inbound, err = s.materializeAccessForArtifacts(ctx, access, inbound)
+		if err != nil {
+			s.logger.Warn("buildUserURIsAndOutbounds: failed to materialize access", "user_id", user.ID, "inbound_id", inbound.ID, "access_id", access.ID, "err", err)
 			continue
 		}
 		server, err := s.store.GetServer(ctx, inbound.ServerID)
@@ -1670,7 +1744,24 @@ func (s *Service) buildServerConfigJSON(ctx context.Context, server Server) ([]b
 func (s *Service) resolveInboundProfiles(ctx context.Context, inbound *Inbound) error {
 	if inbound.VLESS != nil {
 		v := inbound.VLESS
-		// Reality profile overrides inline settings when set.
+		if pid := strings.TrimSpace(v.TLSProfileID); pid != "" {
+			p, err := s.store.GetTLSProfile(ctx, pid)
+			if err == nil && p.Enabled {
+				v.TLSEnabled = true
+				if p.ServerName != "" {
+					v.TLSServerName = p.ServerName
+				}
+				if len(p.ALPN) > 0 {
+					v.TLSALPN = append([]string(nil), p.ALPN...)
+				}
+				if p.CertificatePath != "" {
+					v.TLSCertificatePath = p.CertificatePath
+				}
+				if p.KeyPath != "" {
+					v.TLSKeyPath = p.KeyPath
+				}
+			}
+		}
 		if pid := strings.TrimSpace(v.RealityProfileID); pid != "" {
 			p, err := s.store.GetRealityProfile(ctx, pid)
 			if err == nil && p.Enabled {
@@ -1687,7 +1778,6 @@ func (s *Service) resolveInboundProfiles(ctx context.Context, inbound *Inbound) 
 				}
 			}
 		}
-		// Transport profile overrides inline settings when set.
 		if pid := strings.TrimSpace(v.TransportProfileID); pid != "" {
 			p, err := s.store.GetTransportProfile(ctx, pid)
 			if err == nil && p.Enabled {
@@ -1696,7 +1786,6 @@ func (s *Service) resolveInboundProfiles(ctx context.Context, inbound *Inbound) 
 				v.TransportPath = p.Path
 			}
 		}
-		// Multiplex profile overrides inline settings when set.
 		if pid := strings.TrimSpace(v.MultiplexProfileID); pid != "" {
 			p, err := s.store.GetMultiplexProfile(ctx, pid)
 			if err == nil && p.Enabled {
@@ -1710,7 +1799,27 @@ func (s *Service) resolveInboundProfiles(ctx context.Context, inbound *Inbound) 
 	}
 	if inbound.Hysteria2 != nil {
 		h := inbound.Hysteria2
-		// Masquerade profile overrides inline masquerade_json when set.
+		if pid := strings.TrimSpace(h.TLSProfileID); pid != "" {
+			p, err := s.store.GetTLSProfile(ctx, pid)
+			if err == nil && p.Enabled {
+				h.TLSEnabled = true
+				if p.ServerName != "" {
+					h.TLSServerName = p.ServerName
+				}
+				if len(p.ALPN) > 0 {
+					h.TLSALPN = append([]string(nil), p.ALPN...)
+				}
+				if p.CertificatePath != "" {
+					h.TLSCertificatePath = p.CertificatePath
+				}
+				if p.KeyPath != "" {
+					h.TLSKeyPath = p.KeyPath
+				}
+				if p.AllowInsecure {
+					h.AllowInsecure = true
+				}
+			}
+		}
 		if pid := strings.TrimSpace(h.MasqueradeProfileID); pid != "" {
 			p, err := s.store.GetHY2MasqueradeProfile(ctx, pid)
 			if err == nil && p.Enabled {
@@ -2021,3 +2130,6 @@ func (s *Service) RenderConfigToPath(ctx context.Context, serverID string, outPa
 	}
 	return fsutil.WriteFileAtomic(outPath, []byte(render.Revision.RenderedJSON), 0o660)
 }
+
+
+

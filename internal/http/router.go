@@ -78,6 +78,7 @@ func NewRouter(
 				v1.Post("/servers/{id}/config/validate", h.ValidateCoreServerConfig)
 				v1.Post("/servers/{id}/config/apply", h.ApplyCoreServerConfig)
 				v1.Get("/servers/{id}/config/revisions", h.ListCoreServerRevisions)
+					v1.Get("/servers/{id}/config/draft-state", h.GetCoreServerDraftState)
 				v1.Post("/servers/{id}/config/rollback/{revisionID}", h.RollbackCoreServerConfig)
 
 				v1.Get("/inbounds", h.ListCoreInbounds)
@@ -91,6 +92,8 @@ func NewRouter(
 				v1.Post("/users/bulk/preview", h.BulkPreviewCoreUsers)
 				v1.Post("/users/bulk/delete", h.BulkDeleteCoreUsers)
 				v1.Post("/users/bulk/enable-disable", h.BulkSetCoreUsersEnabled)
+					v1.Post("/users/bulk/impact", h.BulkPreviewCoreUsersPatch)
+					v1.Post("/users/bulk/apply", h.BulkApplyCoreUsersPatch)
 				v1.Post("/users", h.CreateCoreUser)
 				v1.Get("/users/{id}", h.GetCoreUser)
 				v1.Patch("/users/{id}", h.UpdateCoreUser)
@@ -99,12 +102,15 @@ func NewRouter(
 				v1.Get("/users/{id}/access", h.ListCoreUserAccess)
 				v1.Post("/access", h.UpsertCoreAccess)
 				v1.Delete("/access/{id}", h.DeleteCoreAccess)
+					v1.Post("/access/bulk/impact", h.BulkPreviewCoreAccessPatch)
+					v1.Post("/access/bulk/apply", h.BulkApplyCoreAccessPatch)
 
 				v1.Get("/users/{id}/artifacts", h.CoreUserArtifacts)
 				v1.Get("/users/{id}/artifacts/profile.json", h.CoreUserProfileJSON)
 				v1.Get("/users/{id}/artifacts/profile.raw", h.CoreUserProfileRaw)
 				v1.Get("/users/{id}/artifacts/uris.txt", h.CoreUserURIsRaw)
 				v1.Get("/users/{id}/artifacts/qr.png", h.CoreUserQR)
+					v1.Post("/users/{id}/artifacts/refresh", h.RefreshCoreUserArtifacts)
 
 				v1.Get("/users/{id}/subscription/tokens", h.ListCoreUserTokens)
 				v1.Post("/users/{id}/subscription/tokens", h.IssueCoreUserToken)
@@ -176,9 +182,13 @@ func NewRouter(
 				v1.Get("/client-profiles/{id}", h.GetCoreClientProfile)
 				v1.Patch("/client-profiles/{id}", h.UpsertCoreClientProfile)
 				v1.Delete("/client-profiles/{id}", h.DeleteCoreClientProfile)
+					v1.Get("/policies/{kind}/{id}/usage", h.GetCorePolicyUsage)
 			})
 		})
 	})
 
 	return r
 }
+
+
+

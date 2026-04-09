@@ -1,11 +1,8 @@
 import { apiFetch } from "@/services/api";
+import type { DraftRevisionState } from "@/types/common";
 import type { Inbound, Server, VLESSInboundSettings, Hysteria2InboundSettings } from "./types";
 
 const TIMEOUT = 30_000;
-
-// ---------------------------------------------------------------------------
-// Normalisation helpers
-// ---------------------------------------------------------------------------
 
 function str(v: unknown, fb = ""): string {
   return typeof v === "string" ? v : fb;
@@ -50,6 +47,11 @@ function mapVLESS(raw: unknown): VLESSInboundSettings | undefined {
     multiplex_max_connections: num(r.multiplex_max_connections),
     multiplex_min_streams: num(r.multiplex_min_streams),
     multiplex_max_streams: num(r.multiplex_max_streams),
+    tls_profile_id: str(r.tls_profile_id) || undefined,
+    reality_profile_id: str(r.reality_profile_id) || undefined,
+    transport_profile_id: str(r.transport_profile_id) || undefined,
+    multiplex_profile_id: str(r.multiplex_profile_id) || undefined,
+    packet_encoding_default: str(r.packet_encoding_default) || undefined,
   };
 }
 
@@ -61,6 +63,7 @@ function mapHY2(raw: unknown): Hysteria2InboundSettings | undefined {
     tls_server_name: str(r.tls_server_name),
     tls_certificate_path: str(r.tls_certificate_path),
     tls_key_path: str(r.tls_key_path),
+    tls_alpn: strs(r.tls_alpn),
     allow_insecure: bool(r.allow_insecure),
     up_mbps: typeof r.up_mbps === "number" ? r.up_mbps : null,
     down_mbps: typeof r.down_mbps === "number" ? r.down_mbps : null,
@@ -70,6 +73,12 @@ function mapHY2(raw: unknown): Hysteria2InboundSettings | undefined {
     masquerade_json: str(r.masquerade_json),
     bbr_profile: str(r.bbr_profile),
     brutal_debug: bool(r.brutal_debug),
+    tls_profile_id: str(r.tls_profile_id) || undefined,
+    masquerade_profile_id: str(r.masquerade_profile_id) || undefined,
+    server_ports: str(r.server_ports) || undefined,
+    hop_interval: typeof r.hop_interval === "number" ? r.hop_interval : undefined,
+    network: str(r.network) || undefined,
+    bandwidth_profile_mode: str(r.bandwidth_profile_mode) || undefined,
   };
 }
 
@@ -107,24 +116,39 @@ function mapServer(raw: unknown): Server {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Server API
-// ---------------------------------------------------------------------------
+function mapDraftState(raw: unknown): DraftRevisionState {
+  const r = rec(raw) ?? {};
+  return {
+    server_id: str(r.server_id),
+    current_revision_id: str(r.current_revision_id) || undefined,
+    current_revision_no: typeof r.current_revision_no === "number" ? r.current_revision_no : undefined,
+    draft_revision_id: str(r.draft_revision_id) || undefined,
+    draft_revision_no: typeof r.draft_revision_no === "number" ? r.draft_revision_no : undefined,
+    pending_changes: bool(r.pending_changes),
+    check_ok: bool(r.check_ok),
+    check_error: typeof r.check_error === "string" ? r.check_error : null,
+    apply_status: typeof r.apply_status === "string" ? r.apply_status : null,
+    apply_error: typeof r.apply_error === "string" ? r.apply_error : null,
+  };
+}
 
 export async function listServers(): Promise<Server[]> {
   const res = await apiFetch<{ items: unknown[] }>("/api/v1/servers", { method: "GET" });
   return arr(res?.items).map(mapServer);
 }
 
-export async function updateServer(id: string, patch: Partial<{
-  name: string;
-  public_host: string;
-  panel_public_url: string;
-  subscription_base_url: string;
-  singbox_binary_path: string;
-  singbox_config_path: string;
-  singbox_service_name: string;
-}>): Promise<Server> {
+export async function updateServer(
+  id: string,
+  patch: Partial<{
+    name: string;
+    public_host: string;
+    panel_public_url: string;
+    subscription_base_url: string;
+    singbox_binary_path: string;
+    singbox_config_path: string;
+    singbox_service_name: string;
+  }>,
+): Promise<Server> {
   const res = await apiFetch<unknown>(`/api/v1/servers/${id}`, {
     method: "PATCH",
     body: JSON.stringify(patch),
@@ -133,13 +157,40 @@ export async function updateServer(id: string, patch: Partial<{
   return mapServer(res);
 }
 
-// ---------------------------------------------------------------------------
-// Inbound API
-// ---------------------------------------------------------------------------
-
 export async function previewServerConfig(serverID: string): Promise<{ config_json: string; check_warning?: string }> {
   const res = await apiFetch<{ config_json: string; check_warning?: string }>(`/api/v1/servers/${serverID}/config/preview`, { method: "GET" });
   return { config_json: res?.config_json ?? "{}", check_warning: res?.check_warning };
+}
+
+export async function renderServerConfig(serverID: string): Promise<void> {
+  await apiFetch(`/api/v1/servers/${serverID}/config/render`, {
+    method: "POST",
+    body: JSON.stringify({}),
+    timeoutMs: TIMEOUT,
+  });
+}
+
+export async function validateServerConfig(serverID: string, revisionID?: string): Promise<void> {
+  const qs = revisionID ? `?revision_id=${encodeURIComponent(revisionID)}` : "";
+  await apiFetch(`/api/v1/servers/${serverID}/config/validate${qs}`, {
+    method: "POST",
+    body: JSON.stringify({}),
+    timeoutMs: TIMEOUT,
+  });
+}
+
+export async function applyServerConfig(serverID: string, revisionID?: string): Promise<void> {
+  const qs = revisionID ? `?revision_id=${encodeURIComponent(revisionID)}` : "";
+  await apiFetch(`/api/v1/servers/${serverID}/config/apply${qs}`, {
+    method: "POST",
+    body: JSON.stringify({}),
+    timeoutMs: TIMEOUT,
+  });
+}
+
+export async function getServerDraftState(serverID: string): Promise<DraftRevisionState> {
+  const raw = await apiFetch<unknown>(`/api/v1/servers/${serverID}/config/draft-state`, { method: "GET" });
+  return mapDraftState(raw);
 }
 
 export async function listInbounds(serverID?: string): Promise<Inbound[]> {

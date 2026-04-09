@@ -1,4 +1,4 @@
-package handlers
+﻿package handlers
 
 import (
 	"net/http"
@@ -10,13 +10,13 @@ import (
 	"h2v2/internal/http/render"
 )
 
-// ─── Generic CRUD helpers ─────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Generic CRUD helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func serverIDFromQuery(r *http.Request) string {
 	return strings.TrimSpace(r.URL.Query().Get("server_id"))
 }
 
-// ─── Outbounds ────────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Outbounds в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (h *Handler) ListCoreOutbounds(w http.ResponseWriter, r *http.Request) {
 	svc := h.ensureCoreService(w)
@@ -82,7 +82,7 @@ func (h *Handler) DeleteCoreOutbound(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, http.StatusOK, map[string]bool{"deleted": true})
 }
 
-// ─── Route Rules ──────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Route Rules в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (h *Handler) ListCoreRouteRules(w http.ResponseWriter, r *http.Request) {
 	svc := h.ensureCoreService(w)
@@ -147,7 +147,7 @@ func (h *Handler) DeleteCoreRouteRule(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, http.StatusOK, map[string]bool{"deleted": true})
 }
 
-// ─── DNS Profiles ─────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ DNS Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (h *Handler) ListCoreDNSProfiles(w http.ResponseWriter, r *http.Request) {
 	svc := h.ensureCoreService(w)
@@ -212,7 +212,7 @@ func (h *Handler) DeleteCoreDNSProfile(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, http.StatusOK, map[string]bool{"deleted": true})
 }
 
-// ─── Log Profiles ─────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Log Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (h *Handler) ListCoreLogProfiles(w http.ResponseWriter, r *http.Request) {
 	svc := h.ensureCoreService(w)
@@ -277,7 +277,7 @@ func (h *Handler) DeleteCoreLogProfile(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, http.StatusOK, map[string]bool{"deleted": true})
 }
 
-// ─── Reality Profiles ─────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Reality Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (h *Handler) ListCoreRealityProfiles(w http.ResponseWriter, r *http.Request) {
 	svc := h.ensureCoreService(w)
@@ -348,7 +348,7 @@ func (h *Handler) DeleteCoreRealityProfile(w http.ResponseWriter, r *http.Reques
 	render.JSON(w, http.StatusOK, map[string]bool{"deleted": true})
 }
 
-// ─── Transport Profiles ───────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Transport Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (h *Handler) ListCoreTransportProfiles(w http.ResponseWriter, r *http.Request) {
 	svc := h.ensureCoreService(w)
@@ -413,7 +413,7 @@ func (h *Handler) DeleteCoreTransportProfile(w http.ResponseWriter, r *http.Requ
 	render.JSON(w, http.StatusOK, map[string]bool{"deleted": true})
 }
 
-// ─── Multiplex Profiles ───────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Multiplex Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (h *Handler) ListCoreMultiplexProfiles(w http.ResponseWriter, r *http.Request) {
 	svc := h.ensureCoreService(w)
@@ -478,7 +478,7 @@ func (h *Handler) DeleteCoreMultiplexProfile(w http.ResponseWriter, r *http.Requ
 	render.JSON(w, http.StatusOK, map[string]bool{"deleted": true})
 }
 
-// ─── HY2 Masquerade Profiles ──────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ HY2 Masquerade Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (h *Handler) ListCoreHY2MasqueradeProfiles(w http.ResponseWriter, r *http.Request) {
 	svc := h.ensureCoreService(w)
@@ -543,7 +543,71 @@ func (h *Handler) DeleteCoreHY2MasqueradeProfile(w http.ResponseWriter, r *http.
 	render.JSON(w, http.StatusOK, map[string]bool{"deleted": true})
 }
 
-// ─── Client Profiles ──────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ TLS Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+
+func (h *Handler) ListCoreTLSProfiles(w http.ResponseWriter, r *http.Request) {
+	svc := h.ensureCoreService(w)
+	if svc == nil {
+		return
+	}
+	items, err := svc.ListTLSProfiles(r.Context(), serverIDFromQuery(r))
+	if err != nil {
+		status, code := coreErrorStatus(err)
+		h.renderError(w, status, code, err.Error(), nil)
+		return
+	}
+	render.JSON(w, http.StatusOK, items)
+}
+
+func (h *Handler) GetCoreTLSProfile(w http.ResponseWriter, r *http.Request) {
+	svc := h.ensureCoreService(w)
+	if svc == nil {
+		return
+	}
+	item, err := svc.GetTLSProfile(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		status, code := coreErrorStatus(err)
+		h.renderError(w, status, code, err.Error(), nil)
+		return
+	}
+	render.JSON(w, http.StatusOK, item)
+}
+
+func (h *Handler) UpsertCoreTLSProfile(w http.ResponseWriter, r *http.Request) {
+	svc := h.ensureCoreService(w)
+	if svc == nil {
+		return
+	}
+	var req core.TLSProfile
+	if err := render.DecodeJSON(r, &req); err != nil {
+		h.renderError(w, http.StatusBadRequest, "validation", err.Error(), nil)
+		return
+	}
+	if id := strings.TrimSpace(chi.URLParam(r, "id")); id != "" {
+		req.ID = id
+	}
+	item, err := svc.UpsertTLSProfile(r.Context(), req)
+	if err != nil {
+		status, code := coreErrorStatus(err)
+		h.renderError(w, status, code, err.Error(), nil)
+		return
+	}
+	render.JSON(w, http.StatusOK, item)
+}
+
+func (h *Handler) DeleteCoreTLSProfile(w http.ResponseWriter, r *http.Request) {
+	svc := h.ensureCoreService(w)
+	if svc == nil {
+		return
+	}
+	if err := svc.DeleteTLSProfile(r.Context(), chi.URLParam(r, "id")); err != nil {
+		status, code := coreErrorStatus(err)
+		h.renderError(w, status, code, err.Error(), nil)
+		return
+	}
+	render.JSON(w, http.StatusOK, map[string]bool{"deleted": true})
+}
+// в”Ђв”Ђв”Ђ Client Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (h *Handler) ListCoreClientProfiles(w http.ResponseWriter, r *http.Request) {
 	svc := h.ensureCoreService(w)
@@ -608,7 +672,7 @@ func (h *Handler) DeleteCoreClientProfile(w http.ResponseWriter, r *http.Request
 	render.JSON(w, http.StatusOK, map[string]bool{"deleted": true})
 }
 
-// ─── Domain validation ────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Domain validation в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (h *Handler) ValidateCoreServerDomain(w http.ResponseWriter, r *http.Request) {
 	svc := h.ensureCoreService(w)
@@ -622,3 +686,4 @@ func (h *Handler) ValidateCoreServerDomain(w http.ResponseWriter, r *http.Reques
 		"errors": errs,
 	})
 }
+

@@ -212,3 +212,56 @@ export type SystemHistorySample = {
 export type SystemHistoryResponse = {
   items: SystemHistorySample[];
 };
+
+export type TLSProfile = {
+  id: string;
+  server_id: string;
+  name: string;
+  enabled: boolean;
+  server_name?: string;
+  alpn?: string[];
+  certificate_path?: string;
+  key_path?: string;
+  allow_insecure: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ChangeImpact = {
+  affected_users: number;
+  affected_access: number;
+  affected_inbounds: number;
+  affected_subscriptions: number;
+  affected_artifacts: number;
+  requires_runtime_apply: boolean;
+  requires_artifact_refresh: boolean;
+  server_ids?: string[];
+  inbound_ids?: string[];
+};
+
+export type DraftRevisionState = {
+  server_id: string;
+  current_revision_id?: string;
+  current_revision_no?: number;
+  draft_revision_id?: string;
+  draft_revision_no?: number;
+  pending_changes: boolean;
+  check_ok: boolean;
+  check_error?: string | null;
+  apply_status?: string | null;
+  apply_error?: string | null;
+};
+
+export type PolicyUsage = {
+  kind: string;
+  id: string;
+  used_by_users: number;
+  used_by_access: number;
+  used_by_inbounds: number;
+  used_by_route_rules: number;
+  used_by_outbounds: number;
+  affected_subscriptions: number;
+  affected_artifacts: number;
+  requires_runtime_apply: boolean;
+  unsafe_delete: boolean;
+};

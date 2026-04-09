@@ -1,4 +1,4 @@
-package core
+﻿package core
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// ─── Outbounds ───────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Outbounds в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Store) ListOutbounds(ctx context.Context, serverID string) ([]Outbound, error) {
 	rows, err := s.db.QueryContext(resolveCtx(ctx),
@@ -115,7 +115,7 @@ func scanOutbound(row interface{ Scan(dest ...any) error }) (Outbound, error) {
 	return ob, nil
 }
 
-// ─── Route Rules ─────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Route Rules в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Store) ListRouteRules(ctx context.Context, serverID string) ([]RouteRule, error) {
 	rows, err := s.db.QueryContext(resolveCtx(ctx),
@@ -264,7 +264,7 @@ func scanRouteRule(row interface{ Scan(dest ...any) error }) (RouteRule, error) 
 	return r, nil
 }
 
-// ─── DNS Profiles ────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ DNS Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Store) ListDNSProfiles(ctx context.Context, serverID string) ([]DNSProfile, error) {
 	rows, err := s.db.QueryContext(resolveCtx(ctx),
@@ -352,7 +352,7 @@ func scanDNSProfile(row interface{ Scan(dest ...any) error }) (DNSProfile, error
 	return p, nil
 }
 
-// ─── Log Profiles ─────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Log Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Store) ListLogProfiles(ctx context.Context, serverID string) ([]LogProfile, error) {
 	rows, err := s.db.QueryContext(resolveCtx(ctx),
@@ -441,7 +441,7 @@ func scanLogProfile(row interface{ Scan(dest ...any) error }) (LogProfile, error
 	return p, nil
 }
 
-// ─── Reality Profiles ─────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Reality Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Store) ListRealityProfiles(ctx context.Context, serverID string) ([]RealityProfile, error) {
 	rows, err := s.db.QueryContext(resolveCtx(ctx),
@@ -540,7 +540,7 @@ func scanRealityProfile(row interface{ Scan(dest ...any) error }) (RealityProfil
 	return p, nil
 }
 
-// ─── Transport Profiles ───────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Transport Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Store) ListTransportProfiles(ctx context.Context, serverID string) ([]TransportProfile, error) {
 	rows, err := s.db.QueryContext(resolveCtx(ctx),
@@ -631,7 +631,7 @@ func scanTransportProfile(row interface{ Scan(dest ...any) error }) (TransportPr
 	return p, nil
 }
 
-// ─── Multiplex Profiles ───────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Multiplex Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Store) ListMultiplexProfiles(ctx context.Context, serverID string) ([]MultiplexProfile, error) {
 	rows, err := s.db.QueryContext(resolveCtx(ctx),
@@ -719,7 +719,7 @@ func scanMultiplexProfile(row interface{ Scan(dest ...any) error }) (MultiplexPr
 	return p, nil
 }
 
-// ─── HY2 Masquerade Profiles ─────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ HY2 Masquerade Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Store) ListHY2MasqueradeProfiles(ctx context.Context, serverID string) ([]HY2MasqueradeProfile, error) {
 	rows, err := s.db.QueryContext(resolveCtx(ctx),
@@ -811,7 +811,93 @@ func scanHY2MasqueradeProfile(row interface{ Scan(dest ...any) error }) (HY2Masq
 	return p, nil
 }
 
-// ─── Client Profiles ──────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ TLS Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+
+func (s *Store) ListTLSProfiles(ctx context.Context, serverID string) ([]TLSProfile, error) {
+	rows, err := s.db.QueryContext(resolveCtx(ctx),
+		`SELECT id, server_id, name, enabled, COALESCE(server_name,''), COALESCE(alpn_json,''),
+			COALESCE(certificate_path,''), COALESCE(key_path,''), allow_insecure, created_at_ns, updated_at_ns
+		 FROM core_tls_profiles WHERE server_id = ? ORDER BY created_at_ns ASC`,
+		normalizeString(serverID))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]TLSProfile, 0)
+	for rows.Next() {
+		item, err := scanTLSProfile(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) GetTLSProfile(ctx context.Context, id string) (TLSProfile, error) {
+	row := s.db.QueryRowContext(resolveCtx(ctx),
+		`SELECT id, server_id, name, enabled, COALESCE(server_name,''), COALESCE(alpn_json,''),
+			COALESCE(certificate_path,''), COALESCE(key_path,''), allow_insecure, created_at_ns, updated_at_ns
+		 FROM core_tls_profiles WHERE id = ? LIMIT 1`,
+		normalizeString(id))
+	return scanTLSProfile(row)
+}
+
+func (s *Store) UpsertTLSProfile(ctx context.Context, p TLSProfile) (TLSProfile, error) {
+	now := time.Now().UTC()
+	p.ID = normalizeString(p.ID)
+	if p.ID == "" {
+		p.ID = generateID()
+	}
+	p.ServerID = normalizeString(p.ServerID)
+	p.Name = normalizeString(p.Name)
+	if p.ServerID == "" || p.Name == "" {
+		return TLSProfile{}, fmt.Errorf("server_id and name are required")
+	}
+	if p.CreatedAt.IsZero() {
+		p.CreatedAt = now
+	}
+	p.UpdatedAt = now
+	_, err := s.db.ExecContext(resolveCtx(ctx),
+		`INSERT INTO core_tls_profiles(id, server_id, name, enabled, server_name, alpn_json, certificate_path, key_path, allow_insecure, created_at_ns, updated_at_ns)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(id) DO UPDATE SET
+			name = excluded.name, enabled = excluded.enabled, server_name = excluded.server_name,
+			alpn_json = excluded.alpn_json, certificate_path = excluded.certificate_path,
+			key_path = excluded.key_path, allow_insecure = excluded.allow_insecure,
+			updated_at_ns = excluded.updated_at_ns`,
+		p.ID, p.ServerID, p.Name, boolToInt(p.Enabled), nullIfEmpty(p.ServerName),
+		nullIfEmpty(stringsToJSON(p.ALPN)), nullIfEmpty(p.CertificatePath), nullIfEmpty(p.KeyPath),
+		boolToInt(p.AllowInsecure), toUnixNano(p.CreatedAt), toUnixNano(p.UpdatedAt))
+	if err != nil {
+		return TLSProfile{}, parseUnique(err)
+	}
+	return s.GetTLSProfile(ctx, p.ID)
+}
+
+func (s *Store) DeleteTLSProfile(ctx context.Context, id string) error {
+	return deleteByID(s, ctx, "core_tls_profiles", id)
+}
+
+func scanTLSProfile(row interface{ Scan(dest ...any) error }) (TLSProfile, error) {
+	var (
+		p                    TLSProfile
+		enabled, allowInsecure int64
+		alpnJSON             string
+		createdAt, updatedAt int64
+	)
+	if err := row.Scan(&p.ID, &p.ServerID, &p.Name, &enabled, &p.ServerName, &alpnJSON,
+		&p.CertificatePath, &p.KeyPath, &allowInsecure, &createdAt, &updatedAt); err != nil {
+		return TLSProfile{}, parseUnique(err)
+	}
+	p.Enabled = intToBool(enabled)
+	p.AllowInsecure = intToBool(allowInsecure)
+	p.ALPN = jsonToStrings(alpnJSON)
+	p.CreatedAt = fromUnixNano(createdAt)
+	p.UpdatedAt = fromUnixNano(updatedAt)
+	return p, nil
+}
+// в”Ђв”Ђв”Ђ Client Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Store) ListClientProfiles(ctx context.Context, serverID string) ([]ClientProfile, error) {
 	rows, err := s.db.QueryContext(resolveCtx(ctx),
@@ -900,7 +986,7 @@ func scanClientProfile(row interface{ Scan(dest ...any) error }) (ClientProfile,
 	return p, nil
 }
 
-// ─── shared helpers ───────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ shared helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 // deleteByID deletes a row from tableName by id and returns ErrNotFound when missing.
 func deleteByID(s *Store, ctx context.Context, tableName string, id string) error {
@@ -956,4 +1042,5 @@ func masqueradeProfileToJSON(p HY2MasqueradeProfile) (string, error) {
 	}
 	return string(b), nil
 }
+
 

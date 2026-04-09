@@ -19,6 +19,11 @@ export type VLESSInboundSettings = {
   multiplex_max_connections: number;
   multiplex_min_streams: number;
   multiplex_max_streams: number;
+  tls_profile_id?: string;
+  reality_profile_id?: string;
+  transport_profile_id?: string;
+  multiplex_profile_id?: string;
+  packet_encoding_default?: string;
 };
 
 export type Hysteria2InboundSettings = {
@@ -26,6 +31,7 @@ export type Hysteria2InboundSettings = {
   tls_server_name: string;
   tls_certificate_path: string;
   tls_key_path: string;
+  tls_alpn?: string[];
   allow_insecure: boolean;
   up_mbps: number | null;
   down_mbps: number | null;
@@ -35,6 +41,12 @@ export type Hysteria2InboundSettings = {
   masquerade_json: string;
   bbr_profile: string;
   brutal_debug: boolean;
+  tls_profile_id?: string;
+  masquerade_profile_id?: string;
+  server_ports?: string;
+  hop_interval?: number;
+  network?: string;
+  bandwidth_profile_mode?: string;
 };
 
 export type Inbound = {

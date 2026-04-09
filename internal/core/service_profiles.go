@@ -1,4 +1,4 @@
-package core
+﻿package core
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// ─── Outbounds ────────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Outbounds в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Service) ListOutbounds(ctx context.Context, serverID string) ([]Outbound, error) {
 	return s.store.ListOutbounds(ctx, serverID)
@@ -17,14 +17,27 @@ func (s *Service) GetOutbound(ctx context.Context, id string) (Outbound, error) 
 }
 
 func (s *Service) UpsertOutbound(ctx context.Context, ob Outbound) (Outbound, error) {
-	return s.store.UpsertOutbound(ctx, ob)
+	saved, err := s.store.UpsertOutbound(ctx, ob)
+	if err != nil {
+		return Outbound{}, err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, saved.ServerID, "outbound_updated")
+	return saved, nil
 }
 
 func (s *Service) DeleteOutbound(ctx context.Context, id string) error {
-	return s.store.DeleteOutbound(ctx, id)
+	current, err := s.store.GetOutbound(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteOutbound(ctx, id); err != nil {
+		return err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, current.ServerID, "outbound_deleted")
+	return nil
 }
 
-// ─── Route Rules ──────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Route Rules в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Service) ListRouteRules(ctx context.Context, serverID string) ([]RouteRule, error) {
 	return s.store.ListRouteRules(ctx, serverID)
@@ -35,14 +48,27 @@ func (s *Service) GetRouteRule(ctx context.Context, id string) (RouteRule, error
 }
 
 func (s *Service) UpsertRouteRule(ctx context.Context, r RouteRule) (RouteRule, error) {
-	return s.store.UpsertRouteRule(ctx, r)
+	saved, err := s.store.UpsertRouteRule(ctx, r)
+	if err != nil {
+		return RouteRule{}, err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, saved.ServerID, "route_rule_updated")
+	return saved, nil
 }
 
 func (s *Service) DeleteRouteRule(ctx context.Context, id string) error {
-	return s.store.DeleteRouteRule(ctx, id)
+	current, err := s.store.GetRouteRule(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteRouteRule(ctx, id); err != nil {
+		return err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, current.ServerID, "route_rule_deleted")
+	return nil
 }
 
-// ─── DNS Profiles ─────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ DNS Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Service) ListDNSProfiles(ctx context.Context, serverID string) ([]DNSProfile, error) {
 	return s.store.ListDNSProfiles(ctx, serverID)
@@ -53,14 +79,27 @@ func (s *Service) GetDNSProfile(ctx context.Context, id string) (DNSProfile, err
 }
 
 func (s *Service) UpsertDNSProfile(ctx context.Context, p DNSProfile) (DNSProfile, error) {
-	return s.store.UpsertDNSProfile(ctx, p)
+	saved, err := s.store.UpsertDNSProfile(ctx, p)
+	if err != nil {
+		return DNSProfile{}, err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, saved.ServerID, "dns_profile_updated")
+	return saved, nil
 }
 
 func (s *Service) DeleteDNSProfile(ctx context.Context, id string) error {
-	return s.store.DeleteDNSProfile(ctx, id)
+	current, err := s.store.GetDNSProfile(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteDNSProfile(ctx, id); err != nil {
+		return err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, current.ServerID, "dns_profile_deleted")
+	return nil
 }
 
-// ─── Log Profiles ─────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Log Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Service) ListLogProfiles(ctx context.Context, serverID string) ([]LogProfile, error) {
 	return s.store.ListLogProfiles(ctx, serverID)
@@ -71,14 +110,27 @@ func (s *Service) GetLogProfile(ctx context.Context, id string) (LogProfile, err
 }
 
 func (s *Service) UpsertLogProfile(ctx context.Context, p LogProfile) (LogProfile, error) {
-	return s.store.UpsertLogProfile(ctx, p)
+	saved, err := s.store.UpsertLogProfile(ctx, p)
+	if err != nil {
+		return LogProfile{}, err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, saved.ServerID, "log_profile_updated")
+	return saved, nil
 }
 
 func (s *Service) DeleteLogProfile(ctx context.Context, id string) error {
-	return s.store.DeleteLogProfile(ctx, id)
+	current, err := s.store.GetLogProfile(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteLogProfile(ctx, id); err != nil {
+		return err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, current.ServerID, "log_profile_deleted")
+	return nil
 }
 
-// ─── Reality Profiles ─────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Reality Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Service) ListRealityProfiles(ctx context.Context, serverID string) ([]RealityProfile, error) {
 	return s.store.ListRealityProfiles(ctx, serverID)
@@ -114,14 +166,27 @@ func (s *Service) UpsertRealityProfile(ctx context.Context, p RealityProfile) (R
 	if p.HandshakeServerPort <= 0 {
 		p.HandshakeServerPort = defaultRealityPort
 	}
-	return s.store.UpsertRealityProfile(ctx, p)
+	saved, err := s.store.UpsertRealityProfile(ctx, p)
+	if err != nil {
+		return RealityProfile{}, err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, saved.ServerID, "reality_profile_updated")
+	return saved, nil
 }
 
 func (s *Service) DeleteRealityProfile(ctx context.Context, id string) error {
-	return s.store.DeleteRealityProfile(ctx, id)
+	current, err := s.store.GetRealityProfile(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteRealityProfile(ctx, id); err != nil {
+		return err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, current.ServerID, "reality_profile_deleted")
+	return nil
 }
 
-// ─── Transport Profiles ───────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Transport Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Service) ListTransportProfiles(ctx context.Context, serverID string) ([]TransportProfile, error) {
 	return s.store.ListTransportProfiles(ctx, serverID)
@@ -132,14 +197,27 @@ func (s *Service) GetTransportProfile(ctx context.Context, id string) (Transport
 }
 
 func (s *Service) UpsertTransportProfile(ctx context.Context, p TransportProfile) (TransportProfile, error) {
-	return s.store.UpsertTransportProfile(ctx, p)
+	saved, err := s.store.UpsertTransportProfile(ctx, p)
+	if err != nil {
+		return TransportProfile{}, err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, saved.ServerID, "transport_profile_updated")
+	return saved, nil
 }
 
 func (s *Service) DeleteTransportProfile(ctx context.Context, id string) error {
-	return s.store.DeleteTransportProfile(ctx, id)
+	current, err := s.store.GetTransportProfile(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteTransportProfile(ctx, id); err != nil {
+		return err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, current.ServerID, "transport_profile_deleted")
+	return nil
 }
 
-// ─── Multiplex Profiles ───────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Multiplex Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Service) ListMultiplexProfiles(ctx context.Context, serverID string) ([]MultiplexProfile, error) {
 	return s.store.ListMultiplexProfiles(ctx, serverID)
@@ -150,14 +228,27 @@ func (s *Service) GetMultiplexProfile(ctx context.Context, id string) (Multiplex
 }
 
 func (s *Service) UpsertMultiplexProfile(ctx context.Context, p MultiplexProfile) (MultiplexProfile, error) {
-	return s.store.UpsertMultiplexProfile(ctx, p)
+	saved, err := s.store.UpsertMultiplexProfile(ctx, p)
+	if err != nil {
+		return MultiplexProfile{}, err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, saved.ServerID, "multiplex_profile_updated")
+	return saved, nil
 }
 
 func (s *Service) DeleteMultiplexProfile(ctx context.Context, id string) error {
-	return s.store.DeleteMultiplexProfile(ctx, id)
+	current, err := s.store.GetMultiplexProfile(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteMultiplexProfile(ctx, id); err != nil {
+		return err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, current.ServerID, "multiplex_profile_deleted")
+	return nil
 }
 
-// ─── HY2 Masquerade Profiles ──────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ HY2 Masquerade Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Service) ListHY2MasqueradeProfiles(ctx context.Context, serverID string) ([]HY2MasqueradeProfile, error) {
 	return s.store.ListHY2MasqueradeProfiles(ctx, serverID)
@@ -168,14 +259,57 @@ func (s *Service) GetHY2MasqueradeProfile(ctx context.Context, id string) (HY2Ma
 }
 
 func (s *Service) UpsertHY2MasqueradeProfile(ctx context.Context, p HY2MasqueradeProfile) (HY2MasqueradeProfile, error) {
-	return s.store.UpsertHY2MasqueradeProfile(ctx, p)
+	saved, err := s.store.UpsertHY2MasqueradeProfile(ctx, p)
+	if err != nil {
+		return HY2MasqueradeProfile{}, err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, saved.ServerID, "hy2_masquerade_profile_updated")
+	return saved, nil
 }
 
 func (s *Service) DeleteHY2MasqueradeProfile(ctx context.Context, id string) error {
-	return s.store.DeleteHY2MasqueradeProfile(ctx, id)
+	current, err := s.store.GetHY2MasqueradeProfile(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteHY2MasqueradeProfile(ctx, id); err != nil {
+		return err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, current.ServerID, "hy2_masquerade_profile_deleted")
+	return nil
 }
 
-// ─── Client Profiles ──────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ TLS Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+
+func (s *Service) ListTLSProfiles(ctx context.Context, serverID string) ([]TLSProfile, error) {
+	return s.store.ListTLSProfiles(ctx, serverID)
+}
+
+func (s *Service) GetTLSProfile(ctx context.Context, id string) (TLSProfile, error) {
+	return s.store.GetTLSProfile(ctx, id)
+}
+
+func (s *Service) UpsertTLSProfile(ctx context.Context, p TLSProfile) (TLSProfile, error) {
+	saved, err := s.store.UpsertTLSProfile(ctx, p)
+	if err != nil {
+		return TLSProfile{}, err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, saved.ServerID, "tls_profile_updated")
+	return saved, nil
+}
+
+func (s *Service) DeleteTLSProfile(ctx context.Context, id string) error {
+	current, err := s.store.GetTLSProfile(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteTLSProfile(ctx, id); err != nil {
+		return err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, current.ServerID, "tls_profile_deleted")
+	return nil
+}
+// в”Ђв”Ђв”Ђ Client Profiles в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 func (s *Service) ListClientProfiles(ctx context.Context, serverID string) ([]ClientProfile, error) {
 	return s.store.ListClientProfiles(ctx, serverID)
@@ -186,14 +320,27 @@ func (s *Service) GetClientProfile(ctx context.Context, id string) (ClientProfil
 }
 
 func (s *Service) UpsertClientProfile(ctx context.Context, p ClientProfile) (ClientProfile, error) {
-	return s.store.UpsertClientProfile(ctx, p)
+	saved, err := s.store.UpsertClientProfile(ctx, p)
+	if err != nil {
+		return ClientProfile{}, err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByClientProfile(ctx, saved.ID, "client_profile_updated")
+	return saved, nil
 }
 
 func (s *Service) DeleteClientProfile(ctx context.Context, id string) error {
-	return s.store.DeleteClientProfile(ctx, id)
+	current, err := s.store.GetClientProfile(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteClientProfile(ctx, id); err != nil {
+		return err
+	}
+	_, _ = s.store.MarkSubscriptionsArtifactsDirtyByServer(ctx, current.ServerID, "client_profile_deleted")
+	return nil
 }
 
-// ─── Domain Validation ───────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Domain Validation в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 // ValidateDomainModel runs domain-level validation for a server's configuration
 // before rendering. Returns a list of human-readable error strings.
@@ -273,3 +420,4 @@ func (s *Service) ValidateDomainModel(ctx context.Context, serverID string) []st
 func itoa(n int) string {
 	return fmt.Sprintf("%d", n)
 }
+
